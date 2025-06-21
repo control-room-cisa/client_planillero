@@ -122,7 +122,7 @@ const EmpresaPage = () => {
   };
 
   return (
-    <Box sx={{ padding: 4 }}>
+    <Box sx={{ padding: { xs: 1, sm: 2, md: 4 } }}>
       <Typography variant="h4" fontWeight="bold" sx={{ display: "flex", justifyContent:"center"}}>
         Reporte Hojas de Tiempo
       </Typography>
@@ -133,10 +133,11 @@ const EmpresaPage = () => {
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            height: { xs: 380, sm: 300, md: 300, lg: 140, xl: 140 },
             mb: 5,
             mt: 2,
             paddingX: 2,
+            flexWrap: "wrap",
+            gap: 2,
           }}
         >
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="es">
@@ -146,10 +147,11 @@ const EmpresaPage = () => {
                 gap: 2,
                 flexWrap: "wrap",
                 alignItems: "center",
+                justifyContent: "center",
               }}
             >
               {/* SELECTOR DE USUARIO */}
-              <FormControl sx={{ minWidth: 250 }}>
+              <FormControl sx={{ minWidth: 240, flex: 1 }}>
                 <InputLabel>Selecciona una empresa</InputLabel>
                 <Select
                   value={empresaSeleccionada}
@@ -159,7 +161,6 @@ const EmpresaPage = () => {
                     "& .MuiOutlinedInput-notchedOutline": {
                       borderColor: "#1e749c",
                     },
-                    width: { xs: 240, sm: 240, md: 240, lg: 240, xl: 250 },
                   }}
                 >
                   <MenuItem value="">-- Seleccionar --</MenuItem>
@@ -171,7 +172,7 @@ const EmpresaPage = () => {
                 </Select>
               </FormControl>
               <FormControl
-                sx={{ minWidth: 250 }}
+                sx={{ minWidth: 240, flex: 1 }}
                 disabled={!empresaSeleccionada}
               >
                 <InputLabel>Selecciona un empleado</InputLabel>
@@ -183,7 +184,6 @@ const EmpresaPage = () => {
                     "& .MuiOutlinedInput-notchedOutline": {
                       borderColor: "#1e749c",
                     },
-                    width: { xs: 240, sm: 240, md: 240, lg: 230, xl: 250 },
                   }}
                 >
                   <MenuItem value="">-- Seleccionar --</MenuItem>
@@ -200,13 +200,13 @@ const EmpresaPage = () => {
                 value={fechaInicio}
                 onChange={setFechaInicio}
                 disabled={!selectedUsuario}
+                sx={{ minWidth: 170, flex: 1 }}
                 slotProps={{
                   textField: {
                     sx: {
                       "& .MuiOutlinedInput-notchedOutline": {
                         borderColor: "#1976d2",
                       },
-                      width: { xs: 170, sm: 170, md: 170, lg: 170, xl: 170 },
                     },
                   },
                 }}
@@ -218,13 +218,13 @@ const EmpresaPage = () => {
                 minDate={fechaInicio}
                 onChange={setFechaFin}
                 disabled={!selectedUsuario}
+                sx={{ minWidth: 170, flex: 1 }}
                 slotProps={{
                   textField: {
                     sx: {
                       "& .MuiOutlinedInput-notchedOutline": {
                         borderColor: "#1976d2",
                       },
-                      width: { xs: 170, sm: 170, md: 170, lg: 170, xl: 170 },
                     },
                   },
                 }}
@@ -237,7 +237,8 @@ const EmpresaPage = () => {
                   backgroundColor: "#eefafd",
                   color: "black",
                   "&:hover": { backgroundColor: "#d5f1f8", color: "black" },
-                  width: { xs: 180, sm: 180, md: 180, lg: 180, xl: 180 },
+                  minWidth: 180,
+                  flex: 1,
                   fontSize: { xs: 15, sm: 15, md: 15, lg: 13, xl: 15 },
                 }}
                 variant="outlined"
@@ -310,7 +311,7 @@ const EmpresaPage = () => {
                   </Box>
 
                   {/* CHIPS ESTADO */}
-                  <Stack direction="row" spacing={2}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center">
                     <Chip
                       label="Aprobado"
                       icon={<DoneIcon sx={{ fontSize: 23 }} />}
