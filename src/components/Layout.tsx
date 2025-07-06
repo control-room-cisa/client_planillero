@@ -21,6 +21,7 @@ import FindInPageIcon from '@mui/icons-material/FindInPage';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { Avatar, Menu, MenuItem, Tooltip } from '@mui/material';
 import DailyTimesheet from './DailyTimesheet';
+import { useAuth } from '../hooks/useAuth';
 
 const drawerWidth = 240;
 const settings = ['Cerrar Sesión'];
@@ -106,6 +107,7 @@ const Drawer = styled(MuiDrawer, {
 
 export default function MiniDrawer() {
   const theme = useTheme();
+  const { user, logout } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
   const [selectedView, setSelectedView] = React.useState('daily-register');
@@ -124,6 +126,11 @@ export default function MiniDrawer() {
 
   const handleCloseUserMenu = () => {
     setAnchorElUser(null);
+  };
+
+  const handleLogout = () => {
+    logout();
+    handleCloseUserMenu();
   };
 
   const handleNavItemClick = (itemId: string) => {
@@ -182,9 +189,11 @@ export default function MiniDrawer() {
             Planillero
           </Typography>
           <Box sx={{ flexGrow: 0 }}>
-            <Tooltip title="Open settings">
+            <Tooltip title={`${user?.nombre} ${user?.apellido}`}>
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <Avatar alt="Usuario" src="/static/images/avatar/2.jpg" />
+                <Avatar alt={`${user?.nombre} ${user?.apellido}`}>
+                  {user?.nombre?.[0]}{user?.apellido?.[0]}
+                </Avatar>
               </IconButton>
             </Tooltip>
             <Menu
@@ -204,7 +213,10 @@ export default function MiniDrawer() {
               onClose={handleCloseUserMenu}
             >
               {settings.map((setting) => (
-                <MenuItem key={setting} onClick={handleCloseUserMenu}>
+                <MenuItem 
+                  key={setting} 
+                  onClick={setting === 'Cerrar Sesión' ? handleLogout : handleCloseUserMenu}
+                >
                   <Typography textAlign="center">{setting}</Typography>
                 </MenuItem>
               ))}

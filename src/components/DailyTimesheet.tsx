@@ -18,10 +18,12 @@ import {
   Add,
   AccessTime,
 } from '@mui/icons-material';
+import { useAuth } from '../hooks/useAuth';
 
 const DailyTimesheet: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const formatDate = (date: Date) => {
@@ -109,9 +111,18 @@ const DailyTimesheet: React.FC = () => {
       <Typography
         variant="body1"
         color="text.secondary"
-        sx={{ mb: 3, textAlign: 'center' }}
+        sx={{ mb: 1, textAlign: 'center' }}
       >
         {formatDate(currentDate)}
+      </Typography>
+
+      {/* Welcome message */}
+      <Typography
+        variant="body2"
+        color="text.primary"
+        sx={{ mb: 3, textAlign: 'center', fontWeight: 'medium' }}
+      >
+        ¡Buen día, {user?.nombre}! 👋
       </Typography>
 
       {/* Work progress card */}
