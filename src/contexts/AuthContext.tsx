@@ -1,6 +1,6 @@
 import React, { createContext, useReducer, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { AuthState, AuthContextType, LoginRequest, Empleado } from '../types/auth';
+import type { AuthState, AuthContextType, LoginRequest, RegisterRequest, Empleado } from '../types/auth';
 import { authService } from '../services/authService';
 
 // Estado inicial
@@ -86,6 +86,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Función de registro
+  const register = async (registerData: RegisterRequest): Promise<void> => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      const response = await authService.register(registerData);
+      
+      if (response.success) {
+        // El registro fue exitoso, pero no iniciamos sesión automáticamente
+        // El usuario tendrá que hacer login después del registro
+        dispatch({ type: 'SET_LOADING', payload: false });
+      } else {
+        throw new Error(response.message || 'Error al registrar usuario');
+      }
+    } catch (error) {
+      dispatch({ type: 'SET_LOADING', payload: false });
+      throw error;
+    }
+  };
+
   // Función de logout
   const logout = (): void => {
     authService.logout();
@@ -117,6 +136,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const contextValue: AuthContextType = {
     ...state,
     login,
+    register,
     logout,
   };
 

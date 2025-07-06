@@ -5,6 +5,9 @@ export const API_CONFIG = {
       LOGIN: '/auth/login',
       REGISTER: '/auth/register',
     },
+    EMPRESAS: {
+      LIST: '/empresas',
+    },
     // Aquí puedes agregar más endpoints cuando los necesites
     TIMESHEET: {
       // Endpoints futuros para planillas

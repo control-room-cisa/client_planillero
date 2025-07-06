@@ -9,6 +9,7 @@ import {
   Paper,
   InputAdornment,
   IconButton,
+  Divider,
 } from '@mui/material';
 import {
   Email,
@@ -20,7 +21,11 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import type { LoginRequest } from '../types/auth';
 
-export default function Login() {
+interface LoginProps {
+  onToggleMode?: () => void;
+}
+
+export default function Login({ onToggleMode }: LoginProps) {
   const { login, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string>('');
@@ -178,6 +183,30 @@ export default function Login() {
             >
               {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </Button>
+
+            {onToggleMode && (
+              <>
+                <Divider sx={{ my: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    o
+                  </Typography>
+                </Divider>
+                
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    ¿No tienes cuenta?
+                  </Typography>
+                  <Button
+                    onClick={onToggleMode}
+                    variant="outlined"
+                    fullWidth
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Crear cuenta nueva
+                  </Button>
+                </Box>
+              </>
+            )}
           </Box>
         </Paper>
       </Box>

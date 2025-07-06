@@ -2,7 +2,7 @@ import React from 'react';
 import type { ReactNode } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { useAuth } from '../hooks/useAuth';
-import Login from './Login';
+import Auth from './Auth';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -27,9 +27,9 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // Si no está autenticado, mostrar login
+  // Si no está autenticado, mostrar auth (login/register)
   if (!isAuthenticated) {
-    return <Login />;
+    return <Auth />;
   }
 
   // Si está autenticado, mostrar el contenido protegido
