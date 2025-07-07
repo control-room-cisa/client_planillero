@@ -21,16 +21,11 @@ import FindInPageIcon from '@mui/icons-material/FindInPage';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { Avatar, Menu, MenuItem, Tooltip } from '@mui/material';
 import DailyTimesheet from './DailyTimesheet';
+import TimesheetReview from './TimesheetReview';
 import { useAuth } from '../hooks/useAuth';
 
 const drawerWidth = 240;
 const settings = ['Cerrar Sesión'];
-
-const navItems = [
-    { id: 'daily-register', text: 'Nuevo Registro Diario', icon: <PostAddIcon /> },
-    { id: 'review-timesheets', text: 'Revision Planillas', icon: <FindInPageIcon /> },
-    { id: 'notifications', text: 'Notificaciones', icon: <NotificationsIcon /> }
-];
 
 const DrawerHeader = styled('div')(({ theme }) => ({
   display: 'flex',
@@ -112,6 +107,23 @@ export default function MiniDrawer() {
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
   const [selectedView, setSelectedView] = React.useState('daily-register');
 
+  // Configurar elementos de navegación según el rol del usuario
+  const getNavItems = () => {
+    const baseItems = [
+      { id: 'daily-register', text: 'Nuevo Registro Diario', icon: <PostAddIcon /> },
+      { id: 'notifications', text: 'Notificaciones', icon: <NotificationsIcon /> }
+    ];
+
+    // Solo agregar "Revisión Planillas" para supervisores (rolId = 2)
+    if (user?.rolId === 2) {
+      baseItems.splice(1, 0, { id: 'review-timesheets', text: 'Revisión Planillas', icon: <FindInPageIcon /> });
+    }
+
+    return baseItems;
+  };
+
+  const navItems = getNavItems();
+
   const handleDrawerOpen = () => {
     setOpen(true);
   };
@@ -142,16 +154,7 @@ export default function MiniDrawer() {
       case 'daily-register':
         return <DailyTimesheet />;
       case 'review-timesheets':
-        return (
-          <Box sx={{ p: 3 }}>
-            <Typography variant="h4" gutterBottom>
-              Revisión de Planillas
-            </Typography>
-            <Typography variant="body1">
-              Aquí podrás revisar todas las planillas registradas.
-            </Typography>
-          </Box>
-        );
+        return <TimesheetReview />;
       case 'notifications':
         return (
           <Box sx={{ p: 3 }}>
