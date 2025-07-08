@@ -15,6 +15,10 @@ import {
   FormControlLabel,
   Checkbox,
   Divider,
+  Snackbar,
+  Alert,
+  CircularProgress,
+  Autocomplete,
 } from '@mui/material';
 import {
   ChevronLeft,
@@ -25,14 +29,10 @@ import {
   Close,
 } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
-
-interface ActivityData {
-  descripcion: string;
-  horasInvertidas: string;
-  job: string;
-  class: string;
-  horaExtra: boolean;
-}
+import { registroDiarioService } from '../services/registroDiarioService';
+import { jobService } from '../services/jobService';
+import type { ActivityFormData, Actividad, RegistroDiarioRequest } from '../types/registroDiario';
+import type { Job } from '../types/job';
 
 const DailyTimesheet: React.FC = () => {
   const theme = useTheme();
@@ -40,7 +40,7 @@ const DailyTimesheet: React.FC = () => {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [formData, setFormData] = useState<ActivityData>({
+  const [formData, setFormData] = useState<ActivityFormData>({
     descripcion: '',
     horasInvertidas: '',
     job: '',
@@ -48,9 +48,42 @@ const DailyTimesheet: React.FC = () => {
     horaExtra: false,
   });
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
+  const [, setActivities] = useState<Actividad[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error',
+  });
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+
+  const loadJobs = async () => {
+    setLoadingJobs(true);
+    try {
+      const response = await jobService.getJobs();
+      if (response.success) {
+        setJobs(response.data);
+      }
+    } catch (error) {
+      console.error('Error al cargar jobs:', error);
+      setSnackbar({
+        open: true,
+        message: 'Error al cargar la lista de jobs',
+        severity: 'error',
+      });
+    } finally {
+      setLoadingJobs(false);
+    }
+  };
 
   const handleDrawerOpen = () => {
     setDrawerOpen(true);
+    // Cargar jobs cuando se abre el drawer
+    if (jobs.length === 0) {
+      loadJobs();
+    }
   };
 
   const handleDrawerClose = () => {
@@ -64,6 +97,37 @@ const DailyTimesheet: React.FC = () => {
       horaExtra: false,
     });
     setFormErrors({});
+    setSelectedJob(null);
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const formatDateToISO = (date: Date): string => {
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+  };
+
+  const createRegistroDiarioPayload = (actividad: Actividad): RegistroDiarioRequest => {
+    const fechaStr = formatDateToISO(currentDate);
+    
+    // Hora de entrada predeterminada (8:00 AM)
+    const horaEntrada = new Date(currentDate);
+    horaEntrada.setHours(8, 0, 0, 0);
+    
+    // Hora de salida predeterminada (5:00 PM)
+    const horaSalida = new Date(currentDate);
+    horaSalida.setHours(17, 0, 0, 0);
+
+    return {
+      fecha: fechaStr,
+      horaEntrada: horaEntrada.toISOString(),
+      horaSalida: horaSalida.toISOString(),
+      jornada: 'M', // Mañana como default
+      esDiaLibre: false,
+      comentarioEmpleado: '',
+      actividades: [actividad],
+    };
   };
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,20 +161,57 @@ const DailyTimesheet: React.FC = () => {
       }
     }
 
-    if (!formData.job.trim()) {
-      errors.job = 'El job es obligatorio';
+    if (!selectedJob) {
+      errors.job = 'Debes seleccionar un job';
     }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = () => {
-    if (validateForm()) {
-      // TODO: Aquí se conectará con el endpoint cuando esté disponible
-      console.log('Datos del formulario:', formData);
-      alert('Actividad guardada correctamente (simulado)');
-      handleDrawerClose();
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+
+    setLoading(true);
+    try {
+      // Crear la actividad con los datos del formulario
+      const actividad: Actividad = {
+        jobId: selectedJob!.id,
+        duracionHoras: parseFloat(formData.horasInvertidas),
+        esExtra: formData.horaExtra,
+        className: formData.class || undefined,
+        descripcion: formData.descripcion,
+      };
+
+      // Crear el payload completo
+      const payload = createRegistroDiarioPayload(actividad);
+
+      // Enviar a la API
+      const response = await registroDiarioService.crearRegistro(payload);
+
+      if (response.success) {
+        // Agregar la nueva actividad al estado
+        setActivities(prev => [...prev, actividad]);
+        
+        // Mostrar mensaje de éxito
+        setSnackbar({
+          open: true,
+          message: 'Actividad guardada correctamente',
+          severity: 'success',
+        });
+
+        // Cerrar el drawer
+        handleDrawerClose();
+      }
+    } catch (error) {
+      console.error('Error al guardar actividad:', error);
+      setSnackbar({
+        open: true,
+        message: error instanceof Error ? error.message : 'Error al guardar la actividad',
+        severity: 'error',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -376,16 +477,43 @@ const DailyTimesheet: React.FC = () => {
             />
 
             {/* Job */}
-            <TextField
+            <Autocomplete
               fullWidth
-              required
-              name="job"
-              label="Job"
-              placeholder="Código o nombre del trabajo"
-              value={formData.job}
-              onChange={handleInputChange}
-              error={!!formErrors.job}
-              helperText={formErrors.job}
+              options={jobs}
+              value={selectedJob}
+              onChange={(_, newValue) => {
+                setSelectedJob(newValue);
+                // Limpiar error cuando se selecciona un job
+                if (formErrors.job && newValue) {
+                  setFormErrors(prev => ({ ...prev, job: '' }));
+                }
+              }}
+              getOptionLabel={(option) => {
+                const label = option.nombre || option.codigo || `Job ${option.id}`;
+                return `${label} (ID: ${option.id})`;
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  required
+                  label="Job"
+                  placeholder="Selecciona un job"
+                  error={!!formErrors.job}
+                  helperText={formErrors.job || 'Selecciona el job para esta actividad'}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {loadingJobs ? <CircularProgress color="inherit" size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              loading={loadingJobs}
+              disabled={loadingJobs}
+              noOptionsText={loadingJobs ? "Cargando jobs..." : "No hay jobs disponibles"}
               sx={{ mb: 3 }}
             />
 
@@ -430,15 +558,33 @@ const DailyTimesheet: React.FC = () => {
                   variant="contained"
                   fullWidth
                   onClick={handleSubmit}
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : undefined}
                   sx={{ py: 1.5 }}
                 >
-                  Guardar
+                  {loading ? 'Guardando...' : 'Guardar'}
                 </Button>
               </Box>
             </Box>
           </Box>
         </Box>
       </Drawer>
+
+      {/* Snackbar para notificaciones */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity} 
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
