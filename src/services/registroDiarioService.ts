@@ -1,57 +1,132 @@
-import type { RegistroDiarioRequest, RegistroDiarioResponse } from '../types/registroDiario';
-import { API_CONFIG } from '../config/api';
+import api from './api';
+
+export interface ActividadData {
+  id?: number;
+  jobId: number;
+  duracionHoras: number;
+  esExtra: boolean;
+  className?: string;
+  descripcion: string;
+  job?: {
+    id: number;
+    nombre: string;
+    codigo: string;
+    descripcion?: string;
+  };
+}
+
+export interface RegistroDiarioData {
+  id?: number;
+  horaEntrada: string; // ISO string
+  horaSalida: string; // ISO string
+  jornada?: string; // M, T, N (Mañana, Tarde, Noche)
+  esDiaLibre?: boolean;
+  comentarioEmpleado?: string;
+  aprobacionSupervisor?: string;
+  aprobacionRrhh?: string;
+  comentarioSupervisor?: string;
+  comentarioRrhh?: string;
+  empleadoId?: number;
+  actividades?: ActividadData[];
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
+export interface UpsertRegistroDiarioParams {
+  fecha: string; // YYYY-MM-DD
+  horaEntrada: string; // ISO string
+  horaSalida: string; // ISO string
+  jornada?: string;
+  esDiaLibre?: boolean;
+  comentarioEmpleado?: string;
+  actividades?: {
+    jobId: number;
+    duracionHoras: number;
+    esExtra?: boolean;
+    className?: string;
+    descripcion: string;
+  }[];
+}
 
 class RegistroDiarioService {
-  private getAuthHeaders(): HeadersInit {
-    const token = localStorage.getItem('authToken');
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-    
-    return headers;
-  }
-
-  async crearRegistro(registroData: RegistroDiarioRequest): Promise<RegistroDiarioResponse> {
+  
+  /**
+   * Obtener registro diario por fecha
+   */
+  static async getByDate(date: string): Promise<RegistroDiarioData | null> {
     try {
-      console.log('Enviando datos de registro diario:', registroData);
-      
-      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.REGISTRO_DIARIO.CREATE}`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify(registroData),
-      });
-
-      console.log('Respuesta del servidor:', response.status, response.statusText);
-
-      if (!response.ok) {
-        // Intentar leer el mensaje de error del servidor
-        const errorData = await response.json().catch(() => null);
-        console.error('Error del servidor:', errorData);
-        
-        if (errorData?.message) {
-          throw new Error(errorData.message);
-        } else if (errorData?.errors) {
-          // Si hay errores de validación específicos
-          const validationErrors = errorData.errors.map((err: { field: string; message: string }) => `${err.field}: ${err.message}`).join(', ');
-          throw new Error(`Errores de validación: ${validationErrors}`);
-        } else {
-          throw new Error(`Error del servidor: ${response.status} ${response.statusText}`);
-        }
-      }
-
-      const data: RegistroDiarioResponse = await response.json();
-      console.log('Registro diario creado exitosamente:', data);
-      
-      return data;
+      const response = await api.get<ApiResponse<RegistroDiarioData | null>>(
+        `/registrodiario?date=${date}`
+      );
+      return response.data.data;
     } catch (error) {
-      console.error('Error al crear registro diario:', error);
+      if ((error as { response?: { status?: number } }).response?.status === 404) {
+        return null;
+      }
       throw error;
     }
   }
+
+  /**
+   * Crear o actualizar registro diario
+   */
+  static async upsert(params: UpsertRegistroDiarioParams): Promise<RegistroDiarioData> {
+    const response = await api.post<ApiResponse<RegistroDiarioData>>(
+      '/registrodiario',
+      params
+    );
+    return response.data.data;
+  }
+
+  /**
+   * Agregar actividad a un registro diario existente
+   */
+  static async addActividad(
+    fecha: string,
+    actividad: {
+      jobId: number;
+      duracionHoras: number;
+      esExtra?: boolean;
+      className?: string;
+      descripcion: string;
+    }
+  ): Promise<RegistroDiarioData> {
+    // Primero obtenemos el registro actual
+    const registroActual = await this.getByDate(fecha);
+    
+    if (!registroActual) {
+      throw new Error('No existe registro para esta fecha. Debe configurar primero los datos del día.');
+    }
+
+    // Convertimos las actividades existentes al formato esperado por la API
+    const actividadesExistentes = (registroActual.actividades || []).map(act => ({
+      jobId: act.jobId,
+      duracionHoras: act.duracionHoras,
+      esExtra: act.esExtra,
+      className: act.className,
+      descripcion: act.descripcion,
+    }));
+    
+    // Actualizamos el registro
+    const response = await api.post<ApiResponse<RegistroDiarioData>>(
+      '/registrodiario',
+      {
+        fecha,
+        horaEntrada: registroActual.horaEntrada,
+        horaSalida: registroActual.horaSalida,
+        jornada: registroActual.jornada,
+        esDiaLibre: registroActual.esDiaLibre,
+        comentarioEmpleado: registroActual.comentarioEmpleado,
+        actividades: [...actividadesExistentes, actividad],
+      }
+    );
+    
+    return response.data.data;
+  }
 }
 
-export const registroDiarioService = new RegistroDiarioService(); 
+export default RegistroDiarioService; 

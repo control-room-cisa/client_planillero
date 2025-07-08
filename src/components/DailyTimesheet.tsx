@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -15,10 +15,14 @@ import {
   FormControlLabel,
   Checkbox,
   Divider,
-  Snackbar,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
   Alert,
-  CircularProgress,
-  Autocomplete,
+  Snackbar,
+  Stack,
+  Chip,
 } from '@mui/material';
 import {
   ChevronLeft,
@@ -27,12 +31,19 @@ import {
   Add,
   AccessTime,
   Close,
+  Settings,
 } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
-import { registroDiarioService } from '../services/registroDiarioService';
-import { jobService } from '../services/jobService';
-import type { ActivityFormData, Actividad, RegistroDiarioRequest } from '../types/registroDiario';
-import type { Job } from '../types/job';
+import RegistroDiarioService from '../services/registroDiarioService';
+import type { RegistroDiarioData } from '../services/registroDiarioService';
+
+interface ActivityData {
+  descripcion: string;
+  horasInvertidas: string;
+  job: string;
+  class: string;
+  horaExtra: boolean;
+}
 
 const DailyTimesheet: React.FC = () => {
   const theme = useTheme();
@@ -40,7 +51,7 @@ const DailyTimesheet: React.FC = () => {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [formData, setFormData] = useState<ActivityFormData>({
+  const [formData, setFormData] = useState<ActivityData>({
     descripcion: '',
     horasInvertidas: '',
     job: '',
@@ -48,42 +59,64 @@ const DailyTimesheet: React.FC = () => {
     horaExtra: false,
   });
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
-  const [, setActivities] = useState<Actividad[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error',
+  
+  // Estado para los datos del día laboral
+  const [registroDiario, setRegistroDiario] = useState<RegistroDiarioData | null>(null);
+  const [dayConfigData, setDayConfigData] = useState({
+    horaEntrada: '',
+    horaSalida: '',
+    jornada: 'M',
+    esDiaLibre: false,
+    comentarioEmpleado: '',
   });
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loadingJobs, setLoadingJobs] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-
-  const loadJobs = async () => {
-    setLoadingJobs(true);
+  const [dayConfigErrors, setDayConfigErrors] = useState<{[key: string]: string}>({});
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  
+  // Cargar datos del registro diario cuando cambie la fecha
+  useEffect(() => {
+    loadRegistroDiario();
+  }, [currentDate]);
+  
+  const loadRegistroDiario = async () => {
     try {
-      const response = await jobService.getJobs();
-      if (response.success) {
-        setJobs(response.data);
+      setLoading(true);
+      const dateString = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      const registro = await RegistroDiarioService.getByDate(dateString);
+      setRegistroDiario(registro);
+      
+      if (registro) {
+        // Extraer solo la hora de la fecha ISO sin conversión de zona horaria
+        const horaEntrada = registro.horaEntrada.substring(11, 16); // "YYYY-MM-DDTHH:MM:SS" → "HH:MM"
+        const horaSalida = registro.horaSalida.substring(11, 16); // "YYYY-MM-DDTHH:MM:SS" → "HH:MM"
+        
+        setDayConfigData({
+          horaEntrada,
+          horaSalida,
+          jornada: registro.jornada || 'M',
+          esDiaLibre: registro.esDiaLibre || false,
+          comentarioEmpleado: registro.comentarioEmpleado || '',
+        });
+      } else {
+        // Resetear el formulario si no hay datos
+        setDayConfigData({
+          horaEntrada: '07:00',
+          horaSalida: '17:00',
+          jornada: 'M',
+          esDiaLibre: false,
+          comentarioEmpleado: '',
+        });
       }
     } catch (error) {
-      console.error('Error al cargar jobs:', error);
-      setSnackbar({
-        open: true,
-        message: 'Error al cargar la lista de jobs',
-        severity: 'error',
-      });
+      console.error('Error al cargar registro diario:', error);
+      setSnackbar({ open: true, message: 'Error al cargar los datos del día', severity: 'error' });
     } finally {
-      setLoadingJobs(false);
+      setLoading(false);
     }
   };
 
   const handleDrawerOpen = () => {
     setDrawerOpen(true);
-    // Cargar jobs cuando se abre el drawer
-    if (jobs.length === 0) {
-      loadJobs();
-    }
   };
 
   const handleDrawerClose = () => {
@@ -97,37 +130,101 @@ const DailyTimesheet: React.FC = () => {
       horaExtra: false,
     });
     setFormErrors({});
-    setSelectedJob(null);
   };
 
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
+
+
+  const handleDayConfigInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = event.target;
+    setDayConfigData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+    // Limpiar error cuando el usuario empiece a escribir
+    if (dayConfigErrors[name]) {
+      setDayConfigErrors(prev => ({
+        ...prev,
+        [name]: '',
+      }));
+    }
   };
 
-  const formatDateToISO = (date: Date): string => {
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+  const validateDayConfig = (): boolean => {
+    const errors: {[key: string]: string} = {};
+
+    if (!dayConfigData.horaEntrada) {
+      errors.horaEntrada = 'La hora de entrada es obligatoria';
+    }
+
+    if (!dayConfigData.horaSalida) {
+      errors.horaSalida = 'La hora de salida es obligatoria';
+    }
+
+    if (dayConfigData.horaEntrada && dayConfigData.horaSalida) {
+      const entrada = new Date(`2000-01-01T${dayConfigData.horaEntrada}:00`);
+      const salida = new Date(`2000-01-01T${dayConfigData.horaSalida}:00`);
+      
+      if (entrada >= salida) {
+        errors.horaSalida = 'La hora de salida debe ser posterior a la de entrada';
+      }
+    }
+
+    setDayConfigErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
-  const createRegistroDiarioPayload = (actividad: Actividad): RegistroDiarioRequest => {
-    const fechaStr = formatDateToISO(currentDate);
+  const hasChangesInDayConfig = (): boolean => {
+    if (!registroDiario) return false;
     
-    // Hora de entrada predeterminada (8:00 AM)
-    const horaEntrada = new Date(currentDate);
-    horaEntrada.setHours(8, 0, 0, 0);
+    // Extraer solo la hora de la fecha ISO sin conversión de zona horaria
+    const registroHoraEntrada = registroDiario.horaEntrada.substring(11, 16);
+    const registroHoraSalida = registroDiario.horaSalida.substring(11, 16);
     
-    // Hora de salida predeterminada (5:00 PM)
-    const horaSalida = new Date(currentDate);
-    horaSalida.setHours(17, 0, 0, 0);
+    return (
+      dayConfigData.horaEntrada !== registroHoraEntrada ||
+      dayConfigData.horaSalida !== registroHoraSalida ||
+      dayConfigData.jornada !== registroDiario.jornada ||
+      dayConfigData.esDiaLibre !== registroDiario.esDiaLibre ||
+      dayConfigData.comentarioEmpleado !== (registroDiario.comentarioEmpleado || '')
+    );
+  };
 
-    return {
-      fecha: fechaStr,
-      horaEntrada: horaEntrada.toISOString(),
-      horaSalida: horaSalida.toISOString(),
-      jornada: 'M', // Mañana como default
-      esDiaLibre: false,
-      comentarioEmpleado: '',
-      actividades: [actividad],
-    };
+  const handleDayConfigSubmit = async () => {
+    if (!validateDayConfig()) return;
+
+    try {
+      setLoading(true);
+      const dateString = currentDate.toISOString().split('T')[0];
+      
+      // Crear fechas ISO completas para el día seleccionado
+      const horaEntrada = new Date(`${dateString}T${dayConfigData.horaEntrada}:00.000Z`);
+      const horaSalida = new Date(`${dateString}T${dayConfigData.horaSalida}:00.000Z`);
+
+      const params = {
+        fecha: dateString,
+        horaEntrada: horaEntrada.toISOString(),
+        horaSalida: horaSalida.toISOString(),
+        jornada: dayConfigData.jornada,
+        esDiaLibre: dayConfigData.esDiaLibre,
+        comentarioEmpleado: dayConfigData.comentarioEmpleado,
+        actividades: registroDiario?.actividades?.map(act => ({
+          jobId: act.jobId,
+          duracionHoras: act.duracionHoras,
+          esExtra: act.esExtra,
+          className: act.className,
+          descripcion: act.descripcion,
+        })) || [],
+      };
+
+      const updatedRegistro = await RegistroDiarioService.upsert(params);
+      setRegistroDiario(updatedRegistro);
+      setSnackbar({ open: true, message: 'Configuración del día guardada correctamente', severity: 'success' });
+    } catch (error) {
+      console.error('Error al guardar configuración del día:', error);
+      setSnackbar({ open: true, message: 'Error al guardar la configuración', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -161,8 +258,8 @@ const DailyTimesheet: React.FC = () => {
       }
     }
 
-    if (!selectedJob) {
-      errors.job = 'Debes seleccionar un job';
+    if (!formData.job.trim()) {
+      errors.job = 'El job es obligatorio';
     }
 
     setFormErrors(errors);
@@ -172,44 +269,68 @@ const DailyTimesheet: React.FC = () => {
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
-    setLoading(true);
     try {
-      // Crear la actividad con los datos del formulario
-      const actividad: Actividad = {
-        jobId: selectedJob!.id,
+      setLoading(true);
+      const dateString = currentDate.toISOString().split('T')[0];
+      
+      const actividad = {
+        jobId: parseInt(formData.job), // Asumiendo que job es el ID numérico
         duracionHoras: parseFloat(formData.horasInvertidas),
         esExtra: formData.horaExtra,
         className: formData.class || undefined,
         descripcion: formData.descripcion,
       };
 
-      // Crear el payload completo
-      const payload = createRegistroDiarioPayload(actividad);
+      if (registroDiario) {
+        // Si ya existe un registro, agregar solo la actividad usando los datos existentes del día
+        const actividadesExistentes = registroDiario.actividades?.map(act => ({
+          jobId: act.jobId,
+          duracionHoras: act.duracionHoras,
+          esExtra: act.esExtra,
+          className: act.className,
+          descripcion: act.descripcion,
+        })) || [];
 
-      // Enviar a la API
-      const response = await registroDiarioService.crearRegistro(payload);
+        const params = {
+          fecha: dateString,
+          horaEntrada: registroDiario.horaEntrada,
+          horaSalida: registroDiario.horaSalida,
+          jornada: registroDiario.jornada,
+          esDiaLibre: registroDiario.esDiaLibre,
+          comentarioEmpleado: registroDiario.comentarioEmpleado,
+          actividades: [...actividadesExistentes, actividad],
+        };
 
-      if (response.success) {
-        // Agregar la nueva actividad al estado
-        setActivities(prev => [...prev, actividad]);
+        const updatedRegistro = await RegistroDiarioService.upsert(params);
+        setRegistroDiario(updatedRegistro);
+      } else {
+        // Si no existe registro, validar configuración del día y crear nuevo registro
+        if (!validateDayConfig()) return;
         
-        // Mostrar mensaje de éxito
-        setSnackbar({
-          open: true,
-          message: 'Actividad guardada correctamente',
-          severity: 'success',
-        });
+        // Crear fechas ISO completas para el día seleccionado
+        const horaEntrada = new Date(`${dateString}T${dayConfigData.horaEntrada}:00.000Z`);
+        const horaSalida = new Date(`${dateString}T${dayConfigData.horaSalida}:00.000Z`);
 
-        // Cerrar el drawer
-        handleDrawerClose();
+        const params = {
+          fecha: dateString,
+          horaEntrada: horaEntrada.toISOString(),
+          horaSalida: horaSalida.toISOString(),
+          jornada: dayConfigData.jornada,
+          esDiaLibre: dayConfigData.esDiaLibre,
+          comentarioEmpleado: dayConfigData.comentarioEmpleado,
+          actividades: [actividad],
+        };
+
+        const updatedRegistro = await RegistroDiarioService.upsert(params);
+        setRegistroDiario(updatedRegistro);
       }
+
+      setSnackbar({ open: true, message: 'Actividad guardada correctamente', severity: 'success' });
+      handleDrawerClose();
     } catch (error) {
       console.error('Error al guardar actividad:', error);
-      setSnackbar({
-        open: true,
-        message: error instanceof Error ? error.message : 'Error al guardar la actividad',
-        severity: 'error',
-      });
+      const message = (error as Error).message || 'Error al guardar la actividad';
+      setSnackbar({ open: true, message, severity: 'error' });
     } finally {
       setLoading(false);
     }
@@ -249,10 +370,14 @@ const DailyTimesheet: React.FC = () => {
     return currentDate.toDateString() === today.toDateString();
   };
 
-  // Datos simulados
-  const workedHours = 0.0;
-  const totalHours = 9.0;
-  const progressPercentage = (workedHours / totalHours) * 100;
+  // Calcular horas trabajadas basándose en las actividades
+  const workedHours = registroDiario?.actividades?.reduce((total, act) => total + act.duracionHoras, 0) || 0;
+  const totalHours = registroDiario ? 9.0 : 0; // 9 horas estándar, podría calcularse desde hora entrada/salida
+  const progressPercentage = totalHours > 0 ? (workedHours / totalHours) * 100 : 0;
+  
+  // Estado del registro diario
+  const hasDayRecord = Boolean(registroDiario);
+  const dayConfigHasChanges = hasChangesInDayConfig();
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: '100%' }}>
@@ -275,7 +400,7 @@ const DailyTimesheet: React.FC = () => {
           Registro de Actividades
         </Typography>
         
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <IconButton onClick={() => navigateDate('prev')} size="small">
             <ChevronLeft />
           </IconButton>
@@ -293,6 +418,18 @@ const DailyTimesheet: React.FC = () => {
           <IconButton onClick={() => navigateDate('next')} size="small">
             <ChevronRight />
           </IconButton>
+
+          <Button
+            variant={hasDayRecord ? 'outlined' : 'contained'}
+            startIcon={<Settings />}
+            onClick={handleDayConfigSubmit}
+            size="small"
+            color={hasDayRecord ? 'success' : 'primary'}
+            sx={{ ml: 1 }}
+            disabled={loading || (hasDayRecord && !dayConfigHasChanges)}
+          >
+            {loading ? 'Guardando...' : hasDayRecord ? 'Actualizar Día' : 'Guardar Día'}
+          </Button>
         </Box>
       </Box>
 
@@ -305,6 +442,32 @@ const DailyTimesheet: React.FC = () => {
         {formatDate(currentDate)}
       </Typography>
 
+      {/* Day info */}
+      {registroDiario && (
+        <Stack direction="row" spacing={1} justifyContent="center" sx={{ mb: 2 }}>
+          <Chip 
+            label={`Jornada: ${registroDiario.jornada === 'M' ? 'Mañana' : registroDiario.jornada === 'T' ? 'Tarde' : 'Noche'}`}
+            size="small"
+            color="primary"
+            variant="outlined"
+          />
+          <Chip 
+            label={`${registroDiario.horaEntrada.substring(11, 16)} - ${registroDiario.horaSalida.substring(11, 16)}`}
+            size="small"
+            color="secondary"
+            variant="outlined"
+          />
+          {registroDiario.esDiaLibre && (
+            <Chip 
+              label="Día Libre"
+              size="small"
+              color="warning"
+              variant="outlined"
+            />
+          )}
+        </Stack>
+      )}
+
       {/* Welcome message */}
       <Typography
         variant="body2"
@@ -313,6 +476,92 @@ const DailyTimesheet: React.FC = () => {
       >
         ¡Buen día, {user?.nombre}! 👋
       </Typography>
+
+      {/* Day Configuration Section */}
+      <Card sx={{ mb: 3, bgcolor: 'background.paper' }}>
+        <CardContent>
+          <Typography variant="h6" component="h2" sx={{ mb: 3, fontWeight: 'bold' }}>
+            Configuración del Día Laboral
+          </Typography>
+          
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 3 }}>
+            {/* Hora de Entrada */}
+            <TextField
+              fullWidth
+              required
+              type="time"
+              name="horaEntrada"
+              label="Hora de Entrada"
+              value={dayConfigData.horaEntrada}
+              onChange={handleDayConfigInputChange}
+              error={!!dayConfigErrors.horaEntrada}
+              helperText={dayConfigErrors.horaEntrada}
+              InputLabelProps={{ shrink: true }}
+              size="small"
+            />
+
+            {/* Hora de Salida */}
+            <TextField
+              fullWidth
+              required
+              type="time"
+              name="horaSalida"
+              label="Hora de Salida"
+              value={dayConfigData.horaSalida}
+              onChange={handleDayConfigInputChange}
+              error={!!dayConfigErrors.horaSalida}
+              helperText={dayConfigErrors.horaSalida}
+              InputLabelProps={{ shrink: true }}
+              size="small"
+            />
+          </Box>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 3 }}>
+            {/* Jornada */}
+            <FormControl fullWidth size="small">
+              <InputLabel>Jornada</InputLabel>
+              <Select
+                name="jornada"
+                value={dayConfigData.jornada}
+                onChange={(e) => handleDayConfigInputChange(e as React.ChangeEvent<HTMLInputElement>)}
+                label="Jornada"
+              >
+                <MenuItem value="M">Mañana</MenuItem>
+                <MenuItem value="T">Tarde</MenuItem>
+                <MenuItem value="N">Noche</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Es Día Libre */}
+            <Box sx={{ display: 'flex', alignItems: 'center', height: '40px' }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    name="esDiaLibre"
+                    checked={dayConfigData.esDiaLibre}
+                    onChange={handleDayConfigInputChange}
+                    color="primary"
+                  />
+                }
+                label="Día Libre"
+              />
+            </Box>
+          </Box>
+
+          {/* Comentario del Empleado */}
+          <TextField
+            fullWidth
+            multiline
+            rows={2}
+            name="comentarioEmpleado"
+            label="Comentario (opcional)"
+            placeholder="Agregar comentarios adicionales..."
+            value={dayConfigData.comentarioEmpleado}
+            onChange={handleDayConfigInputChange}
+            size="small"
+          />
+        </CardContent>
+      </Card>
 
       {/* Work progress card */}
       <Card sx={{ mb: 3, bgcolor: 'background.paper' }}>
@@ -366,36 +615,80 @@ const DailyTimesheet: React.FC = () => {
         )}
       </Box>
 
-      {/* Empty state */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: 300,
-          textAlign: 'center',
-          bgcolor: 'background.paper',
-          borderRadius: 2,
-          p: 4,
-        }}
-      >
-        <AccessTime sx={{ fontSize: 80, color: 'grey.300', mb: 2 }} />
-        <Typography variant="h6" color="text.primary" gutterBottom>
-          No hay actividades para Hoy
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Comienza agregando tu primera actividad del día
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          sx={{ borderRadius: 2 }}
-          onClick={handleDrawerOpen}
+      {/* Activities list or empty state */}
+      {registroDiario?.actividades && registroDiario.actividades.length > 0 ? (
+        <Stack spacing={2}>
+          {registroDiario.actividades.map((actividad, index) => (
+            <Card key={actividad.id || index} sx={{ bgcolor: 'background.paper' }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Typography variant="h6" component="h3" sx={{ fontWeight: 'medium' }}>
+                    {actividad.job?.nombre || `Job ID: ${actividad.jobId}`}
+                  </Typography>
+                  <Stack direction="row" spacing={1}>
+                    <Chip 
+                      label={`${actividad.duracionHoras}h`}
+                      size="small"
+                      color="primary"
+                    />
+                    {actividad.esExtra && (
+                      <Chip 
+                        label="Extra"
+                        size="small"
+                        color="warning"
+                      />
+                    )}
+                  </Stack>
+                </Box>
+                
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  <strong>Job:</strong> {actividad.job?.codigo || actividad.jobId}
+                </Typography>
+                
+                {actividad.className && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <strong>Class:</strong> {actividad.className}
+                  </Typography>
+                )}
+                
+                <Typography variant="body1" color="text.primary">
+                  {actividad.descripcion}
+                </Typography>
+              </CardContent>
+            </Card>
+          ))}
+        </Stack>
+      ) : (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 300,
+            textAlign: 'center',
+            bgcolor: 'background.paper',
+            borderRadius: 2,
+            p: 4,
+          }}
         >
-          Agregar Actividad
-        </Button>
-      </Box>
+          <AccessTime sx={{ fontSize: 80, color: 'grey.300', mb: 2 }} />
+          <Typography variant="h6" color="text.primary" gutterBottom>
+            No hay actividades para hoy
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Comienza agregando tu primera actividad del día
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            sx={{ borderRadius: 2 }}
+            onClick={handleDrawerOpen}
+          >
+            Agregar Actividad
+          </Button>
+        </Box>
+      )}
 
       {/* Floating Action Button for mobile */}
       {isMobile && (
@@ -477,43 +770,16 @@ const DailyTimesheet: React.FC = () => {
             />
 
             {/* Job */}
-            <Autocomplete
+            <TextField
               fullWidth
-              options={jobs}
-              value={selectedJob}
-              onChange={(_, newValue) => {
-                setSelectedJob(newValue);
-                // Limpiar error cuando se selecciona un job
-                if (formErrors.job && newValue) {
-                  setFormErrors(prev => ({ ...prev, job: '' }));
-                }
-              }}
-              getOptionLabel={(option) => {
-                const label = option.nombre || option.codigo || `Job ${option.id}`;
-                return `${label} (ID: ${option.id})`;
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  required
-                  label="Job"
-                  placeholder="Selecciona un job"
-                  error={!!formErrors.job}
-                  helperText={formErrors.job || 'Selecciona el job para esta actividad'}
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {loadingJobs ? <CircularProgress color="inherit" size={20} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                />
-              )}
-              loading={loadingJobs}
-              disabled={loadingJobs}
-              noOptionsText={loadingJobs ? "Cargando jobs..." : "No hay jobs disponibles"}
+              required
+              name="job"
+              label="Job"
+              placeholder="Código o nombre del trabajo"
+              value={formData.job}
+              onChange={handleInputChange}
+              error={!!formErrors.job}
+              helperText={formErrors.job}
               sx={{ mb: 3 }}
             />
 
@@ -558,11 +824,9 @@ const DailyTimesheet: React.FC = () => {
                   variant="contained"
                   fullWidth
                   onClick={handleSubmit}
-                  disabled={loading}
-                  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : undefined}
                   sx={{ py: 1.5 }}
                 >
-                  {loading ? 'Guardando...' : 'Guardar'}
+                  Guardar
                 </Button>
               </Box>
             </Box>
@@ -570,16 +834,18 @@ const DailyTimesheet: React.FC = () => {
         </Box>
       </Drawer>
 
-      {/* Snackbar para notificaciones */}
+
+
+      {/* Snackbar para mensajes */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert 
-          onClose={handleCloseSnackbar} 
-          severity={snackbar.severity} 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+          severity={snackbar.severity}
           sx={{ width: '100%' }}
         >
           {snackbar.message}

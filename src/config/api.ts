@@ -12,12 +12,6 @@ export const API_CONFIG = {
     TIMESHEET: {
       // Endpoints futuros para planillas
     },
-    REGISTRO_DIARIO: {
-      CREATE: '/registrodiario',
-    },
-    JOBS: {
-      LIST: '/jobs',
-    },
   },
   TIMEOUT: 10000,
 } as const; 
