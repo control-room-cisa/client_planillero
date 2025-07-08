@@ -60,7 +60,7 @@ class RegistroDiarioService {
   static async getByDate(date: string): Promise<RegistroDiarioData | null> {
     try {
       const response = await api.get<ApiResponse<RegistroDiarioData | null>>(
-        `/registrodiario?date=${date}`
+        `/registrodiario?fecha=${date}`
       );
       return response.data.data;
     } catch (error) {
