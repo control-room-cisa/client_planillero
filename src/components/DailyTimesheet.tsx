@@ -23,7 +23,9 @@ import {
   Snackbar,
   Stack,
   Chip,
+  CircularProgress,
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material';
 import {
   ChevronLeft,
   ChevronRight,
@@ -37,7 +39,9 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import RegistroDiarioService from '../services/registroDiarioService';
+import JobService from '../services/jobService';
 import type { RegistroDiarioData } from '../services/registroDiarioService';
+import type { Job } from '../services/jobService';
 
 interface ActivityData {
   descripcion: string;
@@ -77,6 +81,10 @@ const DailyTimesheet: React.FC = () => {
   });
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
   
+  // Estado para jobs
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  
   // Estado para los datos del día laboral
   const [registroDiario, setRegistroDiario] = useState<RegistroDiarioData | null>(null);
   const [dayConfigData, setDayConfigData] = useState({
@@ -95,6 +103,20 @@ const DailyTimesheet: React.FC = () => {
     loadRegistroDiario();
   }, [currentDate]);
   
+  // Cargar jobs cuando se abra el drawer
+  const loadJobs = async () => {
+    try {
+      setLoadingJobs(true);
+      const jobsData = await JobService.getAll();
+      setJobs(jobsData);
+    } catch (error) {
+      console.error('Error al cargar jobs:', error);
+      setSnackbar({ open: true, message: 'Error al cargar la lista de jobs', severity: 'error' });
+    } finally {
+      setLoadingJobs(false);
+    }
+  };
+
   const loadRegistroDiario = async () => {
     try {
       setLoading(true);
@@ -132,8 +154,9 @@ const DailyTimesheet: React.FC = () => {
     }
   };
 
-  const handleDrawerOpen = () => {
+  const handleDrawerOpen = async () => {
     setDrawerOpen(true);
+    await loadJobs();
   };
 
   const handleDrawerClose = () => {
@@ -151,7 +174,7 @@ const DailyTimesheet: React.FC = () => {
     setFormErrors({});
   };
 
-  const handleEditActivity = (activity: Activity, index: number) => {
+  const handleEditActivity = async (activity: Activity, index: number) => {
     setEditingActivity(activity);
     setEditingIndex(index);
     setFormData({
@@ -162,6 +185,7 @@ const DailyTimesheet: React.FC = () => {
       horaExtra: activity.esExtra || false,
     });
     setDrawerOpen(true);
+    await loadJobs();
   };
 
   const handleDeleteActivity = async (index: number) => {
@@ -307,6 +331,21 @@ const DailyTimesheet: React.FC = () => {
       setFormErrors(prev => ({
         ...prev,
         [name]: '',
+      }));
+    }
+  };
+
+  const handleSelectChange = (event: SelectChangeEvent<string>) => {
+    const { name, value } = event.target;
+    setFormData(prev => ({
+      ...prev,
+      [name as string]: value as string,
+    }));
+    // Limpiar error cuando el usuario seleccione
+    if (formErrors[name as string]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [name as string]: '',
       }));
     }
   };
@@ -867,18 +906,43 @@ const DailyTimesheet: React.FC = () => {
             />
 
             {/* Job */}
-            <TextField
-              fullWidth
-              required
-              name="job"
-              label="Job"
-              placeholder="Código o nombre del trabajo"
-              value={formData.job}
-              onChange={handleInputChange}
-              error={!!formErrors.job}
-              helperText={formErrors.job}
-              sx={{ mb: 3 }}
-            />
+            <FormControl fullWidth required error={!!formErrors.job} sx={{ mb: 3 }}>
+              <InputLabel>Job *</InputLabel>
+              <Select
+                name="job"
+                value={formData.job}
+                onChange={handleSelectChange}
+                label="Job *"
+                disabled={loadingJobs}
+              >
+                {loadingJobs ? (
+                  <MenuItem disabled>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="body2">Cargando jobs...</Typography>
+                    </Box>
+                  </MenuItem>
+                ) : (
+                  jobs.map((job) => (
+                    <MenuItem key={job.id} value={job.id.toString()}>
+                      <Box>
+                        <Typography variant="body2" fontWeight="medium">
+                          {job.codigo} - {job.nombre}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {job.empresa.nombre}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))
+                )}
+              </Select>
+              {formErrors.job && (
+                <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                  {formErrors.job}
+                </Typography>
+              )}
+            </FormControl>
 
             {/* Class (opcional) */}
             <TextField
