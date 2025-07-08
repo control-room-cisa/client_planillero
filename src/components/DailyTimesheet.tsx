@@ -32,6 +32,8 @@ import {
   AccessTime,
   Close,
   Settings,
+  Edit,
+  Delete,
 } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import RegistroDiarioService from '../services/registroDiarioService';
@@ -45,12 +47,27 @@ interface ActivityData {
   horaExtra: boolean;
 }
 
+interface Activity {
+  id?: number;
+  descripcion: string;
+  duracionHoras: number;
+  jobId: number;
+  className?: string;
+  esExtra: boolean;
+  job?: {
+    nombre: string;
+    codigo: string;
+  };
+}
+
 const DailyTimesheet: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number>(-1);
   const [formData, setFormData] = useState<ActivityData>({
     descripcion: '',
     horasInvertidas: '',
@@ -121,6 +138,8 @@ const DailyTimesheet: React.FC = () => {
 
   const handleDrawerClose = () => {
     setDrawerOpen(false);
+    setEditingActivity(null);
+    setEditingIndex(-1);
     // Limpiar formulario al cerrar
     setFormData({
       descripcion: '',
@@ -132,7 +151,57 @@ const DailyTimesheet: React.FC = () => {
     setFormErrors({});
   };
 
+  const handleEditActivity = (activity: Activity, index: number) => {
+    setEditingActivity(activity);
+    setEditingIndex(index);
+    setFormData({
+      descripcion: activity.descripcion || '',
+      horasInvertidas: activity.duracionHoras?.toString() || '',
+      job: activity.jobId?.toString() || '',
+      class: activity.className || '',
+      horaExtra: activity.esExtra || false,
+    });
+    setDrawerOpen(true);
+  };
 
+  const handleDeleteActivity = async (index: number) => {
+    if (!registroDiario?.actividades) return;
+    
+    try {
+      setLoading(true);
+      const dateString = currentDate.toISOString().split('T')[0];
+      
+      // Crear nueva lista de actividades sin la actividad a eliminar
+      const actividadesActualizadas = registroDiario.actividades
+        .filter((_, i) => i !== index)
+        .map(act => ({
+          jobId: act.jobId,
+          duracionHoras: act.duracionHoras,
+          esExtra: act.esExtra,
+          className: act.className,
+          descripcion: act.descripcion,
+        }));
+
+      const params = {
+        fecha: dateString,
+        horaEntrada: registroDiario.horaEntrada,
+        horaSalida: registroDiario.horaSalida,
+        jornada: registroDiario.jornada,
+        esDiaLibre: registroDiario.esDiaLibre,
+        comentarioEmpleado: registroDiario.comentarioEmpleado,
+        actividades: actividadesActualizadas,
+      };
+
+      const updatedRegistro = await RegistroDiarioService.upsert(params);
+      setRegistroDiario(updatedRegistro);
+      setSnackbar({ open: true, message: 'Actividad eliminada correctamente', severity: 'success' });
+    } catch (error) {
+      console.error('Error al eliminar actividad:', error);
+      setSnackbar({ open: true, message: 'Error al eliminar la actividad', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDayConfigInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = event.target;
@@ -274,7 +343,7 @@ const DailyTimesheet: React.FC = () => {
       const dateString = currentDate.toISOString().split('T')[0];
       
       const actividad = {
-        jobId: parseInt(formData.job), // Asumiendo que job es el ID numérico
+        jobId: parseInt(formData.job),
         duracionHoras: parseFloat(formData.horasInvertidas),
         esExtra: formData.horaExtra,
         className: formData.class || undefined,
@@ -282,7 +351,7 @@ const DailyTimesheet: React.FC = () => {
       };
 
       if (registroDiario) {
-        // Si ya existe un registro, agregar solo la actividad usando los datos existentes del día
+        // Obtener actividades existentes
         const actividadesExistentes = registroDiario.actividades?.map(act => ({
           jobId: act.jobId,
           duracionHoras: act.duracionHoras,
@@ -291,6 +360,17 @@ const DailyTimesheet: React.FC = () => {
           descripcion: act.descripcion,
         })) || [];
 
+        let actividadesActualizadas;
+        
+        if (editingActivity && editingIndex >= 0) {
+          // Si estamos editando, reemplazar la actividad en el índice específico
+          actividadesActualizadas = [...actividadesExistentes];
+          actividadesActualizadas[editingIndex] = actividad;
+        } else {
+          // Si es nueva actividad, agregar al final
+          actividadesActualizadas = [...actividadesExistentes, actividad];
+        }
+
         const params = {
           fecha: dateString,
           horaEntrada: registroDiario.horaEntrada,
@@ -298,7 +378,7 @@ const DailyTimesheet: React.FC = () => {
           jornada: registroDiario.jornada,
           esDiaLibre: registroDiario.esDiaLibre,
           comentarioEmpleado: registroDiario.comentarioEmpleado,
-          actividades: [...actividadesExistentes, actividad],
+          actividades: actividadesActualizadas,
         };
 
         const updatedRegistro = await RegistroDiarioService.upsert(params);
@@ -325,7 +405,8 @@ const DailyTimesheet: React.FC = () => {
         setRegistroDiario(updatedRegistro);
       }
 
-      setSnackbar({ open: true, message: 'Actividad guardada correctamente', severity: 'success' });
+      const actionMessage = editingActivity ? 'Actividad actualizada correctamente' : 'Actividad guardada correctamente';
+      setSnackbar({ open: true, message: actionMessage, severity: 'success' });
       handleDrawerClose();
     } catch (error) {
       console.error('Error al guardar actividad:', error);
@@ -622,23 +703,39 @@ const DailyTimesheet: React.FC = () => {
             <Card key={actividad.id || index} sx={{ bgcolor: 'background.paper' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                  <Typography variant="h6" component="h3" sx={{ fontWeight: 'medium' }}>
+                  <Typography variant="h6" component="h3" sx={{ fontWeight: 'medium', flex: 1 }}>
                     {actividad.job?.nombre || `Job ID: ${actividad.jobId}`}
                   </Typography>
-                  <Stack direction="row" spacing={1}>
-                    <Chip 
-                      label={`${actividad.duracionHoras}h`}
-                      size="small"
-                      color="primary"
-                    />
-                    {actividad.esExtra && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Stack direction="row" spacing={1}>
                       <Chip 
-                        label="Extra"
+                        label={`${actividad.duracionHoras}h`}
                         size="small"
-                        color="warning"
+                        color="primary"
                       />
-                    )}
-                  </Stack>
+                      {actividad.esExtra && (
+                        <Chip 
+                          label="Extra"
+                          size="small"
+                          color="warning"
+                        />
+                      )}
+                    </Stack>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleEditActivity(actividad, index)}
+                      sx={{ color: 'primary.main' }}
+                    >
+                      <Edit />
+                    </IconButton>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleDeleteActivity(index)}
+                      sx={{ color: 'error.main' }}
+                    >
+                      <Delete />
+                    </IconButton>
+                  </Box>
                 </Box>
                 
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -709,7 +806,7 @@ const DailyTimesheet: React.FC = () => {
         </Fab>
       )}
 
-      {/* Drawer para Nueva Actividad */}
+      {/* Drawer para Nueva/Editar Actividad */}
       <Drawer
         anchor="right"
         open={drawerOpen}
@@ -725,7 +822,7 @@ const DailyTimesheet: React.FC = () => {
           {/* Header */}
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
             <Typography variant="h6" component="h2" fontWeight="bold">
-              Nueva Actividad - Hoy
+              {editingActivity ? 'Editar Actividad' : 'Nueva Actividad'} - Hoy
             </Typography>
             <IconButton onClick={handleDrawerClose} size="small">
               <Close />
@@ -825,16 +922,15 @@ const DailyTimesheet: React.FC = () => {
                   fullWidth
                   onClick={handleSubmit}
                   sx={{ py: 1.5 }}
+                  disabled={loading}
                 >
-                  Guardar
+                  {loading ? 'Guardando...' : editingActivity ? 'Actualizar' : 'Guardar'}
                 </Button>
               </Box>
             </Box>
           </Box>
         </Box>
       </Drawer>
-
-
 
       {/* Snackbar para mensajes */}
       <Snackbar
