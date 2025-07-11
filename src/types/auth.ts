@@ -51,6 +51,21 @@ export interface Empleado {
   createdAt?: string;
   updatedAt?: string | null;
   deletedAt?: string | null;
+};
+
+export interface Employee {
+  id: number;
+  nombre: string;
+  apellido: string;
+  codigo?: string;
+  departamento: string;
+}
+
+
+export interface EmployeesResponse {
+  success: boolean;
+  message: string;
+  data: Employee[];
 }
 
 export interface LoginResponse {

@@ -22,6 +22,8 @@ import {
   Person as PersonIcon,
   FilterList as FilterIcon,
 } from '@mui/icons-material';
+import { useEmployees } from './employeeByDepartament';
+import PlanillaDetallePreview from './PlanillaDetalleRol';
 
 interface Employee {
   id: number;
@@ -34,13 +36,15 @@ const TimesheetReview: React.FC = () => {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
+  const { employees, loading, error } = useEmployees();
+
 
   // Datos simulados de empleados del mismo departamento
-  const employees: Employee[] = [
-    { id: 1, nombre: 'Fulano', apellido: 'Pérez', departamento: 'Desarrollo' },
-    { id: 2, nombre: 'María', apellido: 'López', departamento: 'Desarrollo' },
-    { id: 3, nombre: 'Carlos', apellido: 'Rodríguez', departamento: 'Desarrollo' },
-  ];
+  // const employees: Employee[] = [
+  //   { id: 1, nombre: 'Fulano', apellido: 'Pérez', departamento: 'Desarrollo' },
+  //   { id: 2, nombre: 'María', apellido: 'López', departamento: 'Desarrollo' },
+  //   { id: 3, nombre: 'Carlos', apellido: 'Rodríguez', departamento: 'Desarrollo' },
+  // ];
 
   const filteredEmployees = employees.filter(employee =>
     `${employee.nombre} ${employee.apellido}`.toLowerCase().includes(searchTerm.toLowerCase())
@@ -51,7 +55,7 @@ const TimesheetReview: React.FC = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', height: 'calc(100vh - 64px)', bgcolor: 'background.default' }}>
+    <Box sx={{ display: 'flex', height: 'calc(100vh - 20px)', bgcolor: 'background.default' }}>
       {/* Panel izquierdo - Filtros */}
       <Paper
         sx={{
@@ -178,37 +182,18 @@ const TimesheetReview: React.FC = () => {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            p: 3,
+            p: 1,
           }}
         >
           {selectedEmployee ? (
-            <Box sx={{ textAlign: 'center' }}>
-              <Avatar
-                sx={{
-                  width: 80,
-                  height: 80,
-                  bgcolor: 'primary.main',
-                  mx: 'auto',
-                  mb: 2,
-                  fontSize: '2rem',
-                }}
-              >
-                {selectedEmployee.nombre[0]}{selectedEmployee.apellido[0]}
-              </Avatar>
-              <Typography variant="h6" gutterBottom>
-                Planillas de {selectedEmployee.nombre} {selectedEmployee.apellido}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Aquí se mostrarán las planillas del empleado seleccionado
-              </Typography>
-            </Box>
+            <PlanillaDetallePreview empleado={selectedEmployee} />
           ) : (
             <Box sx={{ textAlign: 'center' }}>
               <Avatar
                 sx={{
                   width: 80,
                   height: 80,
-                  bgcolor: 'grey.300',
+                  bgcolor: 'primary.main',
                   mx: 'auto',
                   mb: 2,
                 }}

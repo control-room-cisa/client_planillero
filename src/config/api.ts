@@ -8,9 +8,14 @@ export const API_CONFIG = {
     EMPRESAS: {
       LIST: '/empresas',
     },
+    EMPLOYEES: {
+      LIST_BY_DEPARTMENT: '/empleadosByDepartamento',
+    },
     // Aquí puedes agregar más endpoints cuando los necesites
     TIMESHEET: {
       // Endpoints futuros para planillas
+      DETAIL: (empleadoId: number, start: string, end: string) =>
+        `/planillas/detalle/${empleadoId}?start=${start}&end=${end}`,
     },
   },
   TIMEOUT: 10000,
