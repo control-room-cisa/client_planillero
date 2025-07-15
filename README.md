@@ -23,7 +23,7 @@ Una aplicación web moderna para el registro y gestión de actividades laborales
 - **Backend:**
   - Node.js + Express
   - JWT para autenticación
-  - PostgreSQL (presumiblemente)
+  - MySQL (Prisma ORM)
 
 ## 📋 Requisitos Previos
 
