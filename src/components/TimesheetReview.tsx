@@ -1,217 +1,199 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
   TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Paper,
-  InputAdornment,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   Avatar,
-  Divider,
-} from '@mui/material';
+  MenuItem,
+  Button,
+  IconButton,
+  useTheme,
+  useMediaQuery,
+  Drawer,
+} from "@mui/material";
+import Autocomplete from "@mui/material/Autocomplete";
 import {
   Search as SearchIcon,
   Person as PersonIcon,
   FilterList as FilterIcon,
-} from '@mui/icons-material';
-import { useEmployees } from './employeeByDepartament';
-import PlanillaDetallePreview from './PlanillaDetalleRol';
+} from "@mui/icons-material";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { es } from "date-fns/locale";
+import { useEmployees } from "./employeeByDepartament";
+import PlanillaDetallePreview from "./PlanillaDetallePreview";
+import type { Employee } from "../types/auth";
 
-interface Employee {
-  id: number;
-  nombre: string;
-  apellido: string;
-  departamento: string;
-}
+// Tipo y lista para estados de planilla (Sin "Todos")
+export type PlanillaStatus = "Pendiente" | "Aprobado" | "Rechazado";
+export const PlanillaStatuses: PlanillaStatus[] = [
+  "Pendiente",
+  "Aprobado",
+  "Rechazado",
+];
 
 const TimesheetReview: React.FC = () => {
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('Todos');
-  const { employees, loading, error } = useEmployees();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
+  // Rango por defecto: última semana
+  const today = new Date();
+  const lastWeek = new Date();
+  lastWeek.setDate(today.getDate() - 7);
 
-  // Datos simulados de empleados del mismo departamento
-  // const employees: Employee[] = [
-  //   { id: 1, nombre: 'Fulano', apellido: 'Pérez', departamento: 'Desarrollo' },
-  //   { id: 2, nombre: 'María', apellido: 'López', departamento: 'Desarrollo' },
-  //   { id: 3, nombre: 'Carlos', apellido: 'Rodríguez', departamento: 'Desarrollo' },
-  // ];
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
+    null
+  );
+  const [startDate, setStartDate] = useState<Date | null>(lastWeek);
+  const [endDate, setEndDate] = useState<Date | null>(today);
+  const [statusFilter, setStatusFilter] = useState<PlanillaStatus>("Pendiente");
+  const { employees, loading: empLoading } = useEmployees();
+  const [openFilters, setOpenFilters] = useState(!isMobile);
 
-  const filteredEmployees = employees.filter(employee =>
-    `${employee.nombre} ${employee.apellido}`.toLowerCase().includes(searchTerm.toLowerCase())
+  // Ajusta apertura al cambiar a móvil/escritorio
+  useEffect(() => {
+    setOpenFilters(!isMobile);
+  }, [isMobile]);
+
+  const filterContent = (
+    <Box
+      sx={{
+        width: 300,
+        p: 2,
+        display: "flex",
+        flexDirection: "column",
+        gap: 2,
+      }}
+    >
+      <Typography variant="h6" display="flex" alignItems="center">
+        <FilterIcon sx={{ mr: 1 }} /> Filtros
+      </Typography>
+
+      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
+        <DatePicker
+          label="Fecha inicio"
+          value={startDate}
+          onChange={setStartDate}
+          slotProps={{ textField: { size: "small", fullWidth: true } }}
+        />
+        <DatePicker
+          label="Fecha fin"
+          value={endDate}
+          onChange={setEndDate}
+          slotProps={{ textField: { size: "small", fullWidth: true } }}
+        />
+      </LocalizationProvider>
+
+      <Autocomplete
+        options={employees}
+        getOptionLabel={(opt) => `${opt.nombre} ${opt.apellido}`}
+        loading={empLoading}
+        onChange={(_, value) => setSelectedEmployee(value)}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            size="small"
+            placeholder="Buscar empleado"
+            InputProps={{
+              ...params.InputProps,
+              startAdornment: <SearchIcon sx={{ mr: 1 }} />,
+            }}
+            fullWidth
+          />
+        )}
+      />
+
+      <TextField
+        select
+        size="small"
+        label="Estado"
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value as PlanillaStatus)}
+      >
+        {PlanillaStatuses.map((status) => (
+          <MenuItem key={status} value={status}>
+            {status}
+          </MenuItem>
+        ))}
+      </TextField>
+
+      {isMobile && (
+        <Button variant="contained" onClick={() => setOpenFilters(false)}>
+          Aplicar filtros
+        </Button>
+      )}
+    </Box>
   );
 
-  const handleEmployeeSelect = (employee: Employee) => {
-    setSelectedEmployee(employee);
-  };
-
   return (
-    <Box sx={{ display: 'flex', height: 'calc(100vh - 20px)', bgcolor: 'background.default' }}>
-      {/* Panel izquierdo - Filtros */}
-      <Paper
-        sx={{
-          width: 350,
-          borderRadius: 0,
-          borderRight: '1px solid',
-          borderColor: 'divider',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {/* Header */}
-        <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="h6" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <FilterIcon />
-            Filtros
-          </Typography>
-        </Box>
-
-        {/* Buscar Empleado */}
-        <Box sx={{ p: 3 }}>
-          <Typography variant="subtitle2" fontWeight="medium" sx={{ mb: 2 }}>
-            Buscar Empleado
-          </Typography>
-          <TextField
-            fullWidth
-            placeholder="Nombre del empleado..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="action" />
-                </InputAdornment>
-              ),
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
+      <Box sx={{ display: "flex", height: "100vh" }}>
+        {/* Filtros: Drawer en móvil, panel fijo en escritorio */}
+        {isMobile ? (
+          <Drawer
+            open={openFilters}
+            onClose={() => setOpenFilters(false)}
+            variant="temporary"
+          >
+            {filterContent}
+          </Drawer>
+        ) : (
+          <Paper
+            sx={{
+              width: 300,
+              borderRadius: 0,
+              borderRight: "1px solid",
+              borderColor: "divider",
+              display: "flex",
+              flexDirection: "column",
             }}
-            sx={{ mb: 3 }}
-          />
+          >
+            {filterContent}
+          </Paper>
+        )}
 
-          {/* Lista de empleados */}
-          <List sx={{ p: 0, maxHeight: 300, overflow: 'auto' }}>
-            {filteredEmployees.map((employee) => (
-              <React.Fragment key={employee.id}>
-                <ListItem sx={{ p: 0 }}>
-                  <ListItemButton
-                    onClick={() => handleEmployeeSelect(employee)}
-                    selected={selectedEmployee?.id === employee.id}
-                    sx={{
-                      borderRadius: 1,
-                      mb: 0.5,
-                      '&.Mui-selected': {
-                        bgcolor: 'primary.light',
-                        '&:hover': {
-                          bgcolor: 'primary.light',
-                        },
-                      },
-                    }}
-                  >
-                    <ListItemIcon>
-                      <Avatar sx={{ width: 32, height: 32, bgcolor: 'grey.300' }}>
-                        <PersonIcon fontSize="small" />
-                      </Avatar>
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={
-                        <Typography variant="body2" fontWeight="medium">
-                          {employee.nombre} {employee.apellido}
-                        </Typography>
-                      }
-                      secondary={
-                        <Typography variant="caption" color="text.secondary">
-                          {employee.departamento}
-                        </Typography>
-                      }
-                    />
-                  </ListItemButton>
-                </ListItem>
-                {employee.id !== filteredEmployees[filteredEmployees.length - 1].id && (
-                  <Divider sx={{ my: 0.5 }} />
-                )}
-              </React.Fragment>
-            ))}
-          </List>
-        </Box>
-
-        {/* Filtro por Estado */}
-        <Box sx={{ p: 3, pt: 0 }}>
-          <Typography variant="subtitle2" fontWeight="medium" sx={{ mb: 2 }}>
-            Estado
-          </Typography>
-          <FormControl fullWidth>
-            <InputLabel>Estado</InputLabel>
-            <Select
-              value={statusFilter}
-              label="Estado"
-              onChange={(e) => setStatusFilter(e.target.value)}
+        {/* Panel derecho - Contenido */}
+        <Box sx={{ flex: 1, p: 2, position: "relative" }}>
+          {/* Botón para abrir filtros en móvil */}
+          {isMobile && (
+            <IconButton
+              onClick={() => setOpenFilters(true)}
+              sx={{ position: "absolute", top: 16, left: 16 }}
             >
-              <MenuItem value="Todos">Todos</MenuItem>
-              <MenuItem value="Pendiente">Pendiente</MenuItem>
-              <MenuItem value="Aprobado">Aprobado</MenuItem>
-              <MenuItem value="Rechazado">Rechazado</MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
-      </Paper>
+              <FilterIcon />
+            </IconButton>
+          )}
 
-      {/* Panel derecho - Contenido principal */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
-        <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
-          <Typography variant="h4" fontWeight="bold" gutterBottom>
-            Revisión Planillas Supervisor
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Mostrar Planillas mismo Departamento
-          </Typography>
-        </Box>
-
-        {/* Contenido */}
-        <Box
-          sx={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            p: 1,
-          }}
-        >
           {selectedEmployee ? (
-            <PlanillaDetallePreview empleado={selectedEmployee} />
+            <PlanillaDetallePreview
+              empleado={selectedEmployee}
+              startDate={startDate}
+              endDate={endDate}
+              status={statusFilter}
+            />
           ) : (
-            <Box sx={{ textAlign: 'center' }}>
+            <Box textAlign="center" mt={10}>
               <Avatar
                 sx={{
                   width: 80,
                   height: 80,
-                  bgcolor: 'primary.main',
-                  mx: 'auto',
-                  mb: 2,
+                  mx: "auto",
+                  bgcolor: "primary.main",
                 }}
               >
-                <PersonIcon sx={{ fontSize: '2rem' }} />
+                <PersonIcon sx={{ fontSize: 40 }} />
               </Avatar>
-              <Typography variant="h6" gutterBottom>
-                Selecciona un Empleado
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Busca y selecciona un empleado para revisar sus planillas
+              <Typography variant="h6" mt={2}>
+                Selecciona un empleado
               </Typography>
             </Box>
           )}
         </Box>
       </Box>
-    </Box>
+    </LocalizationProvider>
   );
 };
 
-export default TimesheetReview; 
+export default TimesheetReview;

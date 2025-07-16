@@ -1,13 +1,6 @@
 import { useEffect, useState } from "react";
 import { employeeService } from "../services/empleadoService";
-
-interface Employee {
-  id: number;
-  nombre: string;
-  apellido: string;
-  codigo?: string;
-  departamento: string;
-}
+import type { Employee } from "../types/auth";
 
 export const useEmployees = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
