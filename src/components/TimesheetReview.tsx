@@ -65,6 +65,7 @@ const TimesheetReview: React.FC = () => {
         display: "flex",
         flexDirection: "column",
         gap: 2,
+        overflowX: "hidden",
       }}
     >
       <Typography variant="h6" display="flex" alignItems="center">
@@ -136,18 +137,36 @@ const TimesheetReview: React.FC = () => {
             open={openFilters}
             onClose={() => setOpenFilters(false)}
             variant="temporary"
+            ModalProps={{ keepMounted: true }}
+            PaperProps={{
+              sx: {
+                width: 300,
+                position: "fixed",
+                top: "56px",
+                bottom: 0,
+                left: isMobile ? 0 : "240px",
+                overflowY: "auto",
+                overflowX: "hidden",
+              },
+            }}
           >
             {filterContent}
           </Drawer>
         ) : (
           <Paper
             sx={{
-              width: 300,
+              // width: 300,
+              // position: "fixed",
+              // top: "64px",
+              bottom: 0,
+              left: 0,
               borderRadius: 0,
-              borderRight: "1px solid",
+              // borderRight: "1px solid",
               borderColor: "divider",
-              display: "flex",
-              flexDirection: "column",
+              // display: "flex",
+              // flexDirection: "column",
+              // overflowY: "auto",
+              // overflowX: "hidden",
             }}
           >
             {filterContent}
@@ -155,7 +174,15 @@ const TimesheetReview: React.FC = () => {
         )}
 
         {/* Panel derecho - Contenido */}
-        <Box sx={{ flex: 1, p: 2, position: "relative" }}>
+        <Box
+          sx={{
+            flex: 1,
+            // ml: isMobile ? 0 : "300px",
+            p: 2,
+            position: "relative",
+            overflowY: "auto",
+          }}
+        >
           {/* Botón para abrir filtros en móvil */}
           {isMobile && (
             <IconButton
