@@ -114,6 +114,24 @@ class RegistroDiarioService {
     );
     return response.data.data;
   }
+
+  static async aprobarRrhh(
+    registroId: number,
+    aprobacion: boolean,
+    codigoRrhh?: string,
+    comentarioRrhh?: string
+  ): Promise<RegistroDiarioData> {
+    const payload = {
+      aprobacionRrhh: aprobacion,
+      ...(codigoRrhh !== undefined && { codigoRrhh }),
+      ...(comentarioRrhh !== undefined && { comentarioRrhh }),
+    };
+    const response = await api.patch<ApiResponse<RegistroDiarioData>>(
+      `/registrodiario/aprobacion-rrhh/${registroId}`,
+      payload
+    );
+    return response.data.data;
+  }
 }
 
 export default RegistroDiarioService;

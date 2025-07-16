@@ -21,13 +21,13 @@ import Swal from "sweetalert2";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { es } from "date-fns/locale";
-import RegistroDiarioService from "../services/registroDiarioService";
+import RegistroDiarioService from "../../services/registroDiarioService";
 import type {
   RegistroDiarioData,
   ActividadData,
-} from "../dtos/RegistrosDiariosDataDto";
-import type { Employee } from "../types/auth";
-import type { PlanillaStatus } from "./TimesheetReview";
+} from "../../dtos/RegistrosDiariosDataDto";
+import type { Employee } from "../../types/auth";
+import type { PlanillaStatus } from "./TimesheetReviewSupervisor";
 
 interface Props {
   empleado: Employee;
@@ -36,7 +36,7 @@ interface Props {
   status: PlanillaStatus;
 }
 
-const PlanillaDetallePreview: React.FC<Props> = ({
+const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   empleado,
   startDate,
   endDate,
@@ -325,4 +325,4 @@ const PlanillaDetallePreview: React.FC<Props> = ({
   );
 };
 
-export default PlanillaDetallePreview;
+export default PlanillaDetallePreviewSupervisor;

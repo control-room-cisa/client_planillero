@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Box,
   TextField,
@@ -10,16 +10,16 @@ import {
   InputAdornment,
   IconButton,
   Divider,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Email,
   Lock,
   Visibility,
   VisibilityOff,
   Login as LoginIcon,
-} from '@mui/icons-material';
-import { useAuth } from '../hooks/useAuth';
-import type { LoginRequest } from '../types/auth';
+} from "@mui/icons-material";
+import { useAuth } from "../../hooks/useAuth";
+import type { LoginRequest } from "../../types/auth";
 
 interface LoginProps {
   onToggleMode?: () => void;
@@ -28,35 +28,35 @@ interface LoginProps {
 export default function Login({ onToggleMode }: LoginProps) {
   const { login, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
   const [formData, setFormData] = useState<LoginRequest>({
-    correoElectronico: '',
-    contrasena: '',
+    correoElectronico: "",
+    contrasena: "",
   });
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
     // Limpiar error cuando el usuario empiece a escribir
-    if (error) setError('');
+    if (error) setError("");
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setError('');
+    setError("");
 
     if (!formData.correoElectronico || !formData.contrasena) {
-      setError('Por favor, completa todos los campos');
+      setError("Por favor, completa todos los campos");
       return;
     }
 
     try {
       await login(formData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
+      setError(err instanceof Error ? err.message : "Error al iniciar sesión");
     }
   };
 
@@ -68,11 +68,11 @@ export default function Login({ onToggleMode }: LoginProps) {
     <Container component="main" maxWidth="sm">
       <Box
         sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
           padding: 2,
         }}
       >
@@ -80,23 +80,23 @@ export default function Login({ onToggleMode }: LoginProps) {
           elevation={6}
           sx={{
             padding: 4,
-            width: '100%',
+            width: "100%",
             maxWidth: 400,
             borderRadius: 2,
           }}
         >
           <Box
             sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
               mb: 3,
             }}
           >
             <LoginIcon
               sx={{
                 fontSize: 48,
-                color: 'primary.main',
+                color: "primary.main",
                 mb: 2,
               }}
             />
@@ -108,7 +108,7 @@ export default function Login({ onToggleMode }: LoginProps) {
             </Typography>
           </Box>
 
-          <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+          <Box component="form" onSubmit={handleSubmit} sx={{ width: "100%" }}>
             {error && (
               <Alert severity="error" sx={{ mb: 2 }}>
                 {error}
@@ -143,7 +143,7 @@ export default function Login({ onToggleMode }: LoginProps) {
               id="contrasena"
               name="contrasena"
               label="Contraseña"
-              type={showPassword ? 'text' : 'password'}
+              type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               value={formData.contrasena}
               onChange={handleInputChange}
@@ -177,11 +177,11 @@ export default function Login({ onToggleMode }: LoginProps) {
                 mt: 3,
                 mb: 2,
                 py: 1.5,
-                fontSize: '1.1rem',
-                fontWeight: 'bold',
+                fontSize: "1.1rem",
+                fontWeight: "bold",
               }}
             >
-              {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+              {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
 
             {onToggleMode && (
@@ -191,8 +191,8 @@ export default function Login({ onToggleMode }: LoginProps) {
                     o
                   </Typography>
                 </Divider>
-                
-                <Box sx={{ textAlign: 'center' }}>
+
+                <Box sx={{ textAlign: "center" }}>
                   <Typography variant="body2" sx={{ mb: 1 }}>
                     ¿No tienes cuenta?
                   </Typography>
@@ -200,7 +200,7 @@ export default function Login({ onToggleMode }: LoginProps) {
                     onClick={onToggleMode}
                     variant="outlined"
                     fullWidth
-                    sx={{ textTransform: 'none' }}
+                    sx={{ textTransform: "none" }}
                   >
                     Crear cuenta nueva
                   </Button>
@@ -212,4 +212,4 @@ export default function Login({ onToggleMode }: LoginProps) {
       </Box>
     </Container>
   );
-} 
+}

@@ -1,15 +1,16 @@
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:3000/api',
+  BASE_URL: "http://localhost:3000/api",
   ENDPOINTS: {
     AUTH: {
-      LOGIN: '/auth/login',
-      REGISTER: '/auth/register',
+      LOGIN: "/auth/login",
+      REGISTER: "/auth/register",
     },
     EMPRESAS: {
-      LIST: '/empresas',
+      LIST: "/empresas",
     },
     EMPLOYEES: {
-      LIST_BY_DEPARTMENT: '/empleadosByDepartamento',
+      LIST_BY_DEPARTMENT: "/empleados/departamento",
+      LIST_BY_COMPANY: "/empleados/empresa",
     },
     // Aquí puedes agregar más endpoints cuando los necesites
     TIMESHEET: {
@@ -19,4 +20,4 @@ export const API_CONFIG = {
     },
   },
   TIMEOUT: 10000,
-} as const; 
+} as const;

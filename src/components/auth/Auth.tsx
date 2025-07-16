@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import Login from './Login';
-import Register from './Register';
+import React, { useState } from "react";
+import Login from "./Login";
+import Register from "../Register";
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -19,11 +19,11 @@ export default function Auth() {
       {isLogin ? (
         <Login onToggleMode={toggleMode} />
       ) : (
-        <Register 
+        <Register
           onRegistrationSuccess={handleRegistrationSuccess}
           onToggleMode={toggleMode}
         />
       )}
     </>
   );
-} 
+}

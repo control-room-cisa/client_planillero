@@ -1,8 +1,8 @@
-import React from 'react';
-import type { ReactNode } from 'react';
-import { Box, CircularProgress } from '@mui/material';
-import { useAuth } from '../hooks/useAuth';
-import Auth from './Auth';
+import React from "react";
+import type { ReactNode } from "react";
+import { Box, CircularProgress } from "@mui/material";
+import { useAuth } from "../hooks/useAuth";
+import Auth from "./auth/Auth";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -16,10 +16,10 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return (
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
         }}
       >
         <CircularProgress size={60} />
@@ -34,4 +34,4 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   // Si está autenticado, mostrar el contenido protegido
   return <>{children}</>;
-} 
+}

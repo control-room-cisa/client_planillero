@@ -22,9 +22,9 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { es } from "date-fns/locale";
-import { useEmployees } from "./employeeByDepartament";
+import { useEmployees } from "../employeeByDepartament";
 import PlanillaDetallePreview from "./PlanillaDetallePreview";
-import type { Employee } from "../types/auth";
+import type { Employee } from "../../types/auth";
 
 // Tipo y lista para estados de planilla (Sin "Todos")
 export type PlanillaStatus = "Pendiente" | "Aprobado" | "Rechazado";
@@ -34,7 +34,7 @@ export const PlanillaStatuses: PlanillaStatus[] = [
   "Rechazado",
 ];
 
-const TimesheetReview: React.FC = () => {
+const TimesheetReviewSupervisor: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -223,4 +223,4 @@ const TimesheetReview: React.FC = () => {
   );
 };
 
-export default TimesheetReview;
+export default TimesheetReviewSupervisor;
