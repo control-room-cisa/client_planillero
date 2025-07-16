@@ -96,6 +96,24 @@ class RegistroDiarioService {
 
     return response.data.data;
   }
+
+  static async aprobarSupervisor(
+    registroId: number,
+    aprobacion: boolean,
+    codigoSupervisor?: string,
+    comentarioSupervisor?: string
+  ): Promise<RegistroDiarioData> {
+    const payload = {
+      aprobacionSupervisor: aprobacion,
+      ...(codigoSupervisor !== undefined && { codigoSupervisor }),
+      ...(comentarioSupervisor !== undefined && { comentarioSupervisor }),
+    };
+    const response = await api.patch<ApiResponse<RegistroDiarioData>>(
+      `/registrodiario/aprobacion-supervisor/${registroId}`,
+      payload
+    );
+    return response.data.data;
+  }
 }
 
 export default RegistroDiarioService;
