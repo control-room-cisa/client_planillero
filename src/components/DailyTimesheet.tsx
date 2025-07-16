@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -24,8 +24,8 @@ import {
   Stack,
   Chip,
   CircularProgress,
-} from '@mui/material';
-import type { SelectChangeEvent } from '@mui/material';
+} from "@mui/material";
+import type { SelectChangeEvent } from "@mui/material";
 import {
   ChevronLeft,
   ChevronRight,
@@ -36,12 +36,12 @@ import {
   Settings,
   Edit,
   Delete,
-} from '@mui/icons-material';
-import { useAuth } from '../hooks/useAuth';
-import RegistroDiarioService from '../services/registroDiarioService';
-import JobService from '../services/jobService';
-import type { RegistroDiarioData } from '../services/registroDiarioService';
-import type { Job } from '../services/jobService';
+} from "@mui/icons-material";
+import { useAuth } from "../hooks/useAuth";
+import RegistroDiarioService from "../services/registroDiarioService";
+import JobService from "../services/jobService";
+import type { Job } from "../services/jobService";
+import type { RegistroDiarioData } from "../dtos/RegistrosDiariosDataDto";
 
 interface ActivityData {
   descripcion: string;
@@ -66,43 +66,50 @@ interface Activity {
 
 const DailyTimesheet: React.FC = () => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [editingIndex, setEditingIndex] = useState<number>(-1);
   const [formData, setFormData] = useState<ActivityData>({
-    descripcion: '',
-    horasInvertidas: '',
-    job: '',
-    class: '',
+    descripcion: "",
+    horasInvertidas: "",
+    job: "",
+    class: "",
     horaExtra: false,
   });
-  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
-  
+  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+
   // Estado para jobs
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
-  
+
   // Estado para los datos del día laboral
-  const [registroDiario, setRegistroDiario] = useState<RegistroDiarioData | null>(null);
+  const [registroDiario, setRegistroDiario] =
+    useState<RegistroDiarioData | null>(null);
   const [dayConfigData, setDayConfigData] = useState({
-    horaEntrada: '',
-    horaSalida: '',
-    jornada: 'M',
+    horaEntrada: "",
+    horaSalida: "",
+    jornada: "M",
     esDiaLibre: false,
-    comentarioEmpleado: '',
+    comentarioEmpleado: "",
   });
-  const [dayConfigErrors, setDayConfigErrors] = useState<{[key: string]: string}>({});
+  const [dayConfigErrors, setDayConfigErrors] = useState<{
+    [key: string]: string;
+  }>({});
   const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
-  
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error",
+  });
+
   // Cargar datos del registro diario cuando cambie la fecha
   useEffect(() => {
     loadRegistroDiario();
   }, [currentDate]);
-  
+
   // Cargar jobs cuando se abra el drawer
   const loadJobs = async () => {
     try {
@@ -110,45 +117,57 @@ const DailyTimesheet: React.FC = () => {
       const jobsData = await JobService.getAll();
       setJobs(jobsData);
     } catch (error) {
-      console.error('Error al cargar jobs:', error);
-      setSnackbar({ open: true, message: 'Error al cargar la lista de jobs', severity: 'error' });
+      console.error("Error al cargar jobs:", error);
+      setSnackbar({
+        open: true,
+        message: "Error al cargar la lista de jobs",
+        severity: "error",
+      });
     } finally {
       setLoadingJobs(false);
     }
   };
 
+  const readOnly = !!(
+    registroDiario?.aprobacionSupervisor || registroDiario?.aprobacionRrhh
+  );
+
   const loadRegistroDiario = async () => {
     try {
       setLoading(true);
-      const dateString = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      const dateString = currentDate.toISOString().split("T")[0]; // YYYY-MM-DD
       const registro = await RegistroDiarioService.getByDate(dateString);
       setRegistroDiario(registro);
-      
+
       if (registro) {
         // Extraer solo la hora de la fecha ISO sin conversión de zona horaria
         const horaEntrada = registro.horaEntrada.substring(11, 16); // "YYYY-MM-DDTHH:MM:SS" → "HH:MM"
         const horaSalida = registro.horaSalida.substring(11, 16); // "YYYY-MM-DDTHH:MM:SS" → "HH:MM"
-        
+
         setDayConfigData({
           horaEntrada,
           horaSalida,
-          jornada: registro.jornada || 'M',
+          jornada: registro.jornada || "M",
           esDiaLibre: registro.esDiaLibre || false,
-          comentarioEmpleado: registro.comentarioEmpleado || '',
+          comentarioEmpleado: registro.comentarioEmpleado || "",
         });
       } else {
         // Resetear el formulario si no hay datos
         setDayConfigData({
-          horaEntrada: '07:00',
-          horaSalida: '17:00',
-          jornada: 'M',
+          horaEntrada: "07:00",
+          horaSalida: "17:00",
+          jornada: "M",
           esDiaLibre: false,
-          comentarioEmpleado: '',
+          comentarioEmpleado: "",
         });
       }
     } catch (error) {
-      console.error('Error al cargar registro diario:', error);
-      setSnackbar({ open: true, message: 'Error al cargar los datos del día', severity: 'error' });
+      console.error("Error al cargar registro diario:", error);
+      setSnackbar({
+        open: true,
+        message: "Error al cargar los datos del día",
+        severity: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -165,10 +184,10 @@ const DailyTimesheet: React.FC = () => {
     setEditingIndex(-1);
     // Limpiar formulario al cerrar
     setFormData({
-      descripcion: '',
-      horasInvertidas: '',
-      job: '',
-      class: '',
+      descripcion: "",
+      horasInvertidas: "",
+      job: "",
+      class: "",
       horaExtra: false,
     });
     setFormErrors({});
@@ -178,10 +197,10 @@ const DailyTimesheet: React.FC = () => {
     setEditingActivity(activity);
     setEditingIndex(index);
     setFormData({
-      descripcion: activity.descripcion || '',
-      horasInvertidas: activity.duracionHoras?.toString() || '',
-      job: activity.jobId?.toString() || '',
-      class: activity.className || '',
+      descripcion: activity.descripcion || "",
+      horasInvertidas: activity.duracionHoras?.toString() || "",
+      job: activity.jobId?.toString() || "",
+      class: activity.className || "",
       horaExtra: activity.esExtra || false,
     });
     setDrawerOpen(true);
@@ -190,15 +209,15 @@ const DailyTimesheet: React.FC = () => {
 
   const handleDeleteActivity = async (index: number) => {
     if (!registroDiario?.actividades) return;
-    
+
     try {
       setLoading(true);
-      const dateString = currentDate.toISOString().split('T')[0];
-      
+      const dateString = currentDate.toISOString().split("T")[0];
+
       // Crear nueva lista de actividades sin la actividad a eliminar
       const actividadesActualizadas = registroDiario.actividades
         .filter((_, i) => i !== index)
-        .map(act => ({
+        .map((act) => ({
           jobId: act.jobId,
           duracionHoras: act.duracionHoras,
           esExtra: act.esExtra,
@@ -218,47 +237,58 @@ const DailyTimesheet: React.FC = () => {
 
       const updatedRegistro = await RegistroDiarioService.upsert(params);
       setRegistroDiario(updatedRegistro);
-      setSnackbar({ open: true, message: 'Actividad eliminada correctamente', severity: 'success' });
+      setSnackbar({
+        open: true,
+        message: "Actividad eliminada correctamente",
+        severity: "success",
+      });
     } catch (error) {
-      console.error('Error al eliminar actividad:', error);
-      setSnackbar({ open: true, message: 'Error al eliminar la actividad', severity: 'error' });
+      console.error("Error al eliminar actividad:", error);
+      setSnackbar({
+        open: true,
+        message: "Error al eliminar la actividad",
+        severity: "error",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDayConfigInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDayConfigInputChange = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const { name, value, type, checked } = event.target;
-    setDayConfigData(prev => ({
+    setDayConfigData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === "checkbox" ? checked : value,
     }));
     // Limpiar error cuando el usuario empiece a escribir
     if (dayConfigErrors[name]) {
-      setDayConfigErrors(prev => ({
+      setDayConfigErrors((prev) => ({
         ...prev,
-        [name]: '',
+        [name]: "",
       }));
     }
   };
 
   const validateDayConfig = (): boolean => {
-    const errors: {[key: string]: string} = {};
+    const errors: { [key: string]: string } = {};
 
     if (!dayConfigData.horaEntrada) {
-      errors.horaEntrada = 'La hora de entrada es obligatoria';
+      errors.horaEntrada = "La hora de entrada es obligatoria";
     }
 
     if (!dayConfigData.horaSalida) {
-      errors.horaSalida = 'La hora de salida es obligatoria';
+      errors.horaSalida = "La hora de salida es obligatoria";
     }
 
     if (dayConfigData.horaEntrada && dayConfigData.horaSalida) {
       const entrada = new Date(`2000-01-01T${dayConfigData.horaEntrada}:00`);
       const salida = new Date(`2000-01-01T${dayConfigData.horaSalida}:00`);
-      
+
       if (entrada >= salida) {
-        errors.horaSalida = 'La hora de salida debe ser posterior a la de entrada';
+        errors.horaSalida =
+          "La hora de salida debe ser posterior a la de entrada";
       }
     }
 
@@ -268,17 +298,18 @@ const DailyTimesheet: React.FC = () => {
 
   const hasChangesInDayConfig = (): boolean => {
     if (!registroDiario) return false;
-    
+
     // Extraer solo la hora de la fecha ISO sin conversión de zona horaria
     const registroHoraEntrada = registroDiario.horaEntrada.substring(11, 16);
     const registroHoraSalida = registroDiario.horaSalida.substring(11, 16);
-    
+
     return (
       dayConfigData.horaEntrada !== registroHoraEntrada ||
       dayConfigData.horaSalida !== registroHoraSalida ||
       dayConfigData.jornada !== registroDiario.jornada ||
       dayConfigData.esDiaLibre !== registroDiario.esDiaLibre ||
-      dayConfigData.comentarioEmpleado !== (registroDiario.comentarioEmpleado || '')
+      dayConfigData.comentarioEmpleado !==
+        (registroDiario.comentarioEmpleado || "")
     );
   };
 
@@ -287,11 +318,15 @@ const DailyTimesheet: React.FC = () => {
 
     try {
       setLoading(true);
-      const dateString = currentDate.toISOString().split('T')[0];
-      
+      const dateString = currentDate.toISOString().split("T")[0];
+
       // Crear fechas ISO completas para el día seleccionado
-      const horaEntrada = new Date(`${dateString}T${dayConfigData.horaEntrada}:00.000Z`);
-      const horaSalida = new Date(`${dateString}T${dayConfigData.horaSalida}:00.000Z`);
+      const horaEntrada = new Date(
+        `${dateString}T${dayConfigData.horaEntrada}:00.000Z`
+      );
+      const horaSalida = new Date(
+        `${dateString}T${dayConfigData.horaSalida}:00.000Z`
+      );
 
       const params = {
         fecha: dateString,
@@ -300,21 +335,30 @@ const DailyTimesheet: React.FC = () => {
         jornada: dayConfigData.jornada,
         esDiaLibre: dayConfigData.esDiaLibre,
         comentarioEmpleado: dayConfigData.comentarioEmpleado,
-        actividades: registroDiario?.actividades?.map(act => ({
-          jobId: act.jobId,
-          duracionHoras: act.duracionHoras,
-          esExtra: act.esExtra,
-          className: act.className,
-          descripcion: act.descripcion,
-        })) || [],
+        actividades:
+          registroDiario?.actividades?.map((act) => ({
+            jobId: act.jobId,
+            duracionHoras: act.duracionHoras,
+            esExtra: act.esExtra,
+            className: act.className,
+            descripcion: act.descripcion,
+          })) || [],
       };
 
       const updatedRegistro = await RegistroDiarioService.upsert(params);
       setRegistroDiario(updatedRegistro);
-      setSnackbar({ open: true, message: 'Configuración del día guardada correctamente', severity: 'success' });
+      setSnackbar({
+        open: true,
+        message: "Configuración del día guardada correctamente",
+        severity: "success",
+      });
     } catch (error) {
-      console.error('Error al guardar configuración del día:', error);
-      setSnackbar({ open: true, message: 'Error al guardar la configuración', severity: 'error' });
+      console.error("Error al guardar configuración del día:", error);
+      setSnackbar({
+        open: true,
+        message: "Error al guardar la configuración",
+        severity: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -322,52 +366,52 @@ const DailyTimesheet: React.FC = () => {
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = event.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: type === "checkbox" ? checked : value,
     }));
     // Limpiar error cuando el usuario empiece a escribir
     if (formErrors[name]) {
-      setFormErrors(prev => ({
+      setFormErrors((prev) => ({
         ...prev,
-        [name]: '',
+        [name]: "",
       }));
     }
   };
 
   const handleSelectChange = (event: SelectChangeEvent<string>) => {
     const { name, value } = event.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name as string]: value as string,
     }));
     // Limpiar error cuando el usuario seleccione
     if (formErrors[name as string]) {
-      setFormErrors(prev => ({
+      setFormErrors((prev) => ({
         ...prev,
-        [name as string]: '',
+        [name as string]: "",
       }));
     }
   };
 
   const validateForm = (): boolean => {
-    const errors: {[key: string]: string} = {};
+    const errors: { [key: string]: string } = {};
 
     if (!formData.descripcion.trim()) {
-      errors.descripcion = 'La descripción es obligatoria';
+      errors.descripcion = "La descripción es obligatoria";
     }
 
     if (!formData.horasInvertidas.trim()) {
-      errors.horasInvertidas = 'Las horas invertidas son obligatorias';
+      errors.horasInvertidas = "Las horas invertidas son obligatorias";
     } else {
       const hours = parseFloat(formData.horasInvertidas);
       if (isNaN(hours) || hours <= 0) {
-        errors.horasInvertidas = 'Ingresa un número válido mayor a 0';
+        errors.horasInvertidas = "Ingresa un número válido mayor a 0";
       }
     }
 
     if (!formData.job.trim()) {
-      errors.job = 'El job es obligatorio';
+      errors.job = "El job es obligatorio";
     }
 
     setFormErrors(errors);
@@ -379,8 +423,8 @@ const DailyTimesheet: React.FC = () => {
 
     try {
       setLoading(true);
-      const dateString = currentDate.toISOString().split('T')[0];
-      
+      const dateString = currentDate.toISOString().split("T")[0];
+
       const actividad = {
         jobId: parseInt(formData.job),
         duracionHoras: parseFloat(formData.horasInvertidas),
@@ -391,16 +435,17 @@ const DailyTimesheet: React.FC = () => {
 
       if (registroDiario) {
         // Obtener actividades existentes
-        const actividadesExistentes = registroDiario.actividades?.map(act => ({
-          jobId: act.jobId,
-          duracionHoras: act.duracionHoras,
-          esExtra: act.esExtra,
-          className: act.className,
-          descripcion: act.descripcion,
-        })) || [];
+        const actividadesExistentes =
+          registroDiario.actividades?.map((act) => ({
+            jobId: act.jobId,
+            duracionHoras: act.duracionHoras,
+            esExtra: act.esExtra,
+            className: act.className,
+            descripcion: act.descripcion,
+          })) || [];
 
         let actividadesActualizadas;
-        
+
         if (editingActivity && editingIndex >= 0) {
           // Si estamos editando, reemplazar la actividad en el índice específico
           actividadesActualizadas = [...actividadesExistentes];
@@ -425,10 +470,14 @@ const DailyTimesheet: React.FC = () => {
       } else {
         // Si no existe registro, validar configuración del día y crear nuevo registro
         if (!validateDayConfig()) return;
-        
+
         // Crear fechas ISO completas para el día seleccionado
-        const horaEntrada = new Date(`${dateString}T${dayConfigData.horaEntrada}:00.000Z`);
-        const horaSalida = new Date(`${dateString}T${dayConfigData.horaSalida}:00.000Z`);
+        const horaEntrada = new Date(
+          `${dateString}T${dayConfigData.horaEntrada}:00.000Z`
+        );
+        const horaSalida = new Date(
+          `${dateString}T${dayConfigData.horaSalida}:00.000Z`
+        );
 
         const params = {
           fecha: dateString,
@@ -444,36 +493,57 @@ const DailyTimesheet: React.FC = () => {
         setRegistroDiario(updatedRegistro);
       }
 
-      const actionMessage = editingActivity ? 'Actividad actualizada correctamente' : 'Actividad guardada correctamente';
-      setSnackbar({ open: true, message: actionMessage, severity: 'success' });
+      const actionMessage = editingActivity
+        ? "Actividad actualizada correctamente"
+        : "Actividad guardada correctamente";
+      setSnackbar({ open: true, message: actionMessage, severity: "success" });
       handleDrawerClose();
     } catch (error) {
-      console.error('Error al guardar actividad:', error);
-      const message = (error as Error).message || 'Error al guardar la actividad';
-      setSnackbar({ open: true, message, severity: 'error' });
+      console.error("Error al guardar actividad:", error);
+      const message =
+        (error as Error).message || "Error al guardar la actividad";
+      setSnackbar({ open: true, message, severity: "error" });
     } finally {
       setLoading(false);
     }
   };
 
   const formatDate = (date: Date) => {
-    const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-    const months = [
-      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    const days = [
+      "domingo",
+      "lunes",
+      "martes",
+      "miércoles",
+      "jueves",
+      "viernes",
+      "sábado",
     ];
-    
+    const months = [
+      "enero",
+      "febrero",
+      "marzo",
+      "abril",
+      "mayo",
+      "junio",
+      "julio",
+      "agosto",
+      "septiembre",
+      "octubre",
+      "noviembre",
+      "diciembre",
+    ];
+
     const dayName = days[date.getDay()];
     const day = date.getDate();
     const monthName = months[date.getMonth()];
     const year = date.getFullYear();
-    
+
     return `${dayName}, ${day} de ${monthName} de ${year}`;
   };
 
-  const navigateDate = (direction: 'prev' | 'next') => {
+  const navigateDate = (direction: "prev" | "next") => {
     const newDate = new Date(currentDate);
-    if (direction === 'prev') {
+    if (direction === "prev") {
       newDate.setDate(currentDate.getDate() - 1);
     } else {
       newDate.setDate(currentDate.getDate() + 1);
@@ -491,64 +561,80 @@ const DailyTimesheet: React.FC = () => {
   };
 
   // Calcular horas trabajadas basándose en las actividades
-  const workedHours = registroDiario?.actividades?.reduce((total, act) => total + act.duracionHoras, 0) || 0;
+  const workedHours =
+    registroDiario?.actividades?.reduce(
+      (total, act) => total + act.duracionHoras,
+      0
+    ) || 0;
   const totalHours = registroDiario ? 9.0 : 0; // 9 horas estándar, podría calcularse desde hora entrada/salida
-  const progressPercentage = totalHours > 0 ? (workedHours / totalHours) * 100 : 0;
-  
+  const progressPercentage =
+    totalHours > 0 ? (workedHours / totalHours) * 100 : 0;
+
   // Estado del registro diario
   const hasDayRecord = Boolean(registroDiario);
   const dayConfigHasChanges = hasChangesInDayConfig();
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: '100%' }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: "100%" }}>
       {/* Header with date navigation */}
       <Box
         sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
           mb: 3,
-          flexWrap: 'wrap',
+          flexWrap: "wrap",
           gap: 2,
         }}
       >
         <Typography
-          variant={isMobile ? 'h5' : 'h4'}
+          variant={isMobile ? "h5" : "h4"}
           component="h1"
-          sx={{ fontWeight: 'bold', minWidth: 0 }}
+          sx={{ fontWeight: "bold", minWidth: 0 }}
         >
           Registro de Actividades
         </Typography>
-        
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <IconButton onClick={() => navigateDate('prev')} size="small">
+
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            flexWrap: "wrap",
+          }}
+        >
+          <IconButton onClick={() => navigateDate("prev")} size="small">
             <ChevronLeft />
           </IconButton>
-          
+
           <Button
-            variant={isToday() ? 'contained' : 'outlined'}
+            variant={isToday() ? "contained" : "outlined"}
             startIcon={<CalendarToday />}
             onClick={goToToday}
             size="small"
-            sx={{ minWidth: 'auto' }}
+            sx={{ minWidth: "auto" }}
           >
-            {isToday() ? 'Hoy' : 'Hoy'}
+            {isToday() ? "Hoy" : "Hoy"}
           </Button>
-          
-          <IconButton onClick={() => navigateDate('next')} size="small">
+
+          <IconButton onClick={() => navigateDate("next")} size="small">
             <ChevronRight />
           </IconButton>
 
           <Button
-            variant={hasDayRecord ? 'outlined' : 'contained'}
+            variant={hasDayRecord ? "outlined" : "contained"}
             startIcon={<Settings />}
             onClick={handleDayConfigSubmit}
             size="small"
-            color={hasDayRecord ? 'success' : 'primary'}
+            color={hasDayRecord ? "success" : "primary"}
             sx={{ ml: 1 }}
             disabled={loading || (hasDayRecord && !dayConfigHasChanges)}
           >
-            {loading ? 'Guardando...' : hasDayRecord ? 'Actualizar Día' : 'Guardar Día'}
+            {loading
+              ? "Guardando..."
+              : hasDayRecord
+              ? "Actualizar Día"
+              : "Guardar Día"}
           </Button>
         </Box>
       </Box>
@@ -557,28 +643,42 @@ const DailyTimesheet: React.FC = () => {
       <Typography
         variant="body1"
         color="text.secondary"
-        sx={{ mb: 1, textAlign: 'center' }}
+        sx={{ mb: 1, textAlign: "center" }}
       >
         {formatDate(currentDate)}
       </Typography>
 
       {/* Day info */}
       {registroDiario && (
-        <Stack direction="row" spacing={1} justifyContent="center" sx={{ mb: 2 }}>
-          <Chip 
-            label={`Jornada: ${registroDiario.jornada === 'M' ? 'Mañana' : registroDiario.jornada === 'T' ? 'Tarde' : 'Noche'}`}
+        <Stack
+          direction="row"
+          spacing={1}
+          justifyContent="center"
+          sx={{ mb: 2 }}
+        >
+          <Chip
+            label={`Jornada: ${
+              registroDiario.jornada === "M"
+                ? "Mañana"
+                : registroDiario.jornada === "T"
+                ? "Tarde"
+                : "Noche"
+            }`}
             size="small"
             color="primary"
             variant="outlined"
           />
-          <Chip 
-            label={`${registroDiario.horaEntrada.substring(11, 16)} - ${registroDiario.horaSalida.substring(11, 16)}`}
+          <Chip
+            label={`${registroDiario.horaEntrada.substring(
+              11,
+              16
+            )} - ${registroDiario.horaSalida.substring(11, 16)}`}
             size="small"
             color="secondary"
             variant="outlined"
           />
           {registroDiario.esDiaLibre && (
-            <Chip 
+            <Chip
               label="Día Libre"
               size="small"
               color="warning"
@@ -592,21 +692,33 @@ const DailyTimesheet: React.FC = () => {
       <Typography
         variant="body2"
         color="text.primary"
-        sx={{ mb: 3, textAlign: 'center', fontWeight: 'medium' }}
+        sx={{ mb: 3, textAlign: "center", fontWeight: "medium" }}
       >
         ¡Buen día, {user?.nombre}! 👋
       </Typography>
 
       {/* Day Configuration Section */}
-      <Card sx={{ mb: 3, bgcolor: 'background.paper' }}>
+      <Card sx={{ mb: 3, bgcolor: "background.paper" }}>
         <CardContent>
-          <Typography variant="h6" component="h2" sx={{ mb: 3, fontWeight: 'bold' }}>
+          <Typography
+            variant="h6"
+            component="h2"
+            sx={{ mb: 3, fontWeight: "bold" }}
+          >
             Configuración del Día Laboral
           </Typography>
-          
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 3 }}>
+
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+              gap: 2,
+              mb: 3,
+            }}
+          >
             {/* Hora de Entrada */}
             <TextField
+              disabled={readOnly}
               fullWidth
               required
               type="time"
@@ -622,6 +734,7 @@ const DailyTimesheet: React.FC = () => {
 
             {/* Hora de Salida */}
             <TextField
+              disabled={readOnly}
               fullWidth
               required
               type="time"
@@ -636,14 +749,26 @@ const DailyTimesheet: React.FC = () => {
             />
           </Box>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 3 }}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+              gap: 2,
+              mb: 3,
+            }}
+          >
             {/* Jornada */}
             <FormControl fullWidth size="small">
               <InputLabel>Jornada</InputLabel>
               <Select
+                disabled={readOnly}
                 name="jornada"
                 value={dayConfigData.jornada}
-                onChange={(e) => handleDayConfigInputChange(e as React.ChangeEvent<HTMLInputElement>)}
+                onChange={(e) =>
+                  handleDayConfigInputChange(
+                    e as React.ChangeEvent<HTMLInputElement>
+                  )
+                }
                 label="Jornada"
               >
                 <MenuItem value="M">Mañana</MenuItem>
@@ -653,10 +778,11 @@ const DailyTimesheet: React.FC = () => {
             </FormControl>
 
             {/* Es Día Libre */}
-            <Box sx={{ display: 'flex', alignItems: 'center', height: '40px' }}>
+            <Box sx={{ display: "flex", alignItems: "center", height: "40px" }}>
               <FormControlLabel
                 control={
                   <Checkbox
+                    disabled={readOnly}
                     name="esDiaLibre"
                     checked={dayConfigData.esDiaLibre}
                     onChange={handleDayConfigInputChange}
@@ -670,6 +796,7 @@ const DailyTimesheet: React.FC = () => {
 
           {/* Comentario del Empleado */}
           <TextField
+            disabled={readOnly}
             fullWidth
             multiline
             rows={2}
@@ -684,20 +811,24 @@ const DailyTimesheet: React.FC = () => {
       </Card>
 
       {/* Work progress card */}
-      <Card sx={{ mb: 3, bgcolor: 'background.paper' }}>
+      <Card sx={{ mb: 3, bgcolor: "background.paper" }}>
         <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <AccessTime sx={{ mr: 1, color: 'primary.main' }} />
+          <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+            <AccessTime sx={{ mr: 1, color: "primary.main" }} />
             <Typography variant="h6" component="h2">
               Progreso del Día Laboral
             </Typography>
-            <Box sx={{ ml: 'auto' }}>
-              <Typography variant="body2" color="primary.main" fontWeight="bold">
+            <Box sx={{ ml: "auto" }}>
+              <Typography
+                variant="body2"
+                color="primary.main"
+                fontWeight="bold"
+              >
                 {workedHours.toFixed(1)} / {totalHours.toFixed(1)} horas
               </Typography>
             </Box>
           </Box>
-          
+
           <LinearProgress
             variant="determinate"
             value={progressPercentage}
@@ -705,26 +836,35 @@ const DailyTimesheet: React.FC = () => {
               height: 8,
               borderRadius: 4,
               mb: 2,
-              bgcolor: 'grey.200',
-              '& .MuiLinearProgress-bar': {
+              bgcolor: "grey.200",
+              "& .MuiLinearProgress-bar": {
                 borderRadius: 4,
               },
             }}
           />
-          
+
           <Typography variant="body2" color="warning.main">
-            Faltan {(totalHours - workedHours).toFixed(1)} horas para completar el día
+            Faltan {(totalHours - workedHours).toFixed(1)} horas para completar
+            el día
           </Typography>
         </CardContent>
       </Card>
 
       {/* Activities section */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
         <Typography variant="h6" component="h2">
           Actividades del Hoy
         </Typography>
         {!isMobile && (
           <Button
+            disabled={readOnly}
             variant="contained"
             startIcon={<Add />}
             sx={{ borderRadius: 2 }}
@@ -739,54 +879,75 @@ const DailyTimesheet: React.FC = () => {
       {registroDiario?.actividades && registroDiario.actividades.length > 0 ? (
         <Stack spacing={2}>
           {registroDiario.actividades.map((actividad, index) => (
-            <Card key={actividad.id || index} sx={{ bgcolor: 'background.paper' }}>
+            <Card
+              key={actividad.id || index}
+              sx={{ bgcolor: "background.paper" }}
+            >
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                  <Typography variant="h6" component="h3" sx={{ fontWeight: 'medium', flex: 1 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    mb: 2,
+                  }}
+                >
+                  <Typography
+                    variant="h6"
+                    component="h3"
+                    sx={{ fontWeight: "medium", flex: 1 }}
+                  >
                     {actividad.job?.nombre || `Job ID: ${actividad.jobId}`}
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <Stack direction="row" spacing={1}>
-                      <Chip 
+                      <Chip
                         label={`${actividad.duracionHoras}h`}
                         size="small"
                         color="primary"
                       />
                       {actividad.esExtra && (
-                        <Chip 
-                          label="Extra"
-                          size="small"
-                          color="warning"
-                        />
+                        <Chip label="Extra" size="small" color="warning" />
                       )}
                     </Stack>
-                    <IconButton 
-                      size="small" 
+                    <IconButton
+                      disabled={readOnly}
+                      size="small"
                       onClick={() => handleEditActivity(actividad, index)}
-                      sx={{ color: 'primary.main' }}
+                      sx={{ color: "primary.main" }}
                     >
                       <Edit />
                     </IconButton>
-                    <IconButton 
-                      size="small" 
+                    <IconButton
+                      disabled={readOnly}
+                      size="small"
                       onClick={() => handleDeleteActivity(index)}
-                      sx={{ color: 'error.main' }}
+                      sx={{ color: "error.main" }}
                     >
                       <Delete />
                     </IconButton>
                   </Box>
                 </Box>
-                
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  <strong>Job:</strong> {actividad.job?.codigo || actividad.jobId}
+
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 1 }}
+                >
+                  <strong>Job:</strong>{" "}
+                  {actividad.job?.codigo || actividad.jobId}
                 </Typography>
-                
+
                 {actividad.className && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 1 }}
+                  >
                     <strong>Class:</strong> {actividad.className}
                   </Typography>
                 )}
-                
+
                 <Typography variant="body1" color="text.primary">
                   {actividad.descripcion}
                 </Typography>
@@ -797,18 +958,18 @@ const DailyTimesheet: React.FC = () => {
       ) : (
         <Box
           sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
             minHeight: 300,
-            textAlign: 'center',
-            bgcolor: 'background.paper',
+            textAlign: "center",
+            bgcolor: "background.paper",
             borderRadius: 2,
             p: 4,
           }}
         >
-          <AccessTime sx={{ fontSize: 80, color: 'grey.300', mb: 2 }} />
+          <AccessTime sx={{ fontSize: 80, color: "grey.300", mb: 2 }} />
           <Typography variant="h6" color="text.primary" gutterBottom>
             No hay actividades para hoy
           </Typography>
@@ -834,10 +995,10 @@ const DailyTimesheet: React.FC = () => {
           aria-label="add"
           onClick={handleDrawerOpen}
           sx={{
-            position: 'fixed',
+            position: "fixed",
             bottom: 16,
             right: 16,
-            textTransform: 'none',
+            textTransform: "none",
           }}
         >
           <Add sx={{ mr: 1 }} />
@@ -852,16 +1013,30 @@ const DailyTimesheet: React.FC = () => {
         onClose={handleDrawerClose}
         PaperProps={{
           sx: {
-            width: { xs: '100%', sm: 400 },
-            maxWidth: '100vw',
+            width: { xs: "100%", sm: 400 },
+            maxWidth: "100vw",
           },
         }}
       >
-        <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Box
+          sx={{
+            p: 3,
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           {/* Header */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              mb: 3,
+            }}
+          >
             <Typography variant="h6" component="h2" fontWeight="bold">
-              {editingActivity ? 'Editar Actividad' : 'Nueva Actividad'} - Hoy
+              {editingActivity ? "Editar Actividad" : "Nueva Actividad"} - Hoy
             </Typography>
             <IconButton onClick={handleDrawerClose} size="small">
               <Close />
@@ -869,9 +1044,10 @@ const DailyTimesheet: React.FC = () => {
           </Box>
 
           {/* Formulario */}
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
             {/* Descripción de la Actividad */}
             <TextField
+              disabled={readOnly}
               fullWidth
               required
               multiline
@@ -888,6 +1064,7 @@ const DailyTimesheet: React.FC = () => {
 
             {/* Horas Invertidas */}
             <TextField
+              disabled={readOnly}
               fullWidth
               required
               name="horasInvertidas"
@@ -906,18 +1083,23 @@ const DailyTimesheet: React.FC = () => {
             />
 
             {/* Job */}
-            <FormControl fullWidth required error={!!formErrors.job} sx={{ mb: 3 }}>
+            <FormControl
+              fullWidth
+              required
+              error={!!formErrors.job}
+              sx={{ mb: 3 }}
+            >
               <InputLabel>Job *</InputLabel>
               <Select
                 name="job"
                 value={formData.job}
                 onChange={handleSelectChange}
                 label="Job *"
-                disabled={loadingJobs}
+                disabled={loadingJobs || readOnly}
               >
                 {loadingJobs ? (
                   <MenuItem disabled>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <CircularProgress size={16} />
                       <Typography variant="body2">Cargando jobs...</Typography>
                     </Box>
@@ -938,7 +1120,11 @@ const DailyTimesheet: React.FC = () => {
                 )}
               </Select>
               {formErrors.job && (
-                <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                <Typography
+                  variant="caption"
+                  color="error"
+                  sx={{ mt: 0.5, ml: 1.5 }}
+                >
                   {formErrors.job}
                 </Typography>
               )}
@@ -946,6 +1132,7 @@ const DailyTimesheet: React.FC = () => {
 
             {/* Class (opcional) */}
             <TextField
+              disabled={readOnly}
               fullWidth
               name="class"
               label="Class"
@@ -959,6 +1146,7 @@ const DailyTimesheet: React.FC = () => {
             <FormControlLabel
               control={
                 <Checkbox
+                  disabled={readOnly}
                   name="horaExtra"
                   checked={formData.horaExtra}
                   onChange={handleInputChange}
@@ -970,9 +1158,9 @@ const DailyTimesheet: React.FC = () => {
             />
 
             {/* Botones */}
-            <Box sx={{ mt: 'auto', pt: 3 }}>
+            <Box sx={{ mt: "auto", pt: 3 }}>
               <Divider sx={{ mb: 3 }} />
-              <Box sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ display: "flex", gap: 2 }}>
                 <Button
                   variant="outlined"
                   fullWidth
@@ -988,7 +1176,11 @@ const DailyTimesheet: React.FC = () => {
                   sx={{ py: 1.5 }}
                   disabled={loading}
                 >
-                  {loading ? 'Guardando...' : editingActivity ? 'Actualizar' : 'Guardar'}
+                  {loading
+                    ? "Guardando..."
+                    : editingActivity
+                    ? "Actualizar"
+                    : "Guardar"}
                 </Button>
               </Box>
             </Box>
@@ -1000,13 +1192,13 @@ const DailyTimesheet: React.FC = () => {
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
-        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert 
-          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+        <Alert
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
           severity={snackbar.severity}
-          sx={{ width: '100%' }}
+          sx={{ width: "100%" }}
         >
           {snackbar.message}
         </Alert>
@@ -1015,4 +1207,4 @@ const DailyTimesheet: React.FC = () => {
   );
 };
 
-export default DailyTimesheet; 
+export default DailyTimesheet;
