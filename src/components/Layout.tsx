@@ -24,7 +24,7 @@ import DailyTimesheet from "./DailyTimesheet";
 import { useAuth } from "../hooks/useAuth";
 import TimesheetReviewSupervisor from "./supervisor/TimesheetReviewSupervisor";
 import TimesheetReviewRrhh from "./rrhh/TimesheetReviewRrhh";
-import { Navigate } from "react-router-dom";
+import ContabilidadDashboard from "./contabilidad/ContabilidadDashboard";
 
 const drawerWidth = 240;
 const settings = ["Cerrar Sesión"];
@@ -108,14 +108,12 @@ export default function MiniDrawer() {
   const [open, setOpen] = React.useState(false);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
   // Establecer vista inicial según el rol del usuario
-  const [selectedView, setSelectedView] = React.useState(
-    user?.rolId === 3 ? "review-timesheets-rrhh" : "daily-register"
-  );
-  
-  // Si el usuario es de contabilidad (rolId = 4), redirigir a la ruta específica
-  if (user?.rolId === 4) {
-    return <Navigate to="/contabilidad" replace />;
-  }
+  const getInitialView = () => {
+    if (user?.rolId === 3) return "review-timesheets-rrhh";
+    if (user?.rolId === 4) return "contabilidad-dashboard";
+    return "daily-register";
+  };
+  const [selectedView, setSelectedView] = React.useState(getInitialView());
 
   // Configurar elementos de navegación según el rol del usuario
   const getNavItems = () => {
@@ -154,6 +152,17 @@ export default function MiniDrawer() {
       });
     }
 
+    // Para Contabilidad: solo mostrar dashboard de contabilidad
+    if (user?.rolId === 4) {
+      return [
+        {
+          id: "contabilidad-dashboard",
+          text: "Dashboard Contabilidad",
+          icon: <FindInPageIcon />,
+        },
+      ];
+    }
+
     return baseItems;
   };
 
@@ -190,6 +199,11 @@ export default function MiniDrawer() {
       return <TimesheetReviewRrhh />;
     }
     
+    // Si es Contabilidad y está intentando ver otra cosa que no sea su dashboard
+    if (user?.rolId === 4 && selectedView !== "contabilidad-dashboard") {
+      return <ContabilidadDashboard />;
+    }
+    
     switch (selectedView) {
       case "daily-register":
         return <DailyTimesheet />;
@@ -197,6 +211,8 @@ export default function MiniDrawer() {
         return <TimesheetReviewSupervisor />;
       case "review-timesheets-rrhh":
         return <TimesheetReviewRrhh />;
+      case "contabilidad-dashboard":
+        return <ContabilidadDashboard />;
       case "notifications":
         return (
           <Box sx={{ p: 3 }}>
@@ -212,6 +228,10 @@ export default function MiniDrawer() {
         // Si es RRHH, la vista por defecto es revisión de planillas
         if (user?.rolId === 3) {
           return <TimesheetReviewRrhh />;
+        }
+        // Si es Contabilidad, la vista por defecto es su dashboard
+        if (user?.rolId === 4) {
+          return <ContabilidadDashboard />;
         }
         return <DailyTimesheet />;
     }
