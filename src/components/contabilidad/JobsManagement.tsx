@@ -23,6 +23,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Switch,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material";
 import {
@@ -30,6 +31,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Search as SearchIcon,
+  FilterAlt as FilterIcon,
 } from "@mui/icons-material";
 import JobService from "../../services/jobService";
 import type { Job, CreateJobDto, UpdateJobDto } from "../../services/jobService";
@@ -45,12 +47,14 @@ const JobsManagement: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentJob, setCurrentJob] = useState<Job | null>(null);
+  const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>("");
   const [formData, setFormData] = useState<CreateJobDto>({
     nombre: "",
     codigo: "",
     descripcion: "",
     empresaId: 0,
     mostrarEmpresaId: 0,
+    activo: true,
   });
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -110,11 +114,22 @@ const JobsManagement: React.FC = () => {
     });
   };
 
-  const handleMostrarEmpresaChange = (e: SelectChangeEvent) => {
-    setFormData({
-      ...formData,
-      mostrarEmpresaId: Number(e.target.value),
-    });
+  const handleEmpresaFilterChange = (e: SelectChangeEvent) => {
+    setSelectedEmpresaId(e.target.value);
+  };
+
+  const handleToggleActive = async (id: number, currentStatus: boolean) => {
+    try {
+      console.log(`Intentando cambiar estado de job ${id} de ${currentStatus} a ${!currentStatus}`);
+      // Usar update en lugar de toggleActive
+      const updatedJob = await JobService.update(id, { activo: !currentStatus });
+      console.log('Job actualizado:', updatedJob);
+      setJobs(jobs.map(job => job.id === id ? updatedJob : job));
+      showSnackbar(`Job ${!currentStatus ? 'activado' : 'desactivado'} exitosamente`, "success");
+    } catch (err) {
+      console.error("Error al cambiar estado del job:", err);
+      showSnackbar("Error al cambiar estado del job", "error");
+    }
   };
 
   const resetForm = () => {
@@ -123,7 +138,8 @@ const JobsManagement: React.FC = () => {
       codigo: "",
       descripcion: "",
       empresaId: 0,
-      mostrarEmpresaId: 0,
+      mostrarEmpresaId: selectedEmpresaId !== "" ? Number(selectedEmpresaId) : 0,
+      activo: true,
     });
     setCurrentJob(null);
     setIsEditing(false);
@@ -139,6 +155,7 @@ const JobsManagement: React.FC = () => {
         descripcion: job.descripcion || "",
         empresaId: job.empresaId,
         mostrarEmpresaId: job.mostrarEmpresaId,
+        activo: job.activo,
       });
     } else {
       resetForm();
@@ -154,7 +171,13 @@ const JobsManagement: React.FC = () => {
   // Funciones CRUD
   const handleCreateJob = async () => {
     try {
-      await JobService.create(formData);
+      // Asegurarse de que mostrarEmpresaId sea el valor del filtro seleccionado
+      const dataToSend = {
+        ...formData,
+        mostrarEmpresaId: selectedEmpresaId !== "" ? Number(selectedEmpresaId) : formData.mostrarEmpresaId
+      };
+      
+      await JobService.create(dataToSend);
       showSnackbar("Job creado exitosamente", "success");
       handleCloseDialog();
       fetchJobs();
@@ -168,7 +191,13 @@ const JobsManagement: React.FC = () => {
     if (!currentJob) return;
     
     try {
-      await JobService.update(currentJob.id, formData as UpdateJobDto);
+      // Asegurarse de que mostrarEmpresaId sea el valor del filtro seleccionado
+      const dataToSend = {
+        ...formData,
+        mostrarEmpresaId: selectedEmpresaId !== "" ? Number(selectedEmpresaId) : formData.mostrarEmpresaId
+      };
+      
+      await JobService.update(currentJob.id, dataToSend as UpdateJobDto);
       showSnackbar("Job actualizado exitosamente", "success");
       handleCloseDialog();
       fetchJobs();
@@ -204,19 +233,55 @@ const JobsManagement: React.FC = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Filtrar jobs por término de búsqueda
+  // Filtrar jobs por término de búsqueda y empresa seleccionada
   const filteredJobs = jobs.filter(
-    (job) =>
-      job.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.codigo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.descripcion?.toLowerCase().includes(searchTerm.toLowerCase())
+    (job) => {
+      // Filtro por término de búsqueda
+      const matchesSearchTerm = 
+        job.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.codigo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.descripcion?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Filtro por empresa seleccionada - solo mostrar jobs si hay una empresa seleccionada
+      const matchesEmpresa = selectedEmpresaId !== "" && job.mostrarEmpresaId === Number(selectedEmpresaId);
+      
+      return matchesSearchTerm && matchesEmpresa;
+    }
   );
+
+  // Verificar si hay una empresa seleccionada para habilitar el botón de agregar
+  const isAddButtonDisabled = selectedEmpresaId === "";
 
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
         Gestión de Jobs
       </Typography>
+
+      {/* Filtro de empresas */}
+      <Box sx={{ mb: 3 }}>
+        <Paper sx={{ p: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <FilterIcon color="primary" />
+            <Typography variant="subtitle1">Seleccionar Empresa:</Typography>
+            <FormControl sx={{ minWidth: 250 }}>
+              <Select
+                value={selectedEmpresaId}
+                onChange={handleEmpresaFilterChange}
+                displayEmpty
+                size="small"
+              >
+                <MenuItem value="" disabled>Seleccione una empresa</MenuItem>
+                {empresas.map((empresa) => (
+                  <MenuItem key={empresa.id} value={empresa.id.toString()}>
+                    {empresa.nombre}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </Paper>
+      </Box>
 
       {/* Barra de búsqueda y botón de agregar */}
       <Box sx={{ display: "flex", mb: 3, gap: 2 }}>
@@ -236,6 +301,7 @@ const JobsManagement: React.FC = () => {
           color="primary"
           startIcon={<AddIcon />}
           onClick={() => handleOpenDialog()}
+          disabled={isAddButtonDisabled}
         >
           Nuevo Job
         </Button>
@@ -250,7 +316,7 @@ const JobsManagement: React.FC = () => {
               <TableCell>Nombre</TableCell>
               <TableCell>Descripción</TableCell>
               <TableCell>Empresa</TableCell>
-              <TableCell>Empresa Mostrar</TableCell>
+              <TableCell align="center">Activo</TableCell>
               <TableCell align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
@@ -261,10 +327,16 @@ const JobsManagement: React.FC = () => {
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
+            ) : selectedEmpresaId === "" ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center">
+                  Seleccione una empresa para ver los jobs
+                </TableCell>
+              </TableRow>
             ) : filteredJobs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} align="center">
-                  No hay jobs disponibles
+                  No hay jobs disponibles para esta empresa
                 </TableCell>
               </TableRow>
             ) : (
@@ -274,8 +346,12 @@ const JobsManagement: React.FC = () => {
                   <TableCell>{job.nombre}</TableCell>
                   <TableCell>{job.descripcion}</TableCell>
                   <TableCell>{job.empresa?.nombre || '-'}</TableCell>
-                  <TableCell>
-                    {empresas.find(e => e.id === job.mostrarEmpresaId)?.nombre || '-'}
+                  <TableCell align="center">
+                    <Switch
+                      checked={job.activo}
+                      onChange={() => handleToggleActive(job.id, job.activo)}
+                      color="primary"
+                    />
                   </TableCell>
                   <TableCell align="center">
                     <IconButton
@@ -345,21 +421,6 @@ const JobsManagement: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
-            <FormControl fullWidth>
-              <InputLabel>Empresa a Mostrar</InputLabel>
-              <Select
-                value={formData.mostrarEmpresaId === 0 ? "" : formData.mostrarEmpresaId.toString()}
-                onChange={handleMostrarEmpresaChange}
-                label="Empresa a Mostrar"
-                required
-              >
-                {empresas.map((empresa) => (
-                  <MenuItem key={empresa.id} value={empresa.id.toString()}>
-                    {empresa.nombre}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -368,7 +429,7 @@ const JobsManagement: React.FC = () => {
             onClick={isEditing ? handleUpdateJob : handleCreateJob}
             variant="contained"
             color="primary"
-            disabled={!formData.nombre || !formData.codigo || formData.empresaId === 0 || formData.mostrarEmpresaId === 0}
+            disabled={!formData.nombre || !formData.codigo || formData.empresaId === 0}
           >
             {isEditing ? "Actualizar" : "Crear"}
           </Button>

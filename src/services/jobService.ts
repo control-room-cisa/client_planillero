@@ -10,6 +10,7 @@ interface Job {
   deletedAt: string | null;
   empresaId: number;
   mostrarEmpresaId: number;
+  activo: boolean;
   empresa: {
     id: number;
     codigo: string | null;
@@ -38,6 +39,7 @@ interface CreateJobDto {
   descripcion: string;
   empresaId: number;
   mostrarEmpresaId: number;
+  activo?: boolean;
 }
 
 interface UpdateJobDto {
@@ -46,6 +48,7 @@ interface UpdateJobDto {
   descripcion?: string;
   empresaId?: number;
   mostrarEmpresaId?: number;
+  activo?: boolean;
 }
 
 class JobService {
@@ -88,6 +91,8 @@ class JobService {
       throw new Error('Error al actualizar el job');
     }
   }
+
+  // El método toggleActive ya no es necesario, usamos update
 
   static async delete(id: number): Promise<void> {
     try {
