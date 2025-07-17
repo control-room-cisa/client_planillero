@@ -66,6 +66,8 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
       );
       const filtered = results
         .filter((r): r is RegistroDiarioData => r !== null)
+        // Solo mostrar registros aprobados por el supervisor
+        .filter((r) => r.aprobacionSupervisor === true)
         .filter((r) => {
           switch (status) {
             case "Pendiente":
@@ -210,18 +212,6 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
             const horasResumen = calcularResumenHoras(registro.actividades);
             const disabled = registro.aprobacionRrhh === true;
             
-            // Estado de aprobación del supervisor
-            let estadoSupervisor = "Pendiente";
-            let colorSupervisor: "warning" | "success" | "error" = "warning";
-            
-            if (registro.aprobacionSupervisor === true) {
-              estadoSupervisor = "Aprobado";
-              colorSupervisor = "success";
-            } else if (registro.aprobacionSupervisor === false) {
-              estadoSupervisor = "Rechazado";
-              colorSupervisor = "error";
-            }
-            
             return (
               <Grow key={registro.id!} in={!loading} timeout={300 + idx * 100}>
                 <Paper sx={{ p: 3, borderRadius: 2 }}>
@@ -307,8 +297,8 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
                     </Typography>
                     <Stack direction="row" spacing={2} alignItems="center">
                       <Chip 
-                        label={estadoSupervisor} 
-                        color={colorSupervisor} 
+                        label="Aprobado" 
+                        color="success" 
                         variant="outlined"
                       />
                       
@@ -348,7 +338,7 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
 
           {!loading && registros.length === 0 && (
             <Typography>
-              No hay registros para las fechas seleccionadas.
+              No hay registros aprobados por el supervisor para las fechas seleccionadas.
             </Typography>
           )}
         </Stack>
