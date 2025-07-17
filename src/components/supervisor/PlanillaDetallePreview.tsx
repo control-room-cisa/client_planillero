@@ -321,7 +321,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                     <Button
                       variant="outlined"
                       color="error"
-                      disabled={disabled}
+         
                       onClick={() => handleRechazar(registro.id!)}
                     >
                       Rechazar
