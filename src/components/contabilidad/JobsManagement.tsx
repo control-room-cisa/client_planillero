@@ -66,14 +66,17 @@ const JobsManagement: React.FC = () => {
     severity: "success",
   });
 
-  // Cargar datos iniciales
-  useEffect(() => {
-    fetchJobs();
-    fetchEmpresas();
+  // Función para mostrar notificaciones
+  const showSnackbar = React.useCallback((message: string, severity: "success" | "error") => {
+    setSnackbar({
+      open: true,
+      message,
+      severity,
+    });
   }, []);
 
   // Funciones para cargar datos
-  const fetchJobs = async () => {
+  const fetchJobs = React.useCallback(async () => {
     setLoading(true);
     try {
       const data = await JobService.getAll();
@@ -84,9 +87,9 @@ const JobsManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showSnackbar]);
 
-  const fetchEmpresas = async () => {
+  const fetchEmpresas = React.useCallback(async () => {
     try {
       const response = await empresaService.getEmpresas();
       if (response.success) {
@@ -96,7 +99,13 @@ const JobsManagement: React.FC = () => {
       console.error("Error al cargar empresas:", err);
       showSnackbar("Error al cargar las empresas", "error");
     }
-  };
+  }, [showSnackbar]);
+
+  // Cargar datos iniciales
+  useEffect(() => {
+    fetchJobs();
+    fetchEmpresas();
+  }, [fetchJobs, fetchEmpresas]);
 
   // Funciones para el manejo del formulario
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,7 +133,14 @@ const JobsManagement: React.FC = () => {
       // Usar update en lugar de toggleActive
       const updatedJob = await JobService.update(id, { activo: !currentStatus });
       console.log('Job actualizado:', updatedJob);
-      setJobs(jobs.map(job => job.id === id ? updatedJob : job));
+      
+      // Actualizar el estado local de forma más segura
+      setJobs(prevJobs => 
+        prevJobs.map(job => 
+          job.id === id ? { ...job, activo: !currentStatus } : job
+        )
+      );
+      
       showSnackbar(`Job ${!currentStatus ? 'activado' : 'desactivado'} exitosamente`, "success");
     } catch (err) {
       console.error("Error al cambiar estado del job:", err);
@@ -220,15 +236,6 @@ const JobsManagement: React.FC = () => {
     }
   };
 
-  // Función para mostrar notificaciones
-  const showSnackbar = (message: string, severity: "success" | "error") => {
-    setSnackbar({
-      open: true,
-      message,
-      severity,
-    });
-  };
-
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
@@ -243,7 +250,7 @@ const JobsManagement: React.FC = () => {
         job.descripcion?.toLowerCase().includes(searchTerm.toLowerCase());
       
       // Filtro por empresa seleccionada - solo mostrar jobs si hay una empresa seleccionada
-      const matchesEmpresa = selectedEmpresaId !== "" && job.mostrarEmpresaId === Number(selectedEmpresaId);
+      const matchesEmpresa = selectedEmpresaId === "" || job.mostrarEmpresaId === Number(selectedEmpresaId);
       
       return matchesSearchTerm && matchesEmpresa;
     }
@@ -271,7 +278,7 @@ const JobsManagement: React.FC = () => {
                 displayEmpty
                 size="small"
               >
-                <MenuItem value="" disabled>Seleccione una empresa</MenuItem>
+                <MenuItem value="">Seleccione una empresa</MenuItem>
                 {empresas.map((empresa) => (
                   <MenuItem key={empresa.id} value={empresa.id.toString()}>
                     {empresa.nombre}
@@ -414,6 +421,7 @@ const JobsManagement: React.FC = () => {
                 label="Empresa"
                 required
               >
+                <MenuItem value="">Seleccione una empresa</MenuItem>
                 {empresas.map((empresa) => (
                   <MenuItem key={empresa.id} value={empresa.id.toString()}>
                     {empresa.nombre}
