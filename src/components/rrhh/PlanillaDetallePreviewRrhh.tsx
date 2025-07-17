@@ -11,8 +11,11 @@ import {
   Grow,
   Snackbar,
   Alert,
-  Card,
-  CardContent,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
 } from "@mui/material";
 import Swal from "sweetalert2";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -250,45 +253,87 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
 
                   <Divider sx={{ mb: 2 }} />
                   
-                  {/* Resumen de actividades en tarjetas en lugar de tabla */}
+                  {/* Tabla de actividades */}
                   <Typography variant="subtitle2" gutterBottom>
-                    Resumen de actividades
+                    Actividades
                   </Typography>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Descripción</TableCell>
+                        <TableCell>Horas</TableCell>
+                        <TableCell>Job</TableCell>
+                        <TableCell>Código</TableCell>
+                        <TableCell>Tipo</TableCell>
+                        <TableCell>Clase</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {registro.actividades
+                        ?.slice()
+                        .sort((a, b) =>
+                          a.esExtra === b.esExtra ? 0 : a.esExtra ? 1 : -1
+                        )
+                        .map((act: ActividadData) => (
+                          <TableRow key={act.id ?? act.jobId}>
+                            <TableCell>{act.descripcion}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={`${act.duracionHoras}h`}
+                                size="small"
+                              />
+                            </TableCell>
+                            <TableCell>{act.job?.nombre}</TableCell>
+                            <TableCell>{act.job?.codigo}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={act.esExtra ? "Extra" : "Normal"}
+                                size="small"
+                                color={act.esExtra ? "error" : "default"}
+                              />
+                            </TableCell>
+                            <TableCell>{act.className || "-"}</TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
                   
-                  <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-                    <Card variant="outlined" sx={{ minWidth: 120 }}>
-                      <CardContent>
-                        <Typography variant="h6" color="text.secondary" gutterBottom>
-                          Normales
-                        </Typography>
-                        <Typography variant="h4">
-                          {horasResumen.normales}h
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card variant="outlined" sx={{ minWidth: 120 }}>
-                      <CardContent>
-                        <Typography variant="h6" color="text.secondary" gutterBottom>
-                          Extras
-                        </Typography>
-                        <Typography variant="h4" color="error.main">
-                          {horasResumen.extras}h
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                    
-                    <Card variant="outlined" sx={{ minWidth: 120 }}>
-                      <CardContent>
-                        <Typography variant="h6" color="text.secondary" gutterBottom>
-                          Total
-                        </Typography>
-                        <Typography variant="h4" color="primary.main">
-                          {horasResumen.total}h
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Stack>
+                  {/* Resumen de horas */}
+                  <Box sx={{ mt: 2, mb: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Resumen de horas
+                    </Typography>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography variant="body2" color="text.secondary">
+                        Normales:
+                      </Typography>
+                      <Chip 
+                        label={`${horasResumen.normales}h`} 
+                        size="small" 
+                        variant="outlined"
+                      />
+                      
+                      <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                        Extras:
+                      </Typography>
+                      <Chip 
+                        label={`${horasResumen.extras}h`} 
+                        size="small" 
+                        color="error" 
+                        variant="outlined"
+                      />
+                      
+                      <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                        Total:
+                      </Typography>
+                      <Chip 
+                        label={`${horasResumen.total}h`} 
+                        size="small" 
+                        color="primary" 
+                        variant="outlined"
+                      />
+                    </Stack>
+                  </Box>
                   
                   {/* Estado de aprobación del supervisor */}
                   <Box sx={{ mb: 2 }}>
@@ -317,6 +362,7 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
                     <Button
                       variant="outlined"
                       color="error"
+                
                       onClick={() => handleRechazar(registro.id!)}
                     >
                       Rechazar
