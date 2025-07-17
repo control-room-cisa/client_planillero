@@ -24,8 +24,8 @@ import {
   Stack,
   Chip,
   CircularProgress,
+  Autocomplete,
 } from "@mui/material";
-import type { SelectChangeEvent } from "@mui/material";
 import {
   ChevronLeft,
   ChevronRight,
@@ -56,7 +56,7 @@ interface Activity {
   descripcion: string;
   duracionHoras: number;
   jobId: number;
-  className?: string;
+  className?: string | null;
   esExtra: boolean;
   job?: {
     nombre: string;
@@ -84,6 +84,7 @@ const DailyTimesheet: React.FC = () => {
   // Estado para jobs
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
   // Estado para los datos del día laboral
   const [registroDiario, setRegistroDiario] =
@@ -108,14 +109,16 @@ const DailyTimesheet: React.FC = () => {
   // Cargar datos del registro diario cuando cambie la fecha
   useEffect(() => {
     loadRegistroDiario();
-  }, [currentDate]);
+  }, [currentDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cargar jobs cuando se abra el drawer
   const loadJobs = async () => {
     try {
       setLoadingJobs(true);
       const jobsData = await JobService.getAll();
-      setJobs(jobsData);
+      // Filtrar solo los jobs activos
+      const activeJobs = jobsData.filter(job => job.activo === true);
+      setJobs(activeJobs);
     } catch (error) {
       console.error("Error al cargar jobs:", error);
       setSnackbar({
@@ -182,6 +185,7 @@ const DailyTimesheet: React.FC = () => {
     setDrawerOpen(false);
     setEditingActivity(null);
     setEditingIndex(-1);
+    setSelectedJob(null);
     // Limpiar formulario al cerrar
     setFormData({
       descripcion: "",
@@ -206,6 +210,16 @@ const DailyTimesheet: React.FC = () => {
     setDrawerOpen(true);
     await loadJobs();
   };
+
+  // Efecto para establecer el job seleccionado cuando se cargan los jobs y hay una actividad en edición
+  useEffect(() => {
+    if (editingActivity && jobs.length > 0 && editingActivity.jobId) {
+      const job = jobs.find(j => j.id === editingActivity.jobId);
+      if (job) {
+        setSelectedJob(job);
+      }
+    }
+  }, [jobs, editingActivity]);
 
   const handleDeleteActivity = async (index: number) => {
     if (!registroDiario?.actividades) return;
@@ -369,17 +383,17 @@ const DailyTimesheet: React.FC = () => {
     }
   };
 
-  const handleSelectChange = (event: SelectChangeEvent<string>) => {
-    const { name, value } = event.target;
+  const handleJobChange = (_event: React.SyntheticEvent, value: Job | null) => {
+    setSelectedJob(value);
     setFormData((prev) => ({
       ...prev,
-      [name as string]: value as string,
+      job: value ? value.id.toString() : "",
     }));
     // Limpiar error cuando el usuario seleccione
-    if (formErrors[name as string]) {
+    if (formErrors.job) {
       setFormErrors((prev) => ({
         ...prev,
-        [name as string]: "",
+        job: "",
       }));
     }
   };
@@ -1072,52 +1086,54 @@ const DailyTimesheet: React.FC = () => {
             />
 
             {/* Job */}
-            <FormControl
-              fullWidth
-              required
-              error={!!formErrors.job}
-              sx={{ mb: 3 }}
-            >
-              <InputLabel>Job *</InputLabel>
-              <Select
-                name="job"
-                value={formData.job}
-                onChange={handleSelectChange}
-                label="Job *"
+            <Box sx={{ mb: 3 }}>
+              <Autocomplete
+                options={jobs}
+                getOptionLabel={(option) => `${option.codigo} - ${option.nombre}`}
+                value={selectedJob}
+                onChange={handleJobChange}
+                loading={loadingJobs}
                 disabled={loadingJobs || readOnly}
-              >
-                {loadingJobs ? (
-                  <MenuItem disabled>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <CircularProgress size={16} />
-                      <Typography variant="body2">Cargando jobs...</Typography>
-                    </Box>
-                  </MenuItem>
-                ) : (
-                  jobs.map((job) => (
-                    <MenuItem key={job.id} value={job.id.toString()}>
-                      <Box>
-                        <Typography variant="body2" fontWeight="medium">
-                          {job.codigo} - {job.nombre}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {job.empresa.nombre}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  ))
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Job"
+                    required
+                    error={!!formErrors.job}
+                    helperText={formErrors.job}
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {loadingJobs ? (
+                            <CircularProgress color="inherit" size={20} />
+                          ) : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
                 )}
-              </Select>
-              {formErrors.job && (
-                <Typography
-                  variant="caption"
-                  color="error"
-                  sx={{ mt: 0.5, ml: 1.5 }}
-                >
-                  {formErrors.job}
-                </Typography>
-              )}
-            </FormControl>
+                renderOption={(props, option) => (
+                  <Box component="li" {...props}>
+                    <Box>
+                      <Typography variant="body2" fontWeight="medium">
+                        {option.codigo} - {option.nombre}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {option.empresa.nombre}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+                noOptionsText={
+                  loadingJobs 
+                    ? "Cargando jobs..." 
+                    : "No hay jobs activos disponibles"
+                }
+              />
+            </Box>
 
             {/* Class (opcional) */}
             <TextField
