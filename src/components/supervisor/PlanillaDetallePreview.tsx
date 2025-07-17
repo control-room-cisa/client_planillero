@@ -59,7 +59,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     const start = Date.now();
     try {
       const days: string[] = [];
-      let current = new Date(startDate);
+      const current = new Date(startDate);
       while (current <= endDate) {
         days.push(current.toISOString().split("T")[0]);
         current.setDate(current.getDate() + 1);
@@ -159,6 +159,17 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     });
   };
 
+  // Función para formatear correctamente la hora
+  const formatTimeCorrectly = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("es-ES", { 
+      hour: "2-digit", 
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "UTC" // Usar UTC para evitar conversiones de zona horaria
+    });
+  };
+
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
       <Box sx={{ p: 3 }}>
@@ -202,18 +213,10 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                     {!registro.esDiaLibre ? (
                       <>
                         <Typography variant="body2">
-                          Entrada:{" "}
-                          {new Date(registro.horaEntrada).toLocaleTimeString(
-                            "es-ES",
-                            { hour: "2-digit", minute: "2-digit" }
-                          )}
+                          Entrada: {formatTimeCorrectly(registro.horaEntrada)}
                         </Typography>
                         <Typography variant="body2">
-                          Salida:{" "}
-                          {new Date(registro.horaSalida).toLocaleTimeString(
-                            "es-ES",
-                            { hour: "2-digit", minute: "2-digit" }
-                          )}
+                          Salida: {formatTimeCorrectly(registro.horaSalida)}
                         </Typography>
                       </>
                     ) : (

@@ -177,6 +177,17 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
     };
   };
 
+  // Función para formatear correctamente la hora
+  const formatTimeCorrectly = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("es-ES", { 
+      hour: "2-digit", 
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "UTC" // Usar UTC para evitar conversiones de zona horaria
+    });
+  };
+
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
       <Box sx={{ p: 3 }}>
@@ -226,18 +237,10 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
                     {!registro.esDiaLibre ? (
                       <>
                         <Typography variant="body2">
-                          Entrada:{" "}
-                          {new Date(registro.horaEntrada).toLocaleTimeString(
-                            "es-ES",
-                            { hour: "2-digit", minute: "2-digit" }
-                          )}
+                          Entrada: {formatTimeCorrectly(registro.horaEntrada)}
                         </Typography>
                         <Typography variant="body2">
-                          Salida:{" "}
-                          {new Date(registro.horaSalida).toLocaleTimeString(
-                            "es-ES",
-                            { hour: "2-digit", minute: "2-digit" }
-                          )}
+                          Salida: {formatTimeCorrectly(registro.horaSalida)}
                         </Typography>
                       </>
                     ) : (
