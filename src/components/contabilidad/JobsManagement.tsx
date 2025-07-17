@@ -129,10 +129,10 @@ const JobsManagement: React.FC = () => {
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
     try {
-      console.log(`Intentando cambiar estado de job ${id} de ${currentStatus} a ${!currentStatus}`);
-      // Usar update en lugar de toggleActive
-      const updatedJob = await JobService.update(id, { activo: !currentStatus });
-      console.log('Job actualizado:', updatedJob);
+      // console.log(`Intentando cambiar estado de job ${id} de ${currentStatus} a ${!currentStatus}`);
+      // // Usar update en lugar de toggleActive
+      // const updatedJob = await JobService.update(id, { activo: !currentStatus });
+      // console.log('Job actualizado:', updatedJob);
       
       // Actualizar el estado local de forma más segura
       setJobs(prevJobs => 
