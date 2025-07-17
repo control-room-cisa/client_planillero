@@ -282,16 +282,6 @@ const DailyTimesheet: React.FC = () => {
       errors.horaSalida = "La hora de salida es obligatoria";
     }
 
-    if (dayConfigData.horaEntrada && dayConfigData.horaSalida) {
-      const entrada = new Date(`2000-01-01T${dayConfigData.horaEntrada}:00`);
-      const salida = new Date(`2000-01-01T${dayConfigData.horaSalida}:00`);
-
-      if (entrada >= salida) {
-        errors.horaSalida =
-          "La hora de salida debe ser posterior a la de entrada";
-      }
-    }
-
     setDayConfigErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -772,7 +762,6 @@ const DailyTimesheet: React.FC = () => {
                 label="Jornada"
               >
                 <MenuItem value="M">Mañana</MenuItem>
-                <MenuItem value="T">Tarde</MenuItem>
                 <MenuItem value="N">Noche</MenuItem>
               </Select>
             </FormControl>

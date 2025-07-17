@@ -19,7 +19,7 @@ export interface ActividadData {
   jobId: number;
   duracionHoras: number;
   esExtra: boolean;
-  className?: string;
+  className?: string | null; // Cambiado para permitir null
   descripcion: string;
   job?: {
     id: number;
@@ -40,7 +40,7 @@ export interface UpsertRegistroDiarioParams {
     jobId: number;
     duracionHoras: number;
     esExtra?: boolean;
-    className?: string;
+    className?: string | null; // Cambiado para permitir null
     descripcion: string;
   }[];
 }
