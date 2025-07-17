@@ -27,7 +27,7 @@ import type {
   ActividadData,
 } from "../../dtos/RegistrosDiariosDataDto";
 import type { Employee } from "../../types/auth";
-import type { PlanillaStatus } from "./TimesheetReviewSupervisor";
+import type { PlanillaStatus } from "../rrhh/planillaConstants";
 
 interface Props {
   empleado: Employee;
@@ -197,6 +197,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
               registro.actividades
                 ?.filter((a) => a.esExtra)
                 .reduce((s, a) => s + a.duracionHoras, 0) ?? 0;
+            const total = normales + extras;
             const disabled = registro.aprobacionRrhh === true;
             return (
               <Grow key={registro.id!} in={!loading} timeout={300 + idx * 100}>
@@ -278,8 +279,44 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                         ))}
                     </TableBody>
                   </Table>
-                  <br></br>
-                  {/* <Divider sx={{ my: 2 }} /> */}
+                  
+                  {/* Resumen de horas */}
+                  <Box sx={{ mt: 2, mb: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Resumen de horas
+                    </Typography>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography variant="body2" color="text.secondary">
+                        Normales:
+                      </Typography>
+                      <Chip 
+                        label={`${normales}h`} 
+                        size="small" 
+                        variant="outlined"
+                      />
+                      
+                      <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                        Extras:
+                      </Typography>
+                      <Chip 
+                        label={`${extras}h`} 
+                        size="small" 
+                        color="error" 
+                        variant="outlined"
+                      />
+                      
+                      <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+                        Total:
+                      </Typography>
+                      <Chip 
+                        label={`${total}h`} 
+                        size="small" 
+                        color="primary" 
+                        variant="outlined"
+                      />
+                    </Stack>
+                  </Box>
+                  
                   <Stack direction="row" spacing={2} justifyContent="flex-end">
                     <Button
                       variant="outlined"
