@@ -26,6 +26,28 @@ interface JobsResponse {
   data: Job[];
 }
 
+interface JobResponse {
+  success: boolean;
+  message: string;
+  data: Job;
+}
+
+interface CreateJobDto {
+  nombre: string;
+  codigo: string;
+  descripcion: string;
+  empresaId: number;
+  mostrarEmpresaId: number;
+}
+
+interface UpdateJobDto {
+  nombre?: string;
+  codigo?: string;
+  descripcion?: string;
+  empresaId?: number;
+  mostrarEmpresaId?: number;
+}
+
 class JobService {
   static async getAll(): Promise<Job[]> {
     try {
@@ -36,7 +58,46 @@ class JobService {
       throw new Error('Error al cargar la lista de jobs');
     }
   }
+
+  static async getById(id: number): Promise<Job> {
+    try {
+      const response = await api.get<JobResponse>(`/jobs/${id}`);
+      return response.data.data;
+    } catch (error) {
+      console.error(`Error al obtener job ${id}:`, error);
+      throw new Error('Error al cargar el job');
+    }
+  }
+
+  static async create(jobData: CreateJobDto): Promise<Job> {
+    try {
+      const response = await api.post<JobResponse>('/jobs', jobData);
+      return response.data.data;
+    } catch (error) {
+      console.error('Error al crear job:', error);
+      throw new Error('Error al crear el job');
+    }
+  }
+
+  static async update(id: number, jobData: UpdateJobDto): Promise<Job> {
+    try {
+      const response = await api.put<JobResponse>(`/jobs/${id}`, jobData);
+      return response.data.data;
+    } catch (error) {
+      console.error(`Error al actualizar job ${id}:`, error);
+      throw new Error('Error al actualizar el job');
+    }
+  }
+
+  static async delete(id: number): Promise<void> {
+    try {
+      await api.delete(`/jobs/${id}`);
+    } catch (error) {
+      console.error(`Error al eliminar job ${id}:`, error);
+      throw new Error('Error al eliminar el job');
+    }
+  }
 }
 
 export default JobService;
-export type { Job }; 
+export type { Job, CreateJobDto, UpdateJobDto }; 

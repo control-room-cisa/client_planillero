@@ -24,6 +24,7 @@ import DailyTimesheet from "./DailyTimesheet";
 import { useAuth } from "../hooks/useAuth";
 import TimesheetReviewSupervisor from "./supervisor/TimesheetReviewSupervisor";
 import TimesheetReviewRrhh from "./rrhh/TimesheetReviewRrhh";
+import { Navigate } from "react-router-dom";
 
 const drawerWidth = 240;
 const settings = ["Cerrar Sesión"];
@@ -105,13 +106,16 @@ export default function MiniDrawer() {
   const theme = useTheme();
   const { user, logout } = useAuth();
   const [open, setOpen] = React.useState(false);
-  const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(
-    null
-  );
+  const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
   // Establecer vista inicial según el rol del usuario
   const [selectedView, setSelectedView] = React.useState(
     user?.rolId === 3 ? "review-timesheets-rrhh" : "daily-register"
   );
+  
+  // Si el usuario es de contabilidad (rolId = 4), redirigir a la ruta específica
+  if (user?.rolId === 4) {
+    return <Navigate to="/contabilidad" replace />;
+  }
 
   // Configurar elementos de navegación según el rol del usuario
   const getNavItems = () => {
