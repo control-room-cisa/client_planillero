@@ -59,6 +59,7 @@ export interface Employee {
   apellido: string;
   codigo?: string;
   departamento: string;
+  empresaId?: number;
 }
 
 

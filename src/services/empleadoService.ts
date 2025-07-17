@@ -25,6 +25,31 @@ class EmployeeService {
       throw new Error(message);
     }
   }
+
+  async getEmployeesByCompany(empresaId?: number): Promise<EmployeesResponse> {
+    try {
+      console.log("Obteniendo empleados por empresa...");
+      
+      const url = empresaId 
+        ? `${API_CONFIG.ENDPOINTS.EMPLOYEES.LIST_BY_COMPANY}?empresaId=${empresaId}`
+        : API_CONFIG.ENDPOINTS.EMPLOYEES.LIST_BY_COMPANY;
+
+      const response = await api.get<EmployeesResponse>(url);
+
+      console.log("Empleados obtenidos:", response.data);
+
+      return response.data;
+
+    } catch (error: any) {
+      console.error("Error al obtener empleados:", error);
+
+      const message =
+        error?.response?.data?.message ||
+        error.message ||
+        "Error al obtener empleados";
+      throw new Error(message);
+    }
+  }
 }
 
 export const employeeService = new EmployeeService();

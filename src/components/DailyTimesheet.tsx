@@ -588,7 +588,7 @@ const DailyTimesheet: React.FC = () => {
         }}
       >
         <Typography
-          variant={isMobile ? "h5" : "h4"}
+          variant={isMobile ? "h5" : "h5"}
           component="h1"
           sx={{ fontWeight: "bold", minWidth: 0 }}
         >

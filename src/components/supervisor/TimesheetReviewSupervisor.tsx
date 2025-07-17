@@ -25,14 +25,8 @@ import { es } from "date-fns/locale";
 import { useEmployees } from "../employeeByDepartament";
 import PlanillaDetallePreview from "./PlanillaDetallePreview";
 import type { Employee } from "../../types/auth";
-
-// Tipo y lista para estados de planilla (Sin "Todos")
-export type PlanillaStatus = "Pendiente" | "Aprobado" | "Rechazado";
-export const PlanillaStatuses: PlanillaStatus[] = [
-  "Pendiente",
-  "Aprobado",
-  "Rechazado",
-];
+import { PlanillaStatuses } from "../rrhh/planillaConstants";
+import type { PlanillaStatus } from "../rrhh/planillaConstants";
 
 const TimesheetReviewSupervisor: React.FC = () => {
   const theme = useTheme();

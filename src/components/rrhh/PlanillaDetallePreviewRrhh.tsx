@@ -4,11 +4,6 @@ import {
   Paper,
   Typography,
   Divider,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
   Button,
   Chip,
   Stack,
@@ -16,6 +11,8 @@ import {
   Grow,
   Snackbar,
   Alert,
+  Card,
+  CardContent,
 } from "@mui/material";
 import Swal from "sweetalert2";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -27,7 +24,7 @@ import type {
   ActividadData,
 } from "../../dtos/RegistrosDiariosDataDto";
 import type { Employee } from "../../types/auth";
-import type { PlanillaStatus } from "./TimesheetReviewRrhh";
+import type { PlanillaStatus } from "./planillaConstants";
 
 interface Props {
   empleado: Employee;
@@ -59,7 +56,7 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
     const start = Date.now();
     try {
       const days: string[] = [];
-      let current = new Date(startDate);
+      const current = new Date(startDate);
       while (current <= endDate) {
         days.push(current.toISOString().split("T")[0]);
         current.setDate(current.getDate() + 1);
@@ -159,6 +156,27 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
     });
   };
 
+  // Función para calcular el resumen de horas
+  const calcularResumenHoras = (actividades?: ActividadData[]) => {
+    if (!actividades || actividades.length === 0) {
+      return { normales: 0, extras: 0, total: 0 };
+    }
+    
+    const normales = actividades
+      .filter(a => !a.esExtra)
+      .reduce((sum, act) => sum + act.duracionHoras, 0);
+    
+    const extras = actividades
+      .filter(a => a.esExtra)
+      .reduce((sum, act) => sum + act.duracionHoras, 0);
+    
+    return {
+      normales,
+      extras,
+      total: normales + extras
+    };
+  };
+
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
       <Box sx={{ p: 3 }}>
@@ -178,15 +196,21 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
 
         <Stack spacing={2}>
           {registros.map((registro, idx) => {
-            const normales =
-              registro.actividades
-                ?.filter((a) => !a.esExtra)
-                .reduce((s, a) => s + a.duracionHoras, 0) ?? 0;
-            const extras =
-              registro.actividades
-                ?.filter((a) => a.esExtra)
-                .reduce((s, a) => s + a.duracionHoras, 0) ?? 0;
+            const horasResumen = calcularResumenHoras(registro.actividades);
             const disabled = registro.aprobacionRrhh === true;
+            
+            // Estado de aprobación del supervisor
+            let estadoSupervisor = "Pendiente";
+            let colorSupervisor: "warning" | "success" | "error" = "warning";
+            
+            if (registro.aprobacionSupervisor === true) {
+              estadoSupervisor = "Aprobado";
+              colorSupervisor = "success";
+            } else if (registro.aprobacionSupervisor === false) {
+              estadoSupervisor = "Rechazado";
+              colorSupervisor = "error";
+            }
+            
             return (
               <Grow key={registro.id!} in={!loading} timeout={300 + idx * 100}>
                 <Paper sx={{ p: 3, borderRadius: 2 }}>
@@ -227,56 +251,75 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
                       color="text.secondary"
                       sx={{ mb: 2 }}
                     >
-                      {registro.comentarioEmpleado}
+                      <strong>Comentario del empleado:</strong> {registro.comentarioEmpleado}
                     </Typography>
                   )}
 
                   <Divider sx={{ mb: 2 }} />
+                  
+                  {/* Resumen de actividades en tarjetas en lugar de tabla */}
                   <Typography variant="subtitle2" gutterBottom>
-                    Actividades
+                    Resumen de actividades
                   </Typography>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Descripción</TableCell>
-                        <TableCell>Horas</TableCell>
-                        <TableCell>Job</TableCell>
-                        <TableCell>Código</TableCell>
-                        <TableCell>Tipo</TableCell>
-                        <TableCell>Clase</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {registro.actividades
-                        ?.slice()
-                        .sort((a, b) =>
-                          a.esExtra === b.esExtra ? 0 : a.esExtra ? 1 : -1
-                        )
-                        .map((act: ActividadData) => (
-                          <TableRow key={act.id ?? act.jobId}>
-                            <TableCell>{act.descripcion}</TableCell>
-                            <TableCell>
-                              <Chip
-                                label={`${act.duracionHoras}h`}
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell>{act.job?.nombre}</TableCell>
-                            <TableCell>{act.job?.codigo}</TableCell>
-                            <TableCell>
-                              <Chip
-                                label={act.esExtra ? "Extra" : "Normal"}
-                                size="small"
-                                color={act.esExtra ? "error" : "default"}
-                              />
-                            </TableCell>
-                            <TableCell>{act.className || "-"}</TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
-                  <br></br>
-                  {/* <Divider sx={{ my: 2 }} /> */}
+                  
+                  <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+                    <Card variant="outlined" sx={{ minWidth: 120 }}>
+                      <CardContent>
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          Normales
+                        </Typography>
+                        <Typography variant="h4">
+                          {horasResumen.normales}h
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card variant="outlined" sx={{ minWidth: 120 }}>
+                      <CardContent>
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          Extras
+                        </Typography>
+                        <Typography variant="h4" color="error.main">
+                          {horasResumen.extras}h
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card variant="outlined" sx={{ minWidth: 120 }}>
+                      <CardContent>
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          Total
+                        </Typography>
+                        <Typography variant="h4" color="primary.main">
+                          {horasResumen.total}h
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Stack>
+                  
+                  {/* Estado de aprobación del supervisor */}
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Revisión del supervisor
+                    </Typography>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <Chip 
+                        label={estadoSupervisor} 
+                        color={colorSupervisor} 
+                        variant="outlined"
+                      />
+                      
+                      {registro.comentarioSupervisor && (
+                        <Typography variant="body2">
+                          <strong>Comentario:</strong> {registro.comentarioSupervisor}
+                        </Typography>
+                      )}
+                    </Stack>
+                  </Box>
+                  
+                  <Divider sx={{ my: 2 }} />
+                  
+                  {/* Botones de acción */}
                   <Stack direction="row" spacing={2} justifyContent="flex-end">
                     <Button
                       variant="outlined"

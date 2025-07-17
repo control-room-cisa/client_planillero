@@ -11,28 +11,25 @@ import {
   useTheme,
   useMediaQuery,
   Drawer,
+  CircularProgress,
 } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
 import {
-  Search as SearchIcon,
   Person as PersonIcon,
   FilterList as FilterIcon,
+  Business as BusinessIcon,
 } from "@mui/icons-material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { es } from "date-fns/locale";
-import { useEmployees } from "../employeeByDepartament";
 import PlanillaDetallePreview from "./PlanillaDetallePreviewRrhh";
 import type { Employee } from "../../types/auth";
-
-// Tipo y lista para estados de planilla (Sin "Todos")
-export type PlanillaStatus = "Pendiente" | "Aprobado" | "Rechazado";
-export const PlanillaStatuses: PlanillaStatus[] = [
-  "Pendiente",
-  "Aprobado",
-  "Rechazado",
-];
+import { employeeService } from "../../services/empleadoService";
+import { empresaService } from "../../services/empresaService";
+import type { Empresa } from "../../types/auth";
+import { PlanillaStatuses } from "./planillaConstants";
+import type { PlanillaStatus } from "./planillaConstants";
 
 const TimesheetReviewRrhh: React.FC = () => {
   const theme = useTheme();
@@ -43,14 +40,64 @@ const TimesheetReviewRrhh: React.FC = () => {
   const lastWeek = new Date();
   lastWeek.setDate(today.getDate() - 7);
 
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
-    null
-  );
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [startDate, setStartDate] = useState<Date | null>(lastWeek);
   const [endDate, setEndDate] = useState<Date | null>(today);
   const [statusFilter, setStatusFilter] = useState<PlanillaStatus>("Pendiente");
-  const { employees, loading: empLoading } = useEmployees();
   const [openFilters, setOpenFilters] = useState(!isMobile);
+  
+  // Estado para empresas y empleados
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loadingEmpresas, setLoadingEmpresas] = useState(false);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+
+  // Cargar empresas al iniciar
+  useEffect(() => {
+    const fetchEmpresas = async () => {
+      try {
+        setLoadingEmpresas(true);
+        const response = await empresaService.getEmpresas();
+        if (response.success) {
+          setEmpresas(response.data);
+        }
+      } catch (error) {
+        console.error("Error al cargar empresas:", error);
+      } finally {
+        setLoadingEmpresas(false);
+      }
+    };
+
+    fetchEmpresas();
+  }, []);
+
+  // Cargar empleados cuando cambia la empresa seleccionada
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setLoadingEmployees(true);
+        if (selectedEmpresa) {
+          const response = await employeeService.getEmployeesByCompany(selectedEmpresa.id);
+          if (response.success) {
+            setEmployees(response.data);
+          }
+        } else {
+          // Si no hay empresa seleccionada, cargar todos los empleados
+          const response = await employeeService.getEmployeesByCompany();
+          if (response.success) {
+            setEmployees(response.data);
+          }
+        }
+      } catch (error) {
+        console.error("Error al cargar empleados:", error);
+      } finally {
+        setLoadingEmployees(false);
+      }
+    };
+
+    fetchEmployees();
+  }, [selectedEmpresa]);
 
   // Ajusta apertura al cambiar a móvil/escritorio
   useEffect(() => {
@@ -87,19 +134,68 @@ const TimesheetReviewRrhh: React.FC = () => {
         />
       </LocalizationProvider>
 
+      {/* Filtro de empresa */}
+      <Autocomplete
+        options={empresas}
+        getOptionLabel={(opt) => opt.nombre || ''}
+        loading={loadingEmpresas}
+        onChange={(_, value) => {
+          setSelectedEmpresa(value);
+          setSelectedEmployee(null); // Resetear empleado seleccionado al cambiar empresa
+        }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            size="small"
+            label="Empresa"
+            placeholder="Seleccionar empresa"
+            InputProps={{
+              ...params.InputProps,
+              startAdornment: (
+                <>
+                  <BusinessIcon sx={{ mr: 1, color: 'action.active' }} />
+                  {params.InputProps.startAdornment}
+                </>
+              ),
+              endAdornment: (
+                <>
+                  {loadingEmpresas ? <CircularProgress color="inherit" size={20} /> : null}
+                  {params.InputProps.endAdornment}
+                </>
+              ),
+            }}
+            fullWidth
+          />
+        )}
+      />
+
+      {/* Filtro de empleado */}
       <Autocomplete
         options={employees}
         getOptionLabel={(opt) => `${opt.nombre} ${opt.apellido}`}
-        loading={empLoading}
+        loading={loadingEmployees}
+        value={selectedEmployee}
         onChange={(_, value) => setSelectedEmployee(value)}
         renderInput={(params) => (
           <TextField
             {...params}
             size="small"
+            label="Empleado"
             placeholder="Buscar empleado"
             InputProps={{
               ...params.InputProps,
-              startAdornment: <SearchIcon sx={{ mr: 1 }} />,
+              startAdornment: (
+                <>
+                  <PersonIcon sx={{ mr: 1, color: 'action.active' }} />
+                  {params.InputProps.startAdornment}
+                </>
+              ),
+              endAdornment: (
+                <>
+                  {loadingEmployees ? <CircularProgress color="inherit" size={20} /> : null}
+                  {params.InputProps.endAdornment}
+                </>
+              ),
             }}
             fullWidth
           />
@@ -155,18 +251,10 @@ const TimesheetReviewRrhh: React.FC = () => {
         ) : (
           <Paper
             sx={{
-              // width: 300,
-              // position: "fixed",
-              // top: "64px",
               bottom: 0,
               left: 0,
               borderRadius: 0,
-              // borderRight: "1px solid",
               borderColor: "divider",
-              // display: "flex",
-              // flexDirection: "column",
-              // overflowY: "auto",
-              // overflowX: "hidden",
             }}
           >
             {filterContent}
@@ -177,7 +265,6 @@ const TimesheetReviewRrhh: React.FC = () => {
         <Box
           sx={{
             flex: 1,
-            // ml: isMobile ? 0 : "300px",
             p: 2,
             position: "relative",
             overflowY: "auto",

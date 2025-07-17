@@ -108,7 +108,10 @@ export default function MiniDrawer() {
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(
     null
   );
-  const [selectedView, setSelectedView] = React.useState("daily-register");
+  // Establecer vista inicial según el rol del usuario
+  const [selectedView, setSelectedView] = React.useState(
+    user?.rolId === 3 ? "review-timesheets-rrhh" : "daily-register"
+  );
 
   // Configurar elementos de navegación según el rol del usuario
   const getNavItems = () => {
@@ -134,8 +137,13 @@ export default function MiniDrawer() {
       });
     }
 
+    // Para RRHH: quitar registro diario y agregar revisión de planillas
     if (user?.rolId === 3) {
-      baseItems.splice(1, 0, {
+      // Eliminar "Nuevo Registro Diario" para RRHH
+      baseItems.shift();
+      
+      // Agregar revisión de planillas al principio
+      baseItems.unshift({
         id: "review-timesheets-rrhh",
         text: "Revisión Planillas RRHH",
         icon: <FindInPageIcon />,
@@ -173,6 +181,11 @@ export default function MiniDrawer() {
   };
 
   const renderContent = () => {
+    // Si es RRHH y está intentando ver daily-register, redirigir a revisión de planillas
+    if (user?.rolId === 3 && selectedView === "daily-register") {
+      return <TimesheetReviewRrhh />;
+    }
+    
     switch (selectedView) {
       case "daily-register":
         return <DailyTimesheet />;
@@ -192,6 +205,10 @@ export default function MiniDrawer() {
           </Box>
         );
       default:
+        // Si es RRHH, la vista por defecto es revisión de planillas
+        if (user?.rolId === 3) {
+          return <TimesheetReviewRrhh />;
+        }
         return <DailyTimesheet />;
     }
   };
