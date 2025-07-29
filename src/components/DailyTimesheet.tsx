@@ -313,7 +313,7 @@ const DailyTimesheet: React.FC = () => {
       dayConfigData.jornada !== registroDiario.jornada ||
       dayConfigData.esDiaLibre !== registroDiario.esDiaLibre ||
       dayConfigData.comentarioEmpleado !==
-        (registroDiario.comentarioEmpleado || "")
+      (registroDiario.comentarioEmpleado || "")
     );
   };
 
@@ -570,7 +570,20 @@ const DailyTimesheet: React.FC = () => {
       (total, act) => total + act.duracionHoras,
       0
     ) || 0;
-  const totalHours = registroDiario ? 9.0 : 0; // 9 horas estándar, podría calcularse desde hora entrada/salida
+  // Calcular total de horas según horaEntrada y horaSalida
+  const totalHours = (() => {
+    if (!registroDiario) return 0;
+
+    const entrada = new Date(registroDiario.horaEntrada);
+    const salida = new Date(registroDiario.horaSalida);
+
+    const diffHoras = (salida.getTime() - entrada.getTime()) / 3600000;
+
+    // Si trabaja 9h o más, descontar 1h de almuerzo
+    return diffHoras >= 9 ? diffHoras - 1 : diffHoras;
+  })();
+
+
   const progressPercentage =
     totalHours > 0 ? (workedHours / totalHours) * 100 : 0;
 
@@ -637,8 +650,8 @@ const DailyTimesheet: React.FC = () => {
             {loading
               ? "Guardando..."
               : hasDayRecord
-              ? "Actualizar Día"
-              : "Guardar Día"}
+                ? "Actualizar Día"
+                : "Guardar Día"}
           </Button>
         </Box>
       </Box>
@@ -661,13 +674,12 @@ const DailyTimesheet: React.FC = () => {
           sx={{ mb: 2 }}
         >
           <Chip
-            label={`Jornada: ${
-              registroDiario.jornada === "M"
-                ? "Mañana"
-                : registroDiario.jornada === "T"
+            label={`Jornada: ${registroDiario.jornada === "M"
+              ? "Mañana"
+              : registroDiario.jornada === "T"
                 ? "Tarde"
                 : "Noche"
-            }`}
+              }`}
             size="small"
             color="primary"
             variant="outlined"
@@ -847,7 +859,7 @@ const DailyTimesheet: React.FC = () => {
           />
 
           <Typography variant="body2" color="warning.main">
-            Faltan {(totalHours - workedHours).toFixed(1)} horas para completar
+            Faltan {Math.max(totalHours - workedHours).toFixed(1)} horas para completar
             el día
           </Typography>
         </CardContent>
@@ -1128,8 +1140,8 @@ const DailyTimesheet: React.FC = () => {
                   </Box>
                 )}
                 noOptionsText={
-                  loadingJobs 
-                    ? "Cargando jobs..." 
+                  loadingJobs
+                    ? "Cargando jobs..."
                     : "No hay jobs activos disponibles"
                 }
               />
@@ -1184,8 +1196,8 @@ const DailyTimesheet: React.FC = () => {
                   {loading
                     ? "Guardando..."
                     : editingActivity
-                    ? "Actualizar"
-                    : "Guardar"}
+                      ? "Actualizar"
+                      : "Guardar"}
                 </Button>
               </Box>
             </Box>

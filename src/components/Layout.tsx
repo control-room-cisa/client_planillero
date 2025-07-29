@@ -25,6 +25,7 @@ import { useAuth } from "../hooks/useAuth";
 import TimesheetReviewSupervisor from "./supervisor/TimesheetReviewSupervisor";
 import TimesheetReviewRrhh from "./rrhh/TimesheetReviewRrhh";
 import ContabilidadDashboard from "./contabilidad/ContabilidadDashboard";
+import TimesheetReviewEmployee from "./TimesheetReviewEmployee";
 
 const drawerWidth = 240;
 const settings = ["Cerrar Sesión"];
@@ -143,7 +144,7 @@ export default function MiniDrawer() {
     if (user?.rolId === 3) {
       // Eliminar "Nuevo Registro Diario" para RRHH
       baseItems.shift();
-      
+
       // Agregar revisión de planillas al principio
       baseItems.unshift({
         id: "review-timesheets-rrhh",
@@ -198,12 +199,12 @@ export default function MiniDrawer() {
     if (user?.rolId === 3 && selectedView === "daily-register") {
       return <TimesheetReviewRrhh />;
     }
-    
+
     // Si es Contabilidad y está intentando ver otra cosa que no sea su dashboard
     if (user?.rolId === 4 && selectedView !== "contabilidad-dashboard") {
       return <ContabilidadDashboard />;
     }
-    
+
     switch (selectedView) {
       case "daily-register":
         return <DailyTimesheet />;
@@ -214,6 +215,11 @@ export default function MiniDrawer() {
       case "contabilidad-dashboard":
         return <ContabilidadDashboard />;
       case "notifications":
+        if (user?.rolId === 1) {
+          // Solo empleados ven el componente especial
+          return <TimesheetReviewEmployee />;
+        }
+        // El resto ve el mensaje por defecto
         return (
           <Box sx={{ p: 3 }}>
             <Typography variant="h4" gutterBottom>
