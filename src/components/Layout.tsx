@@ -20,7 +20,7 @@ import PostAddIcon from "@mui/icons-material/PostAdd";
 import FindInPageIcon from "@mui/icons-material/FindInPage";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import { Avatar, Menu, MenuItem, Tooltip } from "@mui/material";
-import DailyTimesheet from "./DailyTimesheet";
+import DailyTimesheet from "./registro-actividades/DailyTimesheet";
 import { useAuth } from "../hooks/useAuth";
 import TimesheetReviewSupervisor from "./supervisor/TimesheetReviewSupervisor";
 import TimesheetReviewRrhh from "./rrhh/TimesheetReviewRrhh";
@@ -107,7 +107,9 @@ export default function MiniDrawer() {
   const theme = useTheme();
   const { user, logout } = useAuth();
   const [open, setOpen] = React.useState(false);
-  const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
+  const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(
+    null
+  );
   // Establecer vista inicial según el rol del usuario
   const getInitialView = () => {
     if (user?.rolId === 3) return "review-timesheets-rrhh";

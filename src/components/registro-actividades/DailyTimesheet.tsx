@@ -37,11 +37,11 @@ import {
   Edit,
   Delete,
 } from "@mui/icons-material";
-import { useAuth } from "../hooks/useAuth";
-import RegistroDiarioService from "../services/registroDiarioService";
-import JobService from "../services/jobService";
-import type { Job } from "../services/jobService";
-import type { RegistroDiarioData } from "../dtos/RegistrosDiariosDataDto";
+import { useAuth } from "../../hooks/useAuth";
+import RegistroDiarioService from "../../services/registroDiarioService";
+import JobService from "../../services/jobService";
+import type { Job } from "../../services/jobService";
+import type { RegistroDiarioData } from "../../dtos/RegistrosDiariosDataDto";
 
 interface ActivityData {
   descripcion: string;
@@ -92,8 +92,9 @@ const DailyTimesheet: React.FC = () => {
   const [dayConfigData, setDayConfigData] = useState({
     horaEntrada: "",
     horaSalida: "",
-    jornada: "M",
+    jornada: "D",
     esDiaLibre: false,
+    esHoraCorrida: false,
     comentarioEmpleado: "",
   });
   const [dayConfigErrors, setDayConfigErrors] = useState<{
@@ -117,7 +118,7 @@ const DailyTimesheet: React.FC = () => {
       setLoadingJobs(true);
       const jobsData = await JobService.getAll();
       // Filtrar solo los jobs activos
-      const activeJobs = jobsData.filter(job => job.activo === true);
+      const activeJobs = jobsData.filter((job) => job.activo === true);
       setJobs(activeJobs);
     } catch (error) {
       console.error("Error al cargar jobs:", error);
@@ -152,6 +153,7 @@ const DailyTimesheet: React.FC = () => {
           horaSalida,
           jornada: registro.jornada || "M",
           esDiaLibre: registro.esDiaLibre || false,
+          esHoraCorrida: registro.esHoraCorrida || false,
           comentarioEmpleado: registro.comentarioEmpleado || "",
         });
       } else {
@@ -161,6 +163,7 @@ const DailyTimesheet: React.FC = () => {
           horaSalida: "17:00",
           jornada: "M",
           esDiaLibre: false,
+          esHoraCorrida: false,
           comentarioEmpleado: "",
         });
       }
@@ -214,7 +217,7 @@ const DailyTimesheet: React.FC = () => {
   // Efecto para establecer el job seleccionado cuando se cargan los jobs y hay una actividad en edición
   useEffect(() => {
     if (editingActivity && jobs.length > 0 && editingActivity.jobId) {
-      const job = jobs.find(j => j.id === editingActivity.jobId);
+      const job = jobs.find((j) => j.id === editingActivity.jobId);
       if (job) {
         setSelectedJob(job);
       }
@@ -245,6 +248,7 @@ const DailyTimesheet: React.FC = () => {
         horaSalida: registroDiario.horaSalida,
         jornada: registroDiario.jornada,
         esDiaLibre: registroDiario.esDiaLibre,
+        esHoraCorrida: registroDiario.esHoraCorrida,
         comentarioEmpleado: registroDiario.comentarioEmpleado,
         actividades: actividadesActualizadas,
       };
@@ -312,8 +316,9 @@ const DailyTimesheet: React.FC = () => {
       dayConfigData.horaSalida !== registroHoraSalida ||
       dayConfigData.jornada !== registroDiario.jornada ||
       dayConfigData.esDiaLibre !== registroDiario.esDiaLibre ||
+      dayConfigData.esHoraCorrida !== registroDiario.esHoraCorrida ||
       dayConfigData.comentarioEmpleado !==
-      (registroDiario.comentarioEmpleado || "")
+        (registroDiario.comentarioEmpleado || "")
     );
   };
 
@@ -338,6 +343,7 @@ const DailyTimesheet: React.FC = () => {
         horaSalida: horaSalida.toISOString(),
         jornada: dayConfigData.jornada,
         esDiaLibre: dayConfigData.esDiaLibre,
+        esHoraCorrida: dayConfigData.esHoraCorrida,
         comentarioEmpleado: dayConfigData.comentarioEmpleado,
         actividades:
           registroDiario?.actividades?.map((act) => ({
@@ -465,6 +471,7 @@ const DailyTimesheet: React.FC = () => {
           horaSalida: registroDiario.horaSalida,
           jornada: registroDiario.jornada,
           esDiaLibre: registroDiario.esDiaLibre,
+          esHoraCorrida: registroDiario.esHoraCorrida,
           comentarioEmpleado: registroDiario.comentarioEmpleado,
           actividades: actividadesActualizadas,
         };
@@ -489,6 +496,7 @@ const DailyTimesheet: React.FC = () => {
           horaSalida: horaSalida.toISOString(),
           jornada: dayConfigData.jornada,
           esDiaLibre: dayConfigData.esDiaLibre,
+          esHoraCorrida: dayConfigData.esHoraCorrida,
           comentarioEmpleado: dayConfigData.comentarioEmpleado,
           actividades: [actividad],
         };
@@ -583,7 +591,6 @@ const DailyTimesheet: React.FC = () => {
     return diffHoras >= 9 ? diffHoras - 1 : diffHoras;
   })();
 
-
   const progressPercentage =
     totalHours > 0 ? (workedHours / totalHours) * 100 : 0;
 
@@ -650,8 +657,8 @@ const DailyTimesheet: React.FC = () => {
             {loading
               ? "Guardando..."
               : hasDayRecord
-                ? "Actualizar Día"
-                : "Guardar Día"}
+              ? "Actualizar Día"
+              : "Guardar Día"}
           </Button>
         </Box>
       </Box>
@@ -674,12 +681,13 @@ const DailyTimesheet: React.FC = () => {
           sx={{ mb: 2 }}
         >
           <Chip
-            label={`Jornada: ${registroDiario.jornada === "M"
-              ? "Mañana"
-              : registroDiario.jornada === "T"
-                ? "Tarde"
-                : "Noche"
-              }`}
+            label={`Jornada: ${
+              registroDiario.jornada === "D"
+                ? "Dia"
+                : registroDiario.jornada === "N"
+                ? "Noche"
+                : ""
+            }`}
             size="small"
             color="primary"
             variant="outlined"
@@ -696,6 +704,14 @@ const DailyTimesheet: React.FC = () => {
           {registroDiario.esDiaLibre && (
             <Chip
               label="Día Libre"
+              size="small"
+              color="warning"
+              variant="outlined"
+            />
+          )}
+          {registroDiario.esHoraCorrida && (
+            <Chip
+              label="Hora Corrida"
               size="small"
               color="warning"
               variant="outlined"
@@ -787,7 +803,7 @@ const DailyTimesheet: React.FC = () => {
                 }
                 label="Jornada"
               >
-                <MenuItem value="M">Mañana</MenuItem>
+                <MenuItem value="D">Día</MenuItem>
                 <MenuItem value="N">Noche</MenuItem>
               </Select>
             </FormControl>
@@ -805,6 +821,21 @@ const DailyTimesheet: React.FC = () => {
                   />
                 }
                 label="Día Libre"
+              />
+            </Box>
+            {/* Es Hora Corrida */}
+            <Box sx={{ display: "flex", alignItems: "center", height: "40px" }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    disabled={readOnly}
+                    name="esHoraCorrida"
+                    checked={dayConfigData.esHoraCorrida}
+                    onChange={handleDayConfigInputChange}
+                    color="primary"
+                  />
+                }
+                label="Hora Corrida"
               />
             </Box>
           </Box>
@@ -859,8 +890,8 @@ const DailyTimesheet: React.FC = () => {
           />
 
           <Typography variant="body2" color="warning.main">
-            Faltan {Math.max(totalHours - workedHours).toFixed(1)} horas para completar
-            el día
+            Faltan {Math.max(totalHours - workedHours).toFixed(1)} horas para
+            completar el día
           </Typography>
         </CardContent>
       </Card>
@@ -1101,7 +1132,9 @@ const DailyTimesheet: React.FC = () => {
             <Box sx={{ mb: 3 }}>
               <Autocomplete
                 options={jobs}
-                getOptionLabel={(option) => `${option.codigo} - ${option.nombre}`}
+                getOptionLabel={(option) =>
+                  `${option.codigo} - ${option.nombre}`
+                }
                 value={selectedJob}
                 onChange={handleJobChange}
                 loading={loadingJobs}
@@ -1196,8 +1229,8 @@ const DailyTimesheet: React.FC = () => {
                   {loading
                     ? "Guardando..."
                     : editingActivity
-                      ? "Actualizar"
-                      : "Guardar"}
+                    ? "Actualizar"
+                    : "Guardar"}
                 </Button>
               </Box>
             </Box>
