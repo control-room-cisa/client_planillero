@@ -19,11 +19,13 @@ import ListItemText from "@mui/material/ListItemText";
 import PostAddIcon from "@mui/icons-material/PostAdd";
 import FindInPageIcon from "@mui/icons-material/FindInPage";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import EventIcon from "@mui/icons-material/Event";
 import { Avatar, Menu, MenuItem, Tooltip } from "@mui/material";
 import DailyTimesheet from "./registro-actividades/DailyTimesheet";
 import { useAuth } from "../hooks/useAuth";
 import TimesheetReviewSupervisor from "./supervisor/TimesheetReviewSupervisor";
 import TimesheetReviewRrhh from "./rrhh/TimesheetReviewRrhh";
+import FeriadosManagement from "./rrhh/FeriadosManagement";
 import ContabilidadDashboard from "./contabilidad/ContabilidadDashboard";
 import TimesheetReviewEmployee from "./TimesheetReviewEmployee";
 
@@ -142,7 +144,7 @@ export default function MiniDrawer() {
       });
     }
 
-    // Para RRHH: quitar registro diario y agregar revisión de planillas
+    // Para RRHH: quitar registro diario y agregar revisión de planillas y gestión de feriados
     if (user?.rolId === 3) {
       // Eliminar "Nuevo Registro Diario" para RRHH
       baseItems.shift();
@@ -152,6 +154,13 @@ export default function MiniDrawer() {
         id: "review-timesheets-rrhh",
         text: "Revisión Planillas RRHH",
         icon: <FindInPageIcon />,
+      });
+
+      // Agregar gestión de feriados
+      baseItems.push({
+        id: "feriados-management",
+        text: "Gestión de Feriados",
+        icon: <EventIcon />,
       });
     }
 
@@ -214,6 +223,8 @@ export default function MiniDrawer() {
         return <TimesheetReviewSupervisor />;
       case "review-timesheets-rrhh":
         return <TimesheetReviewRrhh />;
+      case "feriados-management":
+        return <FeriadosManagement />;
       case "contabilidad-dashboard":
         return <ContabilidadDashboard />;
       case "notifications":
