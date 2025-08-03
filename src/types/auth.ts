@@ -51,17 +51,16 @@ export interface Empleado {
   createdAt?: string;
   updatedAt?: string | null;
   deletedAt?: string | null;
-};
+}
 
 export interface Employee {
   id: number;
   nombre: string;
-  apellido: string;
+  apellido: string | undefined;
   codigo?: string;
   departamento: string;
   empresaId?: number;
 }
-
 
 export interface EmployeesResponse {
   success: boolean;
@@ -95,4 +94,4 @@ export interface AuthContextType extends AuthState {
   login: (credentials: LoginRequest) => Promise<void>;
   register: (registerData: RegisterRequest) => Promise<void>;
   logout: () => void;
-} 
+}

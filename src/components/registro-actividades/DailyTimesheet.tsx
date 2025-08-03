@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import * as React from "react";
+
 import {
   Box,
   Typography,
@@ -68,28 +69,32 @@ const DailyTimesheet: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { user } = useAuth();
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
-  const [editingIndex, setEditingIndex] = useState<number>(-1);
-  const [formData, setFormData] = useState<ActivityData>({
+  const [currentDate, setCurrentDate] = React.useState(new Date());
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [editingActivity, setEditingActivity] = React.useState<Activity | null>(
+    null
+  );
+  const [editingIndex, setEditingIndex] = React.useState<number>(-1);
+  const [formData, setFormData] = React.useState<ActivityData>({
     descripcion: "",
     horasInvertidas: "",
     job: "",
     class: "",
     horaExtra: false,
   });
-  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+  const [formErrors, setFormErrors] = React.useState<{ [key: string]: string }>(
+    {}
+  );
 
   // Estado para jobs
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loadingJobs, setLoadingJobs] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [jobs, setJobs] = React.useState<Job[]>([]);
+  const [loadingJobs, setLoadingJobs] = React.useState(false);
+  const [selectedJob, setSelectedJob] = React.useState<Job | null>(null);
 
   // Estado para los datos del día laboral
   const [registroDiario, setRegistroDiario] =
-    useState<RegistroDiarioData | null>(null);
-  const [dayConfigData, setDayConfigData] = useState({
+    React.useState<RegistroDiarioData | null>(null);
+  const [dayConfigData, setDayConfigData] = React.useState({
     horaEntrada: "",
     horaSalida: "",
     jornada: "D",
@@ -97,18 +102,18 @@ const DailyTimesheet: React.FC = () => {
     esHoraCorrida: false,
     comentarioEmpleado: "",
   });
-  const [dayConfigErrors, setDayConfigErrors] = useState<{
+  const [dayConfigErrors, setDayConfigErrors] = React.useState<{
     [key: string]: string;
   }>({});
-  const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({
+  const [loading, setLoading] = React.useState(false);
+  const [snackbar, setSnackbar] = React.useState({
     open: false,
     message: "",
     severity: "success" as "success" | "error",
   });
 
   // Cargar datos del registro diario cuando cambie la fecha
-  useEffect(() => {
+  React.useEffect(() => {
     loadRegistroDiario();
   }, [currentDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -215,7 +220,7 @@ const DailyTimesheet: React.FC = () => {
   };
 
   // Efecto para establecer el job seleccionado cuando se cargan los jobs y hay una actividad en edición
-  useEffect(() => {
+  React.useEffect(() => {
     if (editingActivity && jobs.length > 0 && editingActivity.jobId) {
       const job = jobs.find((j) => j.id === editingActivity.jobId);
       if (job) {
@@ -840,7 +845,7 @@ const DailyTimesheet: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Comentario del Empleado */}
+          {/* Comentario del Colaborador */}
           <TextField
             disabled={readOnly}
             fullWidth

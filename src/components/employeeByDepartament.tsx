@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { employeeService } from "../services/empleadoService";
-import type { Employee } from "../types/auth";
+import EmpleadoService, { type Empleado } from "../services/empleadoService";
 
 export const useEmployees = () => {
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<Empleado[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -11,8 +10,8 @@ export const useEmployees = () => {
     const fetchEmployees = async () => {
       try {
         setLoading(true);
-        const response = await employeeService.getEmployeesByDepartment();
-        setEmployees(response.data);
+        const empleados = await EmpleadoService.getAll();
+        setEmployees(empleados);
       } catch (err: any) {
         console.error(err);
         setError(err.message || "Error al obtener empleados");

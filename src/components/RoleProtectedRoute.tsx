@@ -1,4 +1,4 @@
-import React from "react";
+// import React from "react";
 import type { ReactNode } from "react";
 import { Box, CircularProgress } from "@mui/material";
 import { useAuth } from "../hooks/useAuth";
@@ -11,10 +11,10 @@ interface RoleProtectedRouteProps {
   redirectPath?: string;
 }
 
-export default function RoleProtectedRoute({ 
-  children, 
+export default function RoleProtectedRoute({
+  children,
   allowedRoles,
-  redirectPath = "/"
+  redirectPath = "/",
 }: RoleProtectedRouteProps) {
   const { isAuthenticated, loading, user } = useAuth();
 
@@ -46,4 +46,4 @@ export default function RoleProtectedRoute({
 
   // Si está autenticado y tiene el rol permitido, mostrar el contenido
   return <>{children}</>;
-} 
+}

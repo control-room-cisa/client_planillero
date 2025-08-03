@@ -26,11 +26,11 @@ import type {
   RegistroDiarioData,
   ActividadData,
 } from "../../dtos/RegistrosDiariosDataDto";
-import type { Employee } from "../../types/auth";
+import type { Empleado } from "../../services/empleadoService";
 import type { PlanillaStatus } from "./planillaConstants";
 
 interface Props {
-  empleado: Employee;
+  empleado: Empleado;
   startDate: Date | null;
   endDate: Date | null;
   status: PlanillaStatus;
@@ -166,30 +166,30 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
     if (!actividades || actividades.length === 0) {
       return { normales: 0, extras: 0, total: 0 };
     }
-    
+
     const normales = actividades
-      .filter(a => !a.esExtra)
+      .filter((a) => !a.esExtra)
       .reduce((sum, act) => sum + act.duracionHoras, 0);
-    
+
     const extras = actividades
-      .filter(a => a.esExtra)
+      .filter((a) => a.esExtra)
       .reduce((sum, act) => sum + act.duracionHoras, 0);
-    
+
     return {
       normales,
       extras,
-      total: normales + extras
+      total: normales + extras,
     };
   };
 
   // Función para formatear correctamente la hora
   const formatTimeCorrectly = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString("es-ES", { 
-      hour: "2-digit", 
+    return date.toLocaleTimeString("es-ES", {
+      hour: "2-digit",
       minute: "2-digit",
       hour12: false,
-      timeZone: "UTC" // Usar UTC para evitar conversiones de zona horaria
+      timeZone: "UTC", // Usar UTC para evitar conversiones de zona horaria
     });
   };
 
@@ -214,7 +214,7 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
           {registros.map((registro, idx) => {
             const horasResumen = calcularResumenHoras(registro.actividades);
             const disabled = registro.aprobacionRrhh === true;
-            
+
             return (
               <Grow key={registro.id!} in={!loading} timeout={300 + idx * 100}>
                 <Paper sx={{ p: 3, borderRadius: 2 }}>
@@ -247,12 +247,13 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
                       color="text.secondary"
                       sx={{ mb: 2 }}
                     >
-                      <strong>Comentario del empleado:</strong> {registro.comentarioEmpleado}
+                      <strong>Comentario del empleado:</strong>{" "}
+                      {registro.comentarioEmpleado}
                     </Typography>
                   )}
 
                   <Divider sx={{ mb: 2 }} />
-                  
+
                   {/* Tabla de actividades */}
                   <Typography variant="subtitle2" gutterBottom>
                     Actividades
@@ -297,7 +298,7 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
                         ))}
                     </TableBody>
                   </Table>
-                  
+
                   {/* Resumen de horas */}
                   <Box sx={{ mt: 2, mb: 2 }}>
                     <Typography variant="subtitle2" gutterBottom>
@@ -307,62 +308,70 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
                       <Typography variant="body2" color="text.secondary">
                         Normales:
                       </Typography>
-                      <Chip 
-                        label={`${horasResumen.normales}h`} 
-                        size="small" 
+                      <Chip
+                        label={`${horasResumen.normales}h`}
+                        size="small"
                         variant="outlined"
                       />
-                      
-                      <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ ml: 2 }}
+                      >
                         Extras:
                       </Typography>
-                      <Chip 
-                        label={`${horasResumen.extras}h`} 
-                        size="small" 
-                        color="error" 
+                      <Chip
+                        label={`${horasResumen.extras}h`}
+                        size="small"
+                        color="error"
                         variant="outlined"
                       />
-                      
-                      <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
+
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ ml: 2 }}
+                      >
                         Total:
                       </Typography>
-                      <Chip 
-                        label={`${horasResumen.total}h`} 
-                        size="small" 
-                        color="primary" 
+                      <Chip
+                        label={`${horasResumen.total}h`}
+                        size="small"
+                        color="primary"
                         variant="outlined"
                       />
                     </Stack>
                   </Box>
-                  
+
                   {/* Estado de aprobación del supervisor */}
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="subtitle2" gutterBottom>
                       Revisión del supervisor
                     </Typography>
                     <Stack direction="row" spacing={2} alignItems="center">
-                      <Chip 
-                        label="Aprobado" 
-                        color="success" 
+                      <Chip
+                        label="Aprobado"
+                        color="success"
                         variant="outlined"
                       />
-                      
+
                       {registro.comentarioSupervisor && (
                         <Typography variant="body2">
-                          <strong>Comentario:</strong> {registro.comentarioSupervisor}
+                          <strong>Comentario:</strong>{" "}
+                          {registro.comentarioSupervisor}
                         </Typography>
                       )}
                     </Stack>
                   </Box>
-                  
+
                   <Divider sx={{ my: 2 }} />
-                  
+
                   {/* Botones de acción */}
                   <Stack direction="row" spacing={2} justifyContent="flex-end">
                     <Button
                       variant="outlined"
                       color="error"
-                
                       onClick={() => handleRechazar(registro.id!)}
                     >
                       Rechazar
@@ -383,7 +392,8 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
 
           {!loading && registros.length === 0 && (
             <Typography>
-              No hay registros aprobados por el supervisor para las fechas seleccionadas.
+              No hay registros aprobados por el supervisor para las fechas
+              seleccionadas.
             </Typography>
           )}
         </Stack>

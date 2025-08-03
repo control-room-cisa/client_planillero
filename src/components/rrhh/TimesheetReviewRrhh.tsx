@@ -24,8 +24,8 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { es } from "date-fns/locale";
 import PlanillaDetallePreview from "./PlanillaDetallePreviewRrhh";
-import type { Employee } from "../../types/auth";
-import { employeeService } from "../../services/empleadoService";
+import type { Empleado } from "../../services/empleadoService";
+import EmpleadoService from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
 import type { Empresa } from "../../types/auth";
 import { PlanillaStatuses } from "./planillaConstants";
@@ -40,16 +40,18 @@ const TimesheetReviewRrhh: React.FC = () => {
   const lastWeek = new Date();
   lastWeek.setDate(today.getDate() - 7);
 
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Empleado | null>(
+    null
+  );
   const [startDate, setStartDate] = useState<Date | null>(lastWeek);
   const [endDate, setEndDate] = useState<Date | null>(today);
   const [statusFilter, setStatusFilter] = useState<PlanillaStatus>("Pendiente");
   const [openFilters, setOpenFilters] = useState(!isMobile);
-  
+
   // Estado para empresas y empleados
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(null);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<Empleado[]>([]);
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
 
@@ -78,16 +80,12 @@ const TimesheetReviewRrhh: React.FC = () => {
       try {
         setLoadingEmployees(true);
         if (selectedEmpresa) {
-          const response = await employeeService.getEmployeesByCompany(selectedEmpresa.id);
-          if (response.success) {
-            setEmployees(response.data);
-          }
+          const empleados = await EmpleadoService.getAll(selectedEmpresa.id);
+          setEmployees(empleados);
         } else {
           // Si no hay empresa seleccionada, cargar todos los empleados
-          const response = await employeeService.getEmployeesByCompany();
-          if (response.success) {
-            setEmployees(response.data);
-          }
+          const empleados = await EmpleadoService.getAll();
+          setEmployees(empleados);
         }
       } catch (error) {
         console.error("Error al cargar empleados:", error);
@@ -137,7 +135,7 @@ const TimesheetReviewRrhh: React.FC = () => {
       {/* Filtro de empresa */}
       <Autocomplete
         options={empresas}
-        getOptionLabel={(opt) => opt.nombre || ''}
+        getOptionLabel={(opt) => opt.nombre || ""}
         loading={loadingEmpresas}
         onChange={(_, value) => {
           setSelectedEmpresa(value);
@@ -153,13 +151,15 @@ const TimesheetReviewRrhh: React.FC = () => {
               ...params.InputProps,
               startAdornment: (
                 <>
-                  <BusinessIcon sx={{ mr: 1, color: 'action.active' }} />
+                  <BusinessIcon sx={{ mr: 1, color: "action.active" }} />
                   {params.InputProps.startAdornment}
                 </>
               ),
               endAdornment: (
                 <>
-                  {loadingEmpresas ? <CircularProgress color="inherit" size={20} /> : null}
+                  {loadingEmpresas ? (
+                    <CircularProgress color="inherit" size={20} />
+                  ) : null}
                   {params.InputProps.endAdornment}
                 </>
               ),
@@ -186,13 +186,15 @@ const TimesheetReviewRrhh: React.FC = () => {
               ...params.InputProps,
               startAdornment: (
                 <>
-                  <PersonIcon sx={{ mr: 1, color: 'action.active' }} />
+                  <PersonIcon sx={{ mr: 1, color: "action.active" }} />
                   {params.InputProps.startAdornment}
                 </>
               ),
               endAdornment: (
                 <>
-                  {loadingEmployees ? <CircularProgress color="inherit" size={20} /> : null}
+                  {loadingEmployees ? (
+                    <CircularProgress color="inherit" size={20} />
+                  ) : null}
                   {params.InputProps.endAdornment}
                 </>
               ),

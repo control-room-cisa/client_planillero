@@ -1,7 +1,13 @@
-import React, { createContext, useReducer, useEffect } from 'react';
-import type { ReactNode } from 'react';
-import type { AuthState, AuthContextType, LoginRequest, RegisterRequest, Empleado } from '../types/auth';
-import { authService } from '../services/authService';
+import { createContext, useReducer, useEffect } from "react";
+import type { ReactNode } from "react";
+import type {
+  AuthState,
+  AuthContextType,
+  LoginRequest,
+  RegisterRequest,
+  Empleado,
+} from "../types/auth";
+import { authService } from "../services/authService";
 
 // Estado inicial
 const initialState: AuthState = {
@@ -13,17 +19,17 @@ const initialState: AuthState = {
 
 // Tipos de acciones
 type AuthAction =
-  | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'LOGIN_SUCCESS'; payload: { user: Empleado; token: string } }
-  | { type: 'LOGOUT' }
-  | { type: 'RESTORE_SESSION'; payload: { user: Empleado; token: string } };
+  | { type: "SET_LOADING"; payload: boolean }
+  | { type: "LOGIN_SUCCESS"; payload: { user: Empleado; token: string } }
+  | { type: "LOGOUT" }
+  | { type: "RESTORE_SESSION"; payload: { user: Empleado; token: string } };
 
 // Reducer
 function authReducer(state: AuthState, action: AuthAction): AuthState {
   switch (action.type) {
-    case 'SET_LOADING':
+    case "SET_LOADING":
       return { ...state, loading: action.payload };
-    case 'LOGIN_SUCCESS':
+    case "LOGIN_SUCCESS":
       return {
         ...state,
         isAuthenticated: true,
@@ -31,7 +37,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         token: action.payload.token,
         loading: false,
       };
-    case 'LOGOUT':
+    case "LOGOUT":
       return {
         ...state,
         isAuthenticated: false,
@@ -39,7 +45,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         token: null,
         loading: false,
       };
-    case 'RESTORE_SESSION':
+    case "RESTORE_SESSION":
       return {
         ...state,
         isAuthenticated: true,
@@ -53,7 +59,9 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 }
 
 // Contexto
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(
+  undefined
+);
 
 // Proveedor del contexto
 interface AuthProviderProps {
@@ -66,22 +74,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Función de login
   const login = async (credentials: LoginRequest): Promise<void> => {
     try {
-      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: "SET_LOADING", payload: true });
       const response = await authService.login(credentials);
-      
+
       if (response.success) {
         dispatch({
-          type: 'LOGIN_SUCCESS',
+          type: "LOGIN_SUCCESS",
           payload: {
             user: response.data.empleado,
             token: response.data.token,
           },
         });
       } else {
-        throw new Error(response.message || 'Error al iniciar sesión');
+        throw new Error(response.message || "Error al iniciar sesión");
       }
     } catch (error) {
-      dispatch({ type: 'SET_LOADING', payload: false });
+      dispatch({ type: "SET_LOADING", payload: false });
       throw error;
     }
   };
@@ -89,18 +97,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Función de registro
   const register = async (registerData: RegisterRequest): Promise<void> => {
     try {
-      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: "SET_LOADING", payload: true });
       const response = await authService.register(registerData);
-      
+
       if (response.success) {
         // El registro fue exitoso, pero no iniciamos sesión automáticamente
         // El usuario tendrá que hacer login después del registro
-        dispatch({ type: 'SET_LOADING', payload: false });
+        dispatch({ type: "SET_LOADING", payload: false });
       } else {
-        throw new Error(response.message || 'Error al registrar usuario');
+        throw new Error(response.message || "Error al registrar usuario");
       }
     } catch (error) {
-      dispatch({ type: 'SET_LOADING', payload: false });
+      dispatch({ type: "SET_LOADING", payload: false });
       throw error;
     }
   };
@@ -108,7 +116,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Función de logout
   const logout = (): void => {
     authService.logout();
-    dispatch({ type: 'LOGOUT' });
+    dispatch({ type: "LOGOUT" });
   };
 
   // Restaurar sesión al cargar la aplicación
@@ -119,14 +127,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (storedToken && storedUser) {
         dispatch({
-          type: 'RESTORE_SESSION',
+          type: "RESTORE_SESSION",
           payload: {
             user: storedUser,
             token: storedToken,
           },
         });
       } else {
-        dispatch({ type: 'SET_LOADING', payload: false });
+        dispatch({ type: "SET_LOADING", payload: false });
       }
     };
 
@@ -141,10 +149,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
   );
 }
-
- 

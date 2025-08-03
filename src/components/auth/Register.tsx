@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import * as React from "react";
+
 import {
   Box,
   TextField,
@@ -205,7 +207,7 @@ export default function Register({
               }}
             />
             <Typography component="h1" variant="h4" fontWeight="bold">
-              Registro de Empleado
+              Registro de Colaborador
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               Crea una nueva cuenta
@@ -402,7 +404,7 @@ export default function Register({
                 fontWeight: "bold",
               }}
             >
-              {loading ? "Registrando..." : "Registrar Empleado"}
+              {loading ? "Registrando..." : "Registrar Colaborador"}
             </Button>
 
             {onToggleMode && (

@@ -24,7 +24,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { es } from "date-fns/locale";
 import { useEmployees } from "../employeeByDepartament";
 import PlanillaDetallePreview from "./PlanillaDetallePreview";
-import type { Employee } from "../../types/auth";
+import type { Empleado } from "../../services/empleadoService";
 import { PlanillaStatuses } from "../rrhh/planillaConstants";
 import type { PlanillaStatus } from "../rrhh/planillaConstants";
 
@@ -37,7 +37,7 @@ const TimesheetReviewSupervisor: React.FC = () => {
   const lastWeek = new Date();
   lastWeek.setDate(today.getDate() - 7);
 
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
+  const [selectedEmployee, setSelectedEmployee] = useState<Empleado | null>(
     null
   );
   const [startDate, setStartDate] = useState<Date | null>(lastWeek);

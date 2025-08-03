@@ -20,12 +20,14 @@ import PostAddIcon from "@mui/icons-material/PostAdd";
 import FindInPageIcon from "@mui/icons-material/FindInPage";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import EventIcon from "@mui/icons-material/Event";
+import PeopleIcon from "@mui/icons-material/People";
 import { Avatar, Menu, MenuItem, Tooltip } from "@mui/material";
 import DailyTimesheet from "./registro-actividades/DailyTimesheet";
 import { useAuth } from "../hooks/useAuth";
 import TimesheetReviewSupervisor from "./supervisor/TimesheetReviewSupervisor";
 import TimesheetReviewRrhh from "./rrhh/TimesheetReviewRrhh";
 import FeriadosManagement from "./rrhh/FeriadosManagement";
+import EmpleadosManagement from "./rrhh/EmpleadosManagement";
 import ContabilidadDashboard from "./contabilidad/ContabilidadDashboard";
 import TimesheetReviewEmployee from "./TimesheetReviewEmployee";
 
@@ -156,6 +158,13 @@ export default function MiniDrawer() {
         icon: <FindInPageIcon />,
       });
 
+      // Agregar gestión de colaboradores
+      baseItems.push({
+        id: "colaboradores-management",
+        text: "Gestión de Colaboradores",
+        icon: <PeopleIcon />,
+      });
+
       // Agregar gestión de feriados
       baseItems.push({
         id: "feriados-management",
@@ -223,13 +232,15 @@ export default function MiniDrawer() {
         return <TimesheetReviewSupervisor />;
       case "review-timesheets-rrhh":
         return <TimesheetReviewRrhh />;
+      case "colaboradores-management":
+        return <EmpleadosManagement />;
       case "feriados-management":
         return <FeriadosManagement />;
       case "contabilidad-dashboard":
         return <ContabilidadDashboard />;
       case "notifications":
         if (user?.rolId === 1) {
-          // Solo empleados ven el componente especial
+          // Solo colaboradores ven el componente especial
           return <TimesheetReviewEmployee />;
         }
         // El resto ve el mensaje por defecto

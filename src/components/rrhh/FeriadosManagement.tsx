@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -28,6 +28,8 @@ import {
   Search as SearchIcon,
   Event as EventIcon,
 } from "@mui/icons-material";
+import * as React from "react";
+
 import FeriadoService from "../../services/feriadoService";
 import type { Feriado, CreateFeriadoDto } from "../../services/feriadoService";
 
