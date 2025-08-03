@@ -19,7 +19,7 @@ import {
   Delete as DeleteIcon,
   Visibility as VisibilityIcon,
 } from "@mui/icons-material";
-import type { Empleado } from "../../services/empleadoService";
+import type { Empleado } from "../../../services/empleadoService";
 
 interface EmpleadosListProps {
   empleados: Empleado[];

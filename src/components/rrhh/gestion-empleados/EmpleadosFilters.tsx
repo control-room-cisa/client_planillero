@@ -10,7 +10,7 @@ import {
   Button,
 } from "@mui/material";
 import { Add as AddIcon, Search as SearchIcon } from "@mui/icons-material";
-import type { Empresa } from "../../types/auth";
+import type { Empresa } from "../../../types/auth";
 
 interface EmpleadosFiltersProps {
   searchTerm: string;

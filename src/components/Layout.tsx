@@ -27,9 +27,9 @@ import { useAuth } from "../hooks/useAuth";
 import TimesheetReviewSupervisor from "./supervisor/TimesheetReviewSupervisor";
 import TimesheetReviewRrhh from "./rrhh/TimesheetReviewRrhh";
 import FeriadosManagement from "./rrhh/FeriadosManagement";
-import EmpleadosManagement from "./rrhh/EmpleadosManagement";
 import ContabilidadDashboard from "./contabilidad/ContabilidadDashboard";
 import TimesheetReviewEmployee from "./TimesheetReviewEmployee";
+import EmpleadosManagement from "./rrhh/EmpleadosManagement";
 
 const drawerWidth = 240;
 const settings = ["Cerrar Sesión"];

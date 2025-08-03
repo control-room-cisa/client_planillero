@@ -13,13 +13,13 @@ import {
   CardContent,
 } from "@mui/material";
 import { AttachFile as AttachFileIcon } from "@mui/icons-material";
-import type { Empleado } from "../../services/empleadoService";
+import type { Empleado } from "../../../services/empleadoService";
 
 interface EmpleadoDetailModalProps {
   open: boolean;
   onClose: () => void;
   onEdit: () => void;
-  empleado: Empleado | null;
+  empleado?: Empleado | null;
 }
 
 const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({

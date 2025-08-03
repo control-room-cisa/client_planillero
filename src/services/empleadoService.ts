@@ -58,6 +58,10 @@ interface EmpleadoResponse {
 }
 
 interface CreateEmpleadoDto {
+  urlFotoPerfil: string | undefined;
+  codigo: string;
+  departamento: string;
+  urlCv: any;
   nombre: string;
   apellido?: string;
   correoElectronico: string;

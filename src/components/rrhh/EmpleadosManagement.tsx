@@ -5,10 +5,10 @@ import EmpleadoService from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
 import type { Empleado } from "../../services/empleadoService";
 import type { Empresa } from "../../types/auth";
-import EmpleadosList from "./EmpleadosList";
-import EmpleadoFormModal from "./EmpleadoFormModal";
-import EmpleadoDetailModal from "./EmpleadoDetailModal";
-import EmpleadosFilters from "./EmpleadosFilters";
+import EmpleadosList from "./gestion-empleados/EmpleadosList";
+import EmpleadoFormModal from "./gestion-empleados/EmpleadoFormModal";
+import EmpleadoDetailModal from "./gestion-empleados/EmpleadoDetailModal";
+import EmpleadosFilters from "./gestion-empleados/EmpleadosFilters";
 
 const EmpleadosManagement: React.FC = () => {
   // Estados principales
@@ -100,9 +100,15 @@ const EmpleadosManagement: React.FC = () => {
     setCurrentEmpleado(null);
   };
 
-  const handleOpenDetailModal = (empleado: Empleado) => {
-    setCurrentEmpleado(empleado);
-    setOpenDetailModal(true);
+  const handleOpenDetailModal = async (empleado: Empleado) => {
+    try {
+      const empleadoCompleto = await EmpleadoService.getById(empleado.id);
+      setCurrentEmpleado(empleadoCompleto);
+      setOpenDetailModal(true);
+    } catch (err) {
+      console.error("Error al cargar detalles del colaborador:", err);
+      showSnackbar("Error al cargar los detalles del colaborador", "error");
+    }
   };
 
   const handleCloseDetailModal = () => {

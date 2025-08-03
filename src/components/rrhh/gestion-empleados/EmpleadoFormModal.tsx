@@ -22,10 +22,11 @@ import type {
   CreateEmpleadoDto,
   UpdateEmpleadoDto,
   Empleado,
-} from "../../services/empleadoService";
-import type { Empresa } from "../../types/auth";
-import { useEmpleadoValidation } from "../../hooks/useEmpleadoValidation";
-import EmpleadoService from "../../services/empleadoService";
+} from "../../../services/empleadoService";
+
+import type { Empresa } from "../../../types/auth";
+import { useEmpleadoValidation } from "../../../hooks/useEmpleadoValidation";
+import EmpleadoService from "../../../services/empleadoService";
 
 interface EmpleadoFormModalProps {
   open: boolean;
@@ -35,6 +36,13 @@ interface EmpleadoFormModalProps {
   empleado?: Empleado | null;
   empresas: Empresa[];
 }
+
+type EmpleadoFormData = Omit<
+  CreateEmpleadoDto,
+  "codigo" | "urlFotoPerfil" | "urlCv" | "departamento"
+> & {
+  contrasena: string;
+};
 
 const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
   open,
@@ -53,7 +61,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     hasErrors,
   } = useEmpleadoValidation(isEditing);
 
-  const [formData, setFormData] = React.useState<CreateEmpleadoDto>({
+  const [formData, setFormData] = React.useState<EmpleadoFormData>({
     nombre: "",
     apellido: "",
     correoElectronico: "",
@@ -82,6 +90,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     nombreMadre: "",
     nombrePadre: "",
     fechaInicioIngreso: undefined,
+    /** campos faltantes */
   });
 
   const [selectedFiles, setSelectedFiles] = React.useState<{
@@ -240,7 +249,10 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         await EmpleadoService.update(updateData, selectedFiles);
         onSuccess("Colaborador actualizado exitosamente");
       } else {
-        await EmpleadoService.create(formData, selectedFiles);
+        await EmpleadoService.create(
+          formData as CreateEmpleadoDto,
+          selectedFiles
+        );
         onSuccess("Colaborador creado exitosamente");
       }
 
