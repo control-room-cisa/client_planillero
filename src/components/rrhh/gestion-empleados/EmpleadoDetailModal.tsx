@@ -1,5 +1,4 @@
 import * as React from "react";
-
 import {
   Dialog,
   DialogTitle,
@@ -11,8 +10,17 @@ import {
   Box,
   Card,
   CardContent,
+  Chip,
 } from "@mui/material";
-import { AttachFile as AttachFileIcon } from "@mui/icons-material";
+import {
+  AttachFile as AttachFileIcon,
+  Person as PersonIcon,
+  Work as WorkIcon,
+  Emergency as EmergencyIcon,
+  AccountBalance as AccountBalanceIcon,
+  FamilyRestroom as FamilyRestroomIcon,
+  Description as DescriptionIcon,
+} from "@mui/icons-material";
 import type { Empleado } from "../../../services/empleadoService";
 
 interface EmpleadoDetailModalProps {
@@ -28,19 +36,34 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
   onEdit,
   empleado,
 }) => {
+  const [openImageModal, setOpenImageModal] = React.useState(false);
   if (!empleado) return null;
+
+  const estadoChip = (
+    <Chip
+      label={empleado.activo ? "Activo" : "Inactivo"}
+      color={empleado.activo ? "success" : "error"}
+      variant="outlined"
+      size="small"
+    />
+  );
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Avatar
-            src={empleado.urlFotoPerfil}
-            alt={`${empleado.nombre} ${empleado.apellido}`}
-            sx={{ width: 56, height: 56 }}
+          <Box
+            onClick={() => setOpenImageModal(true)}
+            sx={{ cursor: "pointer" }}
           >
-            {empleado.nombre?.[0]}
-          </Avatar>
+            <Avatar
+              src={empleado.urlFotoPerfil}
+              alt={`${empleado.nombre} ${empleado.apellido}`}
+              sx={{ width: 56, height: 56 }}
+            >
+              {empleado.nombre?.[0]}
+            </Avatar>
+          </Box>
           <Box>
             <Typography variant="h6">
               {empleado.nombre} {empleado.apellido}
@@ -63,39 +86,45 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
           <Box>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography
+                  color="primary"
+                  variant="h6"
+                  gutterBottom
+                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                >
+                  <PersonIcon fontSize="small" />
                   Información Personal
                 </Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Código:</strong> {empleado.codigo || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Nombre de Usuario:</strong>{" "}
                     {empleado.nombreUsuario || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>DNI:</strong> {empleado.dni || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Email:</strong>{" "}
                     {empleado.correoElectronico || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Teléfono:</strong> {empleado.telefono || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Dirección:</strong> {empleado.direccion || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Estado Civil:</strong>{" "}
                     {empleado.estadoCivil || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Nombre del Cónyuge:</strong>{" "}
                     {empleado.nombreConyugue || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Condición de Salud:</strong>{" "}
                     {empleado.condicionSalud || "N/A"}
                   </Typography>
@@ -108,33 +137,39 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
           <Box>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography
+                  color="primary"
+                  variant="h6"
+                  gutterBottom
+                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                >
+                  <WorkIcon fontSize="small" />
                   Información Laboral
                 </Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Departamento:</strong>{" "}
                     {empleado.departamento || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Cargo:</strong> {empleado.cargo || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Profesión:</strong> {empleado.profesion || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
-                    <strong>Sueldo:</strong> $
-                    {empleado.sueldoMensual?.toLocaleString() || "N/A"}
+                  <Typography>
+                    <strong>Sueldo:</strong> L{" "}
+                    {empleado.sueldoMensual?.toFixed(2) || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Tipo de Horario:</strong>{" "}
                     {empleado.tipoHorario || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Tipo de Contrato:</strong>{" "}
                     {empleado.tipoContrato || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Fecha de Ingreso:</strong>{" "}
                     {empleado.fechaInicioIngreso
                       ? new Date(
@@ -142,28 +177,33 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
                         ).toLocaleDateString()
                       : "N/A"}
                   </Typography>
-                  <Typography variant="body2">
-                    <strong>Estado:</strong>{" "}
-                    {empleado.activo ? "Activo" : "Inactivo"}
+                  <Typography>
+                    <strong>Estado:</strong> {estadoChip}
                   </Typography>
                 </Box>
               </CardContent>
             </Card>
           </Box>
 
-          {/* Información de Contacto de Emergencia */}
+          {/* Contacto de Emergencia */}
           <Box>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography
+                  color="primary"
+                  variant="h6"
+                  gutterBottom
+                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                >
+                  <EmergencyIcon fontSize="small" />
                   Contacto de Emergencia
                 </Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Nombre:</strong>{" "}
                     {empleado.nombreContactoEmergencia || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Teléfono:</strong>{" "}
                     {empleado.numeroContactoEmergencia || "N/A"}
                   </Typography>
@@ -176,18 +216,24 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
           <Box>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography
+                  color="primary"
+                  variant="h6"
+                  gutterBottom
+                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                >
+                  <AccountBalanceIcon fontSize="small" />
                   Información Bancaria
                 </Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Banco:</strong> {empleado.banco || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Tipo de Cuenta:</strong>{" "}
                     {empleado.tipoCuenta || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Número de Cuenta:</strong>{" "}
                     {empleado.numeroCuenta || "N/A"}
                   </Typography>
@@ -200,19 +246,25 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
           <Box>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography
+                  variant="h6"
+                  gutterBottom
+                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                  color="primary"
+                >
+                  <FamilyRestroomIcon fontSize="small" />
                   Información Familiar
                 </Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Nombre de la Madre:</strong>{" "}
                     {empleado.nombreMadre || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Nombre del Padre:</strong>{" "}
                     {empleado.nombrePadre || "N/A"}
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography>
                     <strong>Beneficiario por Muerte:</strong>{" "}
                     {empleado.muerteBeneficiario || "N/A"}
                   </Typography>
@@ -225,7 +277,13 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
           <Box>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography
+                  color="primary"
+                  variant="h6"
+                  gutterBottom
+                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                >
+                  <DescriptionIcon fontSize="small" />
                   Documentos
                 </Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -233,8 +291,7 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
                     <Button
                       variant="outlined"
                       startIcon={<AttachFileIcon />}
-                      href={empleado.urlFotoPerfil}
-                      target="_blank"
+                      onClick={() => setOpenImageModal(true)}
                       fullWidth
                     >
                       Ver Foto de Perfil
@@ -257,12 +314,28 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
           </Box>
         </Box>
       </DialogContent>
+
       <DialogActions>
         <Button onClick={onClose}>Cerrar</Button>
         <Button onClick={onEdit} variant="contained" color="primary">
           Editar Colaborador
         </Button>
       </DialogActions>
+
+      {/* Modal de imagen grande */}
+      <Dialog
+        open={openImageModal}
+        onClose={() => setOpenImageModal(false)}
+        maxWidth="md"
+      >
+        <DialogContent sx={{ p: 0 }}>
+          <img
+            src={empleado.urlFotoPerfil}
+            alt="Foto de perfil"
+            style={{ width: "100%", height: "auto" }}
+          />
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };
