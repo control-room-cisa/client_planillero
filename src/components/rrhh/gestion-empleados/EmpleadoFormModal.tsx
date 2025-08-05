@@ -424,7 +424,6 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   onChange={handleSelectChange}
                   label="Horario *"
                   required
-                  displayEmpty
                 >
                   <MenuItem value="" disabled>
                     <em>Seleccionar horario</em>
@@ -458,7 +457,6 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   onChange={handleSelectChange}
                   label="Contrato *"
                   required
-                  displayEmpty
                 >
                   <MenuItem value="" disabled>
                     <em>Seleccionar contrato</em>
@@ -524,7 +522,6 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   onChange={handleSelectChange}
                   label="Rol *"
                   required
-                  displayEmpty
                 >
                   <MenuItem value={1}>Colaborador</MenuItem>
                   <MenuItem value={2}>Supervisor</MenuItem>
@@ -550,7 +547,6 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   onChange={handleSelectChange}
                   label="Departamento *"
                   required
-                  displayEmpty
                 >
                   {empresas.map((empresa) => (
                     <MenuItem key={empresa.id} value={empresa.id}>
@@ -629,7 +625,6 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   value={formData.estadoCivil || ""}
                   onChange={handleSelectChange}
                   label="Estado Civil"
-                  displayEmpty
                   notched={
                     !!formData.estadoCivil || formData.estadoCivil === ""
                   }
@@ -745,7 +740,6 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   name="tipoCuenta"
                   value={formData.tipoCuenta || ""}
                   onChange={handleSelectChange}
-                  displayEmpty
                   notched={!!formData.tipoCuenta || formData.tipoCuenta === ""}
                 >
                   <MenuItem value="" disabled>

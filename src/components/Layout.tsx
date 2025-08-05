@@ -30,6 +30,8 @@ import FeriadosManagement from "./rrhh/FeriadosManagement";
 import ContabilidadDashboard from "./contabilidad/ContabilidadDashboard";
 import TimesheetReviewEmployee from "./TimesheetReviewEmployee";
 import EmpleadosManagement from "./rrhh/EmpleadosManagement";
+import NominasDashboard from "./rrhh/gestion-empleados/NominasDashboard";
+import type { Empleado } from "../services/empleadoService";
 
 const drawerWidth = 240;
 const settings = ["Cerrar Sesión"];
@@ -121,6 +123,8 @@ export default function MiniDrawer() {
     return "daily-register";
   };
   const [selectedView, setSelectedView] = React.useState(getInitialView());
+  const [selectedEmpleado, setSelectedEmpleado] =
+    React.useState<Empleado | null>(null);
 
   // Configurar elementos de navegación según el rol del usuario
   const getNavItems = () => {
@@ -233,9 +237,18 @@ export default function MiniDrawer() {
       case "review-timesheets-rrhh":
         return <TimesheetReviewRrhh />;
       case "colaboradores-management":
-        return <EmpleadosManagement />;
+        return (
+          <EmpleadosManagement
+            setSelectedEmpleado={setSelectedEmpleado}
+            setSelectedView={setSelectedView}
+          />
+        );
       case "feriados-management":
         return <FeriadosManagement />;
+      case "nominas-dashboard":
+        return selectedEmpleado ? (
+          <NominasDashboard empleado={selectedEmpleado} />
+        ) : null;
       case "contabilidad-dashboard":
         return <ContabilidadDashboard />;
       case "notifications":

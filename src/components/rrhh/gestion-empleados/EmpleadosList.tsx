@@ -1,4 +1,5 @@
-import React from "react";
+import * as React from "react";
+
 import {
   Paper,
   Table,
@@ -18,6 +19,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as VisibilityIcon,
+  RequestPage as RequestPageIcon,
 } from "@mui/icons-material";
 import type { Empleado } from "../../../services/empleadoService";
 
@@ -27,6 +29,7 @@ interface EmpleadosListProps {
   onView: (empleado: Empleado) => void;
   onEdit: (empleado: Empleado) => void;
   onDelete: (id: number) => void;
+  onNominaClick: (empleado: Empleado) => void;
 }
 
 const EmpleadosList: React.FC<EmpleadosListProps> = ({
@@ -35,6 +38,7 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
   onView,
   onEdit,
   onDelete,
+  onNominaClick,
 }) => {
   if (loading) {
     return (
@@ -71,9 +75,9 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
             <TableRow>
               <TableCell>Empleado</TableCell>
               <TableCell>Código</TableCell>
+              <TableCell>Empresa</TableCell>
               <TableCell>Departamento</TableCell>
               <TableCell>Cargo</TableCell>
-              <TableCell>Contacto</TableCell>
               <TableCell>Estado</TableCell>
               <TableCell align="center">Acciones</TableCell>
             </TableRow>
@@ -97,9 +101,9 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
           <TableRow>
             <TableCell>Empleado</TableCell>
             <TableCell>Código</TableCell>
+            <TableCell>Empresa</TableCell>
             <TableCell>Departamento</TableCell>
             <TableCell>Cargo</TableCell>
-            <TableCell>Contacto</TableCell>
             <TableCell>Estado</TableCell>
             <TableCell align="center">Acciones</TableCell>
           </TableRow>
@@ -126,13 +130,9 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
                 </Box>
               </TableCell>
               <TableCell>{empleado.codigo || "-"}</TableCell>
+              <TableCell>{empleado.empresaId || "-"}</TableCell>
               <TableCell>{empleado.departamento || "-"}</TableCell>
               <TableCell>{empleado.cargo || "-"}</TableCell>
-              <TableCell>
-                <Typography variant="body2">
-                  {empleado.telefono || "-"}
-                </Typography>
-              </TableCell>
               <TableCell>
                 <Chip
                   label={empleado.activo ? "Activo" : "Inactivo"}
@@ -161,6 +161,13 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
                   title="Eliminar"
                 >
                   <DeleteIcon />
+                </IconButton>
+                <IconButton
+                  color="info"
+                  onClick={() => onNominaClick(empleado)}
+                  title="Nóminas"
+                >
+                  <RequestPageIcon />
                 </IconButton>
               </TableCell>
             </TableRow>

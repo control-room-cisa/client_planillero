@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Snackbar, Alert } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import EmpleadoService from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
 import type { Empleado } from "../../services/empleadoService";
@@ -10,7 +11,16 @@ import EmpleadoFormModal from "./gestion-empleados/EmpleadoFormModal";
 import EmpleadoDetailModal from "./gestion-empleados/EmpleadoDetailModal";
 import EmpleadosFilters from "./gestion-empleados/EmpleadosFilters";
 
-const EmpleadosManagement: React.FC = () => {
+interface EmpleadosManagementProps {
+  setSelectedEmpleado: (empleado: Empleado | null) => void;
+  setSelectedView: (view: string) => void;
+}
+
+const EmpleadosManagement: React.FC<EmpleadosManagementProps> = ({
+  setSelectedEmpleado,
+  setSelectedView,
+}) => {
+  const navigate = useNavigate();
   // Estados principales
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
@@ -144,6 +154,11 @@ const EmpleadosManagement: React.FC = () => {
     showSnackbar(message, "error");
   };
 
+  const handleNominaClick = (empleado: Empleado) => {
+    setSelectedEmpleado(empleado);
+    setSelectedView("nominas-dashboard");
+  };
+
   const handleCloseSnackbar = (): void => {
     setSnackbar({ ...snackbar, open: false });
   };
@@ -187,6 +202,7 @@ const EmpleadosManagement: React.FC = () => {
         onView={handleOpenDetailModal}
         onEdit={handleOpenEditModal}
         onDelete={handleDeleteEmpleado}
+        onNominaClick={handleNominaClick}
       />
 
       {/* Modal de Formulario (Crear/Editar) */}
