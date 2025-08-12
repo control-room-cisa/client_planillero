@@ -20,12 +20,9 @@ import {
 } from "@mui/icons-material";
 import { useAuth } from "../../hooks/useAuth";
 import type { LoginRequest } from "../../types/auth";
+import { useNavigate } from "react-router-dom";
 
-interface LoginProps {
-  onToggleMode?: () => void;
-}
-
-export default function Login({ onToggleMode }: LoginProps) {
+export default function Login() {
   const { login, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string>("");
@@ -33,6 +30,7 @@ export default function Login({ onToggleMode }: LoginProps) {
     correoElectronico: "",
     contrasena: "",
   });
+  const navigate = useNavigate();
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -55,6 +53,7 @@ export default function Login({ onToggleMode }: LoginProps) {
 
     try {
       await login(formData);
+      navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
     }
@@ -184,7 +183,6 @@ export default function Login({ onToggleMode }: LoginProps) {
               {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
 
-            {onToggleMode && (
               <>
                 <Divider sx={{ my: 2 }}>
                   <Typography variant="body2" color="text.secondary">
@@ -197,7 +195,7 @@ export default function Login({ onToggleMode }: LoginProps) {
                     ¿No tienes cuenta?
                   </Typography>
                   <Button
-                    onClick={onToggleMode}
+                    onClick={() => navigate("/register")}
                     variant="outlined"
                     fullWidth
                     sx={{ textTransform: "none" }}
@@ -206,7 +204,6 @@ export default function Login({ onToggleMode }: LoginProps) {
                   </Button>
                 </Box>
               </>
-            )}
           </Box>
         </Paper>
       </Box>

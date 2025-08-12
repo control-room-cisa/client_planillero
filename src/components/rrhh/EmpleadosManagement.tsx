@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Snackbar, Alert } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import EmpleadoService from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
 import type { Empleado } from "../../services/empleadoService";
@@ -10,17 +10,14 @@ import EmpleadosList from "./gestion-empleados/EmpleadosList";
 import EmpleadoFormModal from "./gestion-empleados/EmpleadoFormModal";
 import EmpleadoDetailModal from "./gestion-empleados/EmpleadoDetailModal";
 import EmpleadosFilters from "./gestion-empleados/EmpleadosFilters";
+import type { LayoutOutletCtx } from "../Layout";
 
-interface EmpleadosManagementProps {
-  setSelectedEmpleado: (empleado: Empleado | null) => void;
-  setSelectedView: (view: string) => void;
-}
-
-const EmpleadosManagement: React.FC<EmpleadosManagementProps> = ({
-  setSelectedEmpleado,
-  setSelectedView,
-}) => {
+const EmpleadosManagement: React.FC = () => {
   const navigate = useNavigate();
+
+  // 👉 Trae setters/estado compartido desde el Layout (Outlet Context)
+  const { setSelectedEmpleado } = useOutletContext<LayoutOutletCtx>();
+
   // Estados principales
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
@@ -47,11 +44,7 @@ const EmpleadosManagement: React.FC<EmpleadosManagementProps> = ({
   // Función para mostrar notificaciones
   const showSnackbar = useCallback(
     (message: string, severity: "success" | "error") => {
-      setSnackbar({
-        open: true,
-        message,
-        severity,
-      });
+      setSnackbar({ open: true, message, severity });
     },
     []
   );
@@ -60,9 +53,7 @@ const EmpleadosManagement: React.FC<EmpleadosManagementProps> = ({
   const fetchEmpleados = useCallback(async () => {
     setLoading(true);
     try {
-      const empresaId = selectedEmpresaId
-        ? parseInt(selectedEmpresaId)
-        : undefined;
+      const empresaId = selectedEmpresaId ? parseInt(selectedEmpresaId) : undefined;
       const data = await EmpleadoService.getAll(empresaId);
       setEmpleados(data);
     } catch (err) {
@@ -76,9 +67,7 @@ const EmpleadosManagement: React.FC<EmpleadosManagementProps> = ({
   const fetchEmpresas = useCallback(async () => {
     try {
       const response = await empresaService.getEmpresas();
-      if (response.success) {
-        setEmpresas(response.data);
-      }
+      if (response.success) setEmpresas(response.data);
     } catch (err) {
       console.error("Error al cargar empresas:", err);
       showSnackbar("Error al cargar las empresas", "error");
@@ -94,7 +83,7 @@ const EmpleadosManagement: React.FC<EmpleadosManagementProps> = ({
     fetchEmpleados();
   }, [fetchEmpleados]);
 
-  // Funciones para manejar modales
+  // Modales
   const handleOpenCreateModal = () => {
     setCurrentEmpleado(null);
     setOpenFormModal(true);
@@ -131,7 +120,7 @@ const EmpleadosManagement: React.FC<EmpleadosManagementProps> = ({
     setOpenFormModal(true);
   };
 
-  // Funciones para manejar acciones CRUD
+  // CRUD
   const handleDeleteEmpleado = async (id: number) => {
     if (window.confirm("¿Está seguro que desea eliminar este colaborador?")) {
       try {
@@ -154,27 +143,26 @@ const EmpleadosManagement: React.FC<EmpleadosManagementProps> = ({
     showSnackbar(message, "error");
   };
 
+  // 👉 Navegación a Nóminas usando contexto (persiste al cambiar de ruta)
   const handleNominaClick = (empleado: Empleado) => {
     setSelectedEmpleado(empleado);
-    setSelectedView("nominas-dashboard");
+    navigate("/rrhh/nominas");
   };
 
   const handleCloseSnackbar = (): void => {
-    setSnackbar({ ...snackbar, open: false });
+    setSnackbar((s) => ({ ...s, open: false }));
   };
 
-  // Filtrar empleados por término de búsqueda
+  // Filtro
   const filteredEmpleados = empleados.filter((empleado) => {
-    const matchesSearchTerm =
-      empleado.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      empleado.apellido?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      empleado.codigo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      empleado.correoElectronico
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      empleado.cargo?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    return matchesSearchTerm;
+    const q = searchTerm.toLowerCase();
+    return (
+      empleado.nombre?.toLowerCase().includes(q) ||
+      empleado.apellido?.toLowerCase().includes(q) ||
+      empleado.codigo?.toLowerCase().includes(q) ||
+      empleado.correoElectronico?.toLowerCase().includes(q) ||
+      empleado.cargo?.toLowerCase().includes(q)
+    );
   });
 
   return (
@@ -195,7 +183,7 @@ const EmpleadosManagement: React.FC<EmpleadosManagementProps> = ({
         />
       </Box>
 
-      {/* Lista de Empleados */}
+      {/* Lista */}
       <EmpleadosList
         empleados={filteredEmpleados}
         loading={loading}
@@ -205,7 +193,7 @@ const EmpleadosManagement: React.FC<EmpleadosManagementProps> = ({
         onNominaClick={handleNominaClick}
       />
 
-      {/* Modal de Formulario (Crear/Editar) */}
+      {/* Modal Form */}
       <EmpleadoFormModal
         open={openFormModal}
         onClose={handleCloseFormModal}
@@ -215,7 +203,7 @@ const EmpleadosManagement: React.FC<EmpleadosManagementProps> = ({
         empresas={empresas}
       />
 
-      {/* Modal de Detalles */}
+      {/* Modal Detalle */}
       <EmpleadoDetailModal
         open={openDetailModal}
         onClose={handleCloseDetailModal}
@@ -223,18 +211,14 @@ const EmpleadosManagement: React.FC<EmpleadosManagementProps> = ({
         empleado={currentEmpleado}
       />
 
-      {/* Snackbar para notificaciones */}
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          sx={{ width: "100%" }}
-        >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: "100%" }}>
           {snackbar.message}
         </Alert>
       </Snackbar>

@@ -46,6 +46,8 @@ import type { RegistroDiarioData } from "../../dtos/RegistrosDiariosDataDto";
 
 interface ActivityData {
   descripcion: string;
+  horaInicio: string; // HH:mm
+  horaFin: string;    // HH:mm
   horasInvertidas: string;
   job: string;
   class: string;
@@ -55,6 +57,8 @@ interface ActivityData {
 interface Activity {
   id?: number;
   descripcion: string;
+  horaInicio?: string; // ISO
+  horaFin?: string;    // ISO
   duracionHoras: number;
   jobId: number;
   className?: string | null;
@@ -71,29 +75,26 @@ const DailyTimesheet: React.FC = () => {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const [editingActivity, setEditingActivity] = React.useState<Activity | null>(
-    null
-  );
+  const [editingActivity, setEditingActivity] = React.useState<Activity | null>(null);
   const [editingIndex, setEditingIndex] = React.useState<number>(-1);
   const [formData, setFormData] = React.useState<ActivityData>({
     descripcion: "",
+    horaInicio: "",
+    horaFin: "",
     horasInvertidas: "",
     job: "",
     class: "",
     horaExtra: false,
   });
-  const [formErrors, setFormErrors] = React.useState<{ [key: string]: string }>(
-    {}
-  );
+  const [formErrors, setFormErrors] = React.useState<{ [key: string]: string }>({});
 
-  // Estado para jobs
+  // Jobs
   const [jobs, setJobs] = React.useState<Job[]>([]);
   const [loadingJobs, setLoadingJobs] = React.useState(false);
   const [selectedJob, setSelectedJob] = React.useState<Job | null>(null);
 
-  // Estado para los datos del día laboral
-  const [registroDiario, setRegistroDiario] =
-    React.useState<RegistroDiarioData | null>(null);
+  // Registro diario
+  const [registroDiario, setRegistroDiario] = React.useState<RegistroDiarioData | null>(null);
   const [dayConfigData, setDayConfigData] = React.useState({
     horaEntrada: "",
     horaSalida: "",
@@ -102,9 +103,7 @@ const DailyTimesheet: React.FC = () => {
     esHoraCorrida: false,
     comentarioEmpleado: "",
   });
-  const [dayConfigErrors, setDayConfigErrors] = React.useState<{
-    [key: string]: string;
-  }>({});
+  const [dayConfigErrors, setDayConfigErrors] = React.useState<{ [key: string]: string }>({});
   const [loading, setLoading] = React.useState(false);
   const [snackbar, setSnackbar] = React.useState({
     open: false,
@@ -112,47 +111,198 @@ const DailyTimesheet: React.FC = () => {
     severity: "success" as "success" | "error",
   });
 
-  // Cargar datos del registro diario cuando cambie la fecha
+  // ===== Helpers de tiempo =====
+  const timeToMinutes = (time: string): number => {
+    const [h, m] = time.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  const getDayBoundsMinutes = () => {
+    const entradaHHMM =
+      registroDiario?.horaEntrada?.substring(11, 16) || dayConfigData.horaEntrada;
+    const salidaHHMM =
+      registroDiario?.horaSalida?.substring(11, 16) || dayConfigData.horaSalida;
+
+    const dayStart = timeToMinutes(entradaHHMM);
+    let dayEnd = timeToMinutes(salidaHHMM);
+    const crossesMidnight = dayEnd <= dayStart; // ejemplo: 07:00 → 01:00
+
+    if (crossesMidnight) dayEnd += 1440;
+    return { dayStart, dayEnd, entradaHHMM, salidaHHMM, crossesMidnight };
+  };
+
+  const normalizeToDaySpan = (t: number, dayStart: number, crossesMidnight: boolean) =>
+    crossesMidnight && t < dayStart ? t + 1440 : t;
+
+  const intervalOverlap = (a1: number, a2: number, b1: number, b2: number) =>
+    Math.max(0, Math.min(a2, b2) - Math.max(a1, b1));
+
+  const lunchOverlapInRange = (dayStart: number, dayEnd: number) => {
+    // Almuerzo fijo 12:00–13:00
+    const L1 = 720;
+    const L2 = 780;
+    return intervalOverlap(dayStart, dayEnd, L1, L2);
+  };
+
+  const buildISO = (baseDate: Date, hhmm: string, addDays = 0) => {
+    const d = new Date(baseDate);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + addDays);
+    const [h, m] = hhmm.split(":").map(Number);
+    d.setHours(h, m, 0, 0);
+    // Forzamos a Zulu
+    return new Date(
+      Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), 0, 0)
+    ).toISOString();
+  };
+
+  // ===== Helpers de validación/cálculo =====
+
+  // Devuelve error si la hora dada está fuera del rango del día (texto fijo pedido)
+  const errorOutsideRange = (which: "inicio" | "fin", hhmm: string): string => {
+    if (!hhmm) return "";
+    const { dayStart, dayEnd, crossesMidnight } = getDayBoundsMinutes();
+    if (!Number.isFinite(dayStart) || !Number.isFinite(dayEnd)) return "";
+
+    const t = normalizeToDaySpan(timeToMinutes(hhmm), dayStart, crossesMidnight);
+    if (t < dayStart || t > dayEnd) {
+      return which === "inicio"
+        ? "La hora de inicio está fuera del horario laboral"
+        : "La hora de fin está fuera del horario laboral";
+    }
+    return "";
+  };
+
+  // Valida Hora fin: primero rango; luego relación con inicio si el día NO cruza medianoche
+  const computeHoraFinError = (fin: string, inicio: string): string => {
+    const rangoErr = errorOutsideRange("fin", fin);
+    if (rangoErr) return rangoErr;
+    if (!fin || !inicio) return "";
+
+    const { crossesMidnight } = getDayBoundsMinutes();
+    const s = timeToMinutes(inicio);
+    const e = timeToMinutes(fin);
+    if (!crossesMidnight && e <= s) return "La hora final debe ser posterior a la inicial";
+    return "";
+  };
+
+  // Calcula HH con o sin descuento de almuerzo (12:00–13:00) según esHoraCorrida
+  const computeHorasInvertidas = (inicioHHMM: string, finHHMM: string): string => {
+    if (!inicioHHMM || !finHHMM) return "";
+
+    // Duración base
+    const [h1, m1] = inicioHHMM.split(":").map(Number);
+    const [h2, m2] = finHHMM.split(":").map(Number);
+    let dur = (h2 + m2 / 60) - (h1 + m1 / 60);
+    if (dur < 0) dur += 24; // cruza medianoche
+
+    // Si NO es hora corrida, restar solape con almuerzo 12:00–13:00
+    if (!dayConfigData.esHoraCorrida) {
+      const { dayStart, crossesMidnight } = getDayBoundsMinutes();
+      let s = normalizeToDaySpan(timeToMinutes(inicioHHMM), dayStart, crossesMidnight);
+      let e = normalizeToDaySpan(timeToMinutes(finHHMM), dayStart, crossesMidnight);
+      if (e <= s) e += 1440;
+
+      const L1 = 720; // 12:00
+      const L2 = 780; // 13:00
+      const overlapMin = intervalOverlap(s, e, L1, L2);
+      dur = Math.max(0, dur - overlapMin / 60);
+    }
+
+    return dur.toFixed(2);
+  };
+
+  // === NUEVO: helpers para mostrar/sumar horas por actividad (chips & progreso) ===
+  const formatHours = (h: number) =>
+    String(Math.round(h * 100) / 100).replace(/\.0+$/, "");
+
+  const computeHorasActividadForDisplayNum = (act: Activity): number => {
+    if (!act.horaInicio || !act.horaFin) return 0;
+
+    const { dayStart, crossesMidnight } = getDayBoundsMinutes();
+
+    const sHM = act.horaInicio.substring(11, 16); // HH:mm
+    const eHM = act.horaFin.substring(11, 16);    // HH:mm
+
+    let s = normalizeToDaySpan(timeToMinutes(sHM), dayStart, crossesMidnight);
+    let e = normalizeToDaySpan(timeToMinutes(eHM), dayStart, crossesMidnight);
+    if (e <= s) e += 1440; // cruza medianoche
+
+    // Duración base
+    let hours = (e - s) / 60;
+
+    // Si NO es hora corrida, descontar solape con almuerzo 12:00–13:00
+    if (!dayConfigData.esHoraCorrida) {
+      const L1 = 720; // 12:00
+      const L2 = 780; // 13:00
+      const overlapMin = intervalOverlap(s, e, L1, L2);
+      hours = Math.max(0, hours - overlapMin / 60);
+    }
+
+    return Math.round(hours * 100) / 100;
+  };
+
+  const computeHorasActividadForDisplay = (act: Activity): string =>
+    formatHours(computeHorasActividadForDisplayNum(act));
+
+  // === NUEVO: helpers para validar actividades vs. nuevo rango del día ===
+  const getBoundsFromHHMM = (entrada: string, salida: string) => {
+    const start = timeToMinutes(entrada);
+    let end = timeToMinutes(salida);
+    const crossesMidnight = end <= start;
+    if (crossesMidnight) end += 1440;
+    return { dayStart: start, dayEnd: end, crossesMidnight };
+  };
+
+  const isActivityOutsideRange = (
+    act: Activity,
+    dayStart: number,
+    dayEnd: number,
+    crossesMidnight: boolean
+  ) => {
+    if (!act.horaInicio || !act.horaFin) return false;
+    const sHM = act.horaInicio.substring(11, 16);
+    const eHM = act.horaFin.substring(11, 16);
+
+    let s = normalizeToDaySpan(timeToMinutes(sHM), dayStart, crossesMidnight);
+    let e = normalizeToDaySpan(timeToMinutes(eHM), dayStart, crossesMidnight);
+    if (e <= s) e += 1440;
+
+    return s < dayStart || e > dayEnd;
+  };
+
+  // ===== Carga inicial =====
   React.useEffect(() => {
     loadRegistroDiario();
-  }, [currentDate]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate]);
 
   // Cargar jobs cuando se abra el drawer
   const loadJobs = async () => {
     try {
       setLoadingJobs(true);
       const jobsData = await JobService.getAll();
-      // Filtrar solo los jobs activos
-      const activeJobs = jobsData.filter((job) => job.activo === true);
-      setJobs(activeJobs);
-    } catch (error) {
-      console.error("Error al cargar jobs:", error);
-      setSnackbar({
-        open: true,
-        message: "Error al cargar la lista de jobs",
-        severity: "error",
-      });
+      setJobs(jobsData.filter((j) => j.activo === true));
+    } catch (e) {
+      console.error("Error al cargar jobs:", e);
+      setSnackbar({ open: true, message: "Error al cargar la lista de jobs", severity: "error" });
     } finally {
       setLoadingJobs(false);
     }
   };
 
-  const readOnly = !!(
-    registroDiario?.aprobacionSupervisor || registroDiario?.aprobacionRrhh
-  );
+  const readOnly = !!(registroDiario?.aprobacionSupervisor || registroDiario?.aprobacionRrhh);
 
   const loadRegistroDiario = async () => {
     try {
       setLoading(true);
-      const dateString = currentDate.toISOString().split("T")[0]; // YYYY-MM-DD
+      const dateString = currentDate.toISOString().split("T")[0];
       const registro = await RegistroDiarioService.getByDate(dateString);
       setRegistroDiario(registro);
 
       if (registro) {
-        // Extraer solo la hora de la fecha ISO sin conversión de zona horaria
-        const horaEntrada = registro.horaEntrada.substring(11, 16); // "YYYY-MM-DDTHH:MM:SS" → "HH:MM"
-        const horaSalida = registro.horaSalida.substring(11, 16); // "YYYY-MM-DDTHH:MM:SS" → "HH:MM"
-
+        const horaEntrada = registro.horaEntrada.substring(11, 16);
+        const horaSalida = registro.horaSalida.substring(11, 16);
         setDayConfigData({
           horaEntrada,
           horaSalida,
@@ -172,18 +322,15 @@ const DailyTimesheet: React.FC = () => {
           comentarioEmpleado: "",
         });
       }
-    } catch (error) {
-      console.error("Error al cargar registro diario:", error);
-      setSnackbar({
-        open: true,
-        message: "Error al cargar los datos del día",
-        severity: "error",
-      });
+    } catch (e) {
+      console.error("Error al cargar registro diario:", e);
+      setSnackbar({ open: true, message: "Error al cargar los datos del día", severity: "error" });
     } finally {
       setLoading(false);
     }
   };
 
+  // ===== Drawer =====
   const handleDrawerOpen = async () => {
     setDrawerOpen(true);
     await loadJobs();
@@ -197,6 +344,8 @@ const DailyTimesheet: React.FC = () => {
     // Limpiar formulario al cerrar
     setFormData({
       descripcion: "",
+      horaInicio: "",
+      horaFin: "",
       horasInvertidas: "",
       job: "",
       class: "",
@@ -208,8 +357,12 @@ const DailyTimesheet: React.FC = () => {
   const handleEditActivity = async (activity: Activity, index: number) => {
     setEditingActivity(activity);
     setEditingIndex(index);
+    const inicio = activity.horaInicio ? activity.horaInicio.substring(11, 16) : "";
+    const fin = activity.horaFin ? activity.horaFin.substring(11, 16) : "";
     setFormData({
       descripcion: activity.descripcion || "",
+      horaInicio: inicio,
+      horaFin: fin,
       horasInvertidas: activity.duracionHoras?.toString() || "",
       job: activity.jobId?.toString() || "",
       class: activity.className || "",
@@ -223,9 +376,7 @@ const DailyTimesheet: React.FC = () => {
   React.useEffect(() => {
     if (editingActivity && jobs.length > 0 && editingActivity.jobId) {
       const job = jobs.find((j) => j.id === editingActivity.jobId);
-      if (job) {
-        setSelectedJob(job);
-      }
+      if (job) setSelectedJob(job);
     }
   }, [jobs, editingActivity]);
 
@@ -236,16 +387,18 @@ const DailyTimesheet: React.FC = () => {
       setLoading(true);
       const dateString = currentDate.toISOString().split("T")[0];
 
-      // Crear nueva lista de actividades sin la actividad a eliminar
-      const actividadesActualizadas = registroDiario.actividades
-        .filter((_, i) => i !== index)
-        .map((act) => ({
-          jobId: act.jobId,
-          duracionHoras: act.duracionHoras,
-          esExtra: act.esExtra,
-          className: act.className,
-          descripcion: act.descripcion,
-        }));
+      const actividadesActualizadas =
+        registroDiario.actividades
+          .filter((_, i) => i !== index)
+          .map((act) => ({
+            jobId: act.jobId,
+            duracionHoras: act.duracionHoras,
+            esExtra: act.esExtra,
+            className: act.className,
+            descripcion: act.descripcion,
+            horaInicio: act.horaInicio,
+            horaFin: act.horaFin,
+          }));
 
       const params = {
         fecha: dateString,
@@ -260,51 +413,26 @@ const DailyTimesheet: React.FC = () => {
 
       const updatedRegistro = await RegistroDiarioService.upsert(params);
       setRegistroDiario(updatedRegistro);
-      setSnackbar({
-        open: true,
-        message: "Actividad eliminada correctamente",
-        severity: "success",
-      });
-    } catch (error) {
-      console.error("Error al eliminar actividad:", error);
-      setSnackbar({
-        open: true,
-        message: "Error al eliminar la actividad",
-        severity: "error",
-      });
+      setSnackbar({ open: true, message: "Actividad eliminada correctamente", severity: "success" });
+    } catch (e) {
+      console.error("Error al eliminar actividad:", e);
+      setSnackbar({ open: true, message: "Error al eliminar la actividad", severity: "error" });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDayConfigInputChange = (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  // ===== Config del día =====
+  const handleDayConfigInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = event.target;
-    setDayConfigData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-    // Limpiar error cuando el usuario empiece a escribir
-    if (dayConfigErrors[name]) {
-      setDayConfigErrors((prev) => ({
-        ...prev,
-        [name]: "",
-      }));
-    }
+    setDayConfigData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+    if (dayConfigErrors[name]) setDayConfigErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const validateDayConfig = (): boolean => {
     const errors: { [key: string]: string } = {};
-
-    if (!dayConfigData.horaEntrada) {
-      errors.horaEntrada = "La hora de entrada es obligatoria";
-    }
-
-    if (!dayConfigData.horaSalida) {
-      errors.horaSalida = "La hora de salida es obligatoria";
-    }
-
+    if (!dayConfigData.horaEntrada) errors.horaEntrada = "La hora de entrada es obligatoria";
+    if (!dayConfigData.horaSalida) errors.horaSalida = "La hora de salida es obligatoria";
     setDayConfigErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -322,8 +450,7 @@ const DailyTimesheet: React.FC = () => {
       dayConfigData.jornada !== registroDiario.jornada ||
       dayConfigData.esDiaLibre !== registroDiario.esDiaLibre ||
       dayConfigData.esHoraCorrida !== registroDiario.esHoraCorrida ||
-      dayConfigData.comentarioEmpleado !==
-        (registroDiario.comentarioEmpleado || "")
+      dayConfigData.comentarioEmpleado !== (registroDiario.comentarioEmpleado || "")
     );
   };
 
@@ -333,19 +460,53 @@ const DailyTimesheet: React.FC = () => {
     try {
       setLoading(true);
       const dateString = currentDate.toISOString().split("T")[0];
+      const horaEntradaISO = buildISO(currentDate, dayConfigData.horaEntrada, 0);
+      // decidir si horaSalida es al día siguiente
+      const startM = timeToMinutes(dayConfigData.horaEntrada);
+      const endM = timeToMinutes(dayConfigData.horaSalida);
+      const addDayForEnd = endM <= startM ? 1 : 0;
+      const horaSalidaISO = buildISO(currentDate, dayConfigData.horaSalida, addDayForEnd);
 
-      // Crear fechas ISO completas para el día seleccionado
-      const horaEntrada = new Date(
-        `${dateString}T${dayConfigData.horaEntrada}:00.000Z`
-      );
-      const horaSalida = new Date(
-        `${dateString}T${dayConfigData.horaSalida}:00.000Z`
-      );
+      // === NUEVO: Validación de actividades vs. NUEVO rango del día ===
+      {
+        const { dayStart: newStart, dayEnd: newEnd, crossesMidnight: newCross } =
+          getBoundsFromHHMM(dayConfigData.horaEntrada, dayConfigData.horaSalida);
+
+        const acts = registroDiario?.actividades || [];
+        const outOfRange = acts
+          .map((act, idx) => ({
+            idx,
+            act,
+            outside: isActivityOutsideRange(act, newStart, newEnd, newCross),
+          }))
+          .filter(x => x.outside);
+
+        if (outOfRange.length > 0) {
+          const rango = `${dayConfigData.horaEntrada} - ${dayConfigData.horaSalida}`;
+          outOfRange.slice(0, 3).map(x => {
+            const from = x.act.horaInicio?.substring(11, 16) || "??:??";
+            const to = x.act.horaFin?.substring(11, 16) || "??:??";
+            const job = x.act.job?.codigo || x.act.jobId;
+            return `• Act ${x.idx + 1} (${job}) ${from}-${to}`;
+          }).join("  ");
+
+          setSnackbar({
+            open: true,
+            severity: "error",
+            message:
+              `Hay ${outOfRange.length} actividad fuera del nuevo rango (${rango}).
+               ${" "} debes actualizar actividad
+              `
+          });
+          setLoading(false);
+          return; // BLOQUEA el guardado del día
+        }
+      }
 
       const params = {
         fecha: dateString,
-        horaEntrada: horaEntrada.toISOString(),
-        horaSalida: horaSalida.toISOString(),
+        horaEntrada: horaEntradaISO,
+        horaSalida: horaSalidaISO,
         jornada: dayConfigData.jornada,
         esDiaLibre: dayConfigData.esDiaLibre,
         esHoraCorrida: dayConfigData.esHoraCorrida,
@@ -357,76 +518,116 @@ const DailyTimesheet: React.FC = () => {
             esExtra: act.esExtra,
             className: act.className,
             descripcion: act.descripcion,
+            horaInicio: act.horaInicio,
+            horaFin: act.horaFin,
           })) || [],
       };
 
       const updatedRegistro = await RegistroDiarioService.upsert(params);
       setRegistroDiario(updatedRegistro);
-      setSnackbar({
-        open: true,
-        message: "Configuración del día guardada correctamente",
-        severity: "success",
-      });
-    } catch (error) {
-      console.error("Error al guardar configuración del día:", error);
-      setSnackbar({
-        open: true,
-        message: "Error al guardar la configuración",
-        severity: "error",
-      });
+      setSnackbar({ open: true, message: "Configuración del día guardada correctamente", severity: "success" });
+    } catch (e) {
+      console.error("Error al guardar configuración del día:", e);
+      setSnackbar({ open: true, message: "Error al guardar la configuración", severity: "error" });
     } finally {
       setLoading(false);
     }
   };
 
+  // ===== Form actividad =====
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = event.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-    // Limpiar error cuando el usuario empiece a escribir
-    if (formErrors[name]) {
-      setFormErrors((prev) => ({
-        ...prev,
-        [name]: "",
-      }));
-    }
+
+    setFormData((prev) => {
+      const next = { ...prev, [name]: type === "checkbox" ? checked : value };
+
+      // Recalcular horas invertidas cuando cambian inicio/fin (con lógica de almuerzo/hora corrida)
+      if (name === "horaInicio" || name === "horaFin") {
+        const v = computeHorasInvertidas(next.horaInicio, next.horaFin);
+        next.horasInvertidas = v;
+      }
+
+      // === Validación en vivo SOLO para horas ===
+      if (name === "horaInicio") {
+        const errInicio = errorOutsideRange("inicio", next.horaInicio);
+        const errFin = computeHoraFinError(next.horaFin, next.horaInicio); // revalida fin
+        setFormErrors((prevE) => ({ ...prevE, horaInicio: errInicio, horaFin: errFin }));
+      } else if (name === "horaFin") {
+        const errFin = computeHoraFinError(next.horaFin, next.horaInicio);
+        setFormErrors((prevE) => ({ ...prevE, horaFin: errFin }));
+      }
+
+      return next;
+    });
   };
 
-  const handleJobChange = (_event: React.SyntheticEvent, value: Job | null) => {
+  const handleJobChange = (_e: React.SyntheticEvent, value: Job | null) => {
     setSelectedJob(value);
-    setFormData((prev) => ({
-      ...prev,
-      job: value ? value.id.toString() : "",
-    }));
-    // Limpiar error cuando el usuario seleccione
-    if (formErrors.job) {
-      setFormErrors((prev) => ({
-        ...prev,
-        job: "",
-      }));
-    }
+    setFormData((prev) => ({ ...prev, job: value ? value.id.toString() : "" }));
+    if (formErrors.job) setFormErrors((prev) => ({ ...prev, job: "" }));
   };
 
   const validateForm = (): boolean => {
     const errors: { [key: string]: string } = {};
+    const { horaInicio, horaFin } = formData;
 
-    if (!formData.descripcion.trim()) {
-      errors.descripcion = "La descripción es obligatoria";
-    }
+    if (!formData.descripcion.trim()) errors.descripcion = "La descripción es obligatoria";
+    if (!horaInicio) errors.horaInicio = "Hora inicio obligatoria";
+    if (!horaFin) errors.horaFin = "Hora fin obligatoria";
+    if (!formData.job.trim()) errors.job = "El job es obligatorio";
 
-    if (!formData.horasInvertidas.trim()) {
+    // Horas invertidas (calcular para asegurar consistencia)
+    const horasCalc = computeHorasInvertidas(horaInicio, horaFin);
+    if (!horasCalc) {
       errors.horasInvertidas = "Las horas invertidas son obligatorias";
     } else {
-      const hours = parseFloat(formData.horasInvertidas);
-      if (isNaN(hours) || hours <= 0) {
-        errors.horasInvertidas = "Ingresa un número válido mayor a 0";
-      }
+      const hours = parseFloat(horasCalc);
+      if (isNaN(hours) || hours <= 0) errors.horasInvertidas = "Ingresa un número válido mayor a 0";
     }
 
-    if (!formData.job.trim()) {
-      errors.job = "El job es obligatorio";
+    if (!horaInicio || !horaFin) {
+      setFormErrors(errors);
+      return Object.keys(errors).length === 0;
+    }
+
+    // Rango y relación inicio/fin
+    const { dayStart, dayEnd, crossesMidnight } = getDayBoundsMinutes();
+    const s = normalizeToDaySpan(timeToMinutes(horaInicio), dayStart, crossesMidnight);
+    const e = normalizeToDaySpan(timeToMinutes(horaFin), dayStart, crossesMidnight);
+
+    if (s < dayStart || s > dayEnd) {
+      errors.horaInicio = "La hora de inicio está fuera del horario laboral";
+    }
+    if (e < dayStart || e > dayEnd) {
+      errors.horaFin = "La hora de fin está fuera del horario laboral";
+    }
+    if (!crossesMidnight && timeToMinutes(horaFin) <= timeToMinutes(horaInicio)) {
+      errors.horaFin = "La hora final debe ser posterior a la inicial";
+    }
+
+    // === Validación: no solaparse con otras actividades ===
+    if (registroDiario?.actividades && registroDiario.actividades.length > 0) {
+      let newS = s;
+      let newE = e;
+      if (newE <= newS) newE += 1440;
+
+      const overlaps = registroDiario.actividades.some((act, idx) => {
+        if (editingActivity && idx === editingIndex) return false;
+        if (!act.horaInicio || !act.horaFin) return false;
+
+        const sHM = act.horaInicio.substring(11, 16);
+        const eHM = act.horaFin.substring(11, 16);
+        let s2 = normalizeToDaySpan(timeToMinutes(sHM), dayStart, crossesMidnight);
+        let e2 = normalizeToDaySpan(timeToMinutes(eHM), dayStart, crossesMidnight);
+        if (e2 <= s2) e2 += 1440;
+
+        return newS < e2 && s2 < newE;
+      });
+
+      if (overlaps) {
+        errors.horaInicio = "Este horario se solapa con otra actividad";
+        errors.horaFin = "Este horario se solapa con otra actividad";
+      }
     }
 
     setFormErrors(errors);
@@ -440,12 +641,19 @@ const DailyTimesheet: React.FC = () => {
       setLoading(true);
       const dateString = currentDate.toISOString().split("T")[0];
 
+      // Construir ISO para inicio/fin (si el fin es <= inicio, poner fin al DÍA SIGUIENTE)
+      const startM = timeToMinutes(formData.horaInicio);
+      const endM = timeToMinutes(formData.horaFin);
+      const addDay = endM <= startM ? 1 : 0;
+
       const actividad = {
         jobId: parseInt(formData.job),
-        duracionHoras: parseFloat(formData.horasInvertidas),
+        duracionHoras: parseFloat(computeHorasInvertidas(formData.horaInicio, formData.horaFin)),
         esExtra: formData.horaExtra,
         className: formData.class || undefined,
         descripcion: formData.descripcion,
+        horaInicio: buildISO(currentDate, formData.horaInicio, 0),
+        horaFin: buildISO(currentDate, formData.horaFin, addDay),
       };
 
       if (registroDiario) {
@@ -457,6 +665,8 @@ const DailyTimesheet: React.FC = () => {
             esExtra: act.esExtra,
             className: act.className,
             descripcion: act.descripcion,
+            horaInicio: act.horaInicio,
+            horaFin: act.horaFin,
           })) || [];
 
         let actividadesActualizadas;
@@ -487,18 +697,14 @@ const DailyTimesheet: React.FC = () => {
         // Si no existe registro, validar configuración del día y crear nuevo registro
         if (!validateDayConfig()) return;
 
-        // Crear fechas ISO completas para el día seleccionado
-        const horaEntrada = new Date(
-          `${dateString}T${dayConfigData.horaEntrada}:00.000Z`
-        );
-        const horaSalida = new Date(
-          `${dateString}T${dayConfigData.horaSalida}:00.000Z`
-        );
+        const entradaM = timeToMinutes(dayConfigData.horaEntrada);
+        const salidaM = timeToMinutes(dayConfigData.horaSalida);
+        const addDayForEnd = salidaM <= entradaM ? 1 : 0;
 
         const params = {
           fecha: dateString,
-          horaEntrada: horaEntrada.toISOString(),
-          horaSalida: horaSalida.toISOString(),
+          horaEntrada: buildISO(currentDate, dayConfigData.horaEntrada, 0),
+          horaSalida: buildISO(currentDate, dayConfigData.horaSalida, addDayForEnd),
           jornada: dayConfigData.jornada,
           esDiaLibre: dayConfigData.esDiaLibre,
           esHoraCorrida: dayConfigData.esHoraCorrida,
@@ -510,146 +716,87 @@ const DailyTimesheet: React.FC = () => {
         setRegistroDiario(updatedRegistro);
       }
 
-      const actionMessage = editingActivity
-        ? "Actividad actualizada correctamente"
-        : "Actividad guardada correctamente";
+      const actionMessage = editingActivity ? "Actividad actualizada correctamente" : "Actividad guardada correctamente";
       setSnackbar({ open: true, message: actionMessage, severity: "success" });
       handleDrawerClose();
-    } catch (error) {
-      console.error("Error al guardar actividad:", error);
-      const message =
-        (error as Error).message || "Error al guardar la actividad";
+    } catch (e) {
+      console.error("Error al guardar actividad:", e);
+      const message = (e as Error).message || "Error al guardar la actividad";
       setSnackbar({ open: true, message, severity: "error" });
     } finally {
       setLoading(false);
     }
   };
 
+  // ===== Navegación de fecha =====
   const formatDate = (date: Date) => {
-    const days = [
-      "domingo",
-      "lunes",
-      "martes",
-      "miércoles",
-      "jueves",
-      "viernes",
-      "sábado",
-    ];
-    const months = [
-      "enero",
-      "febrero",
-      "marzo",
-      "abril",
-      "mayo",
-      "junio",
-      "julio",
-      "agosto",
-      "septiembre",
-      "octubre",
-      "noviembre",
-      "diciembre",
-    ];
-
-    const dayName = days[date.getDay()];
-    const day = date.getDate();
-    const monthName = months[date.getMonth()];
-    const year = date.getFullYear();
-
-    return `${dayName}, ${day} de ${monthName} de ${year}`;
+    const days = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+    const months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    return `${days[date.getDay()]}, ${date.getDate()} de ${months[date.getMonth()]} de ${date.getFullYear()}`;
   };
 
   const navigateDate = (direction: "prev" | "next") => {
-    const newDate = new Date(currentDate);
-    if (direction === "prev") {
-      newDate.setDate(currentDate.getDate() - 1);
-    } else {
-      newDate.setDate(currentDate.getDate() + 1);
-    }
-    setCurrentDate(newDate);
+    const d = new Date(currentDate);
+    d.setDate(currentDate.getDate() + (direction === "prev" ? -1 : 1));
+    setCurrentDate(d);
   };
+  const goToToday = () => setCurrentDate(new Date());
+  const isToday = () => currentDate.toDateString() === new Date().toDateString();
 
-  const goToToday = () => {
-    setCurrentDate(new Date());
-  };
+  // ===== Horas trabajadas / Totales & progreso =====
+  const { dayStart, dayEnd } = getDayBoundsMinutes();
+  let totalHours = (dayEnd - dayStart) / 60;
 
-  const isToday = () => {
-    const today = new Date();
-    return currentDate.toDateString() === today.toDateString();
-  };
+  // Descontar almuerzo 12:00–13:00 si NO es hora corrida (total teórico del día)
+  if (!dayConfigData.esHoraCorrida) {
+    const lunchDayOverlap = lunchOverlapInRange(dayStart, dayEnd) / 60;
+    totalHours = Math.max(0, totalHours - lunchDayOverlap);
+  }
 
-  // Calcular horas trabajadas basándose en las actividades
+  // SUMA real trabajada usando la misma lógica que los chips (consistente con "Hora Corrida")
   const workedHours =
-    registroDiario?.actividades?.reduce(
-      (total, act) => total + act.duracionHoras,
-      0
-    ) || 0;
-  // Calcular total de horas según horaEntrada y horaSalida
-  const totalHours = (() => {
-    if (!registroDiario) return 0;
-
-    const entrada = new Date(registroDiario.horaEntrada);
-    const salida = new Date(registroDiario.horaSalida);
-
-    const diffHoras = (salida.getTime() - entrada.getTime()) / 3600000;
-
-    // Si trabaja 9h o más, descontar 1h de almuerzo
-    return diffHoras >= 9 ? diffHoras - 1 : diffHoras;
-  })();
+    registroDiario?.actividades?.reduce((acc, act) => acc + computeHorasActividadForDisplayNum(act), 0) || 0;
 
   const progressPercentage =
-    totalHours > 0 ? (workedHours / totalHours) * 100 : 0;
+    totalHours > 0 ? Math.min(100, Math.max(0, (workedHours / totalHours) * 100)) : 0;
 
   // Estado del registro diario
   const hasDayRecord = Boolean(registroDiario);
   const dayConfigHasChanges = hasChangesInDayConfig();
 
+  // Recalcular horasInvertidas cuando cambia hora corrida / entrada / salida
+  React.useEffect(() => {
+    setFormData(prev => {
+      if (!prev.horaInicio || !prev.horaFin) return prev;
+      const v = computeHorasInvertidas(prev.horaInicio, prev.horaFin);
+      return v === prev.horasInvertidas ? prev : { ...prev, horasInvertidas: v };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayConfigData.esHoraCorrida, dayConfigData.horaEntrada, dayConfigData.horaSalida]);
+
+  // Recalcular horasInvertidas cuando cambian los campos de tiempo del formulario
+  React.useEffect(() => {
+    const { horaInicio, horaFin } = formData;
+    if (horaInicio && horaFin) {
+      const v = computeHorasInvertidas(horaInicio, horaFin);
+      setFormData((prev) => ({ ...prev, horasInvertidas: v }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.horaInicio, formData.horaFin]);
+
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: "100%" }}>
-      {/* Header with date navigation */}
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          mb: 3,
-          flexWrap: "wrap",
-          gap: 2,
-        }}
-      >
-        <Typography
-          variant={isMobile ? "h5" : "h5"}
-          component="h1"
-          sx={{ fontWeight: "bold", minWidth: 0 }}
-        >
+      {/* Header */}
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3, flexWrap: "wrap", gap: 2 }}>
+        <Typography variant={isMobile ? "h5" : "h5"} component="h1" sx={{ fontWeight: "bold", minWidth: 0 }}>
           Registro de Actividades
         </Typography>
-
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-            flexWrap: "wrap",
-          }}
-        >
-          <IconButton onClick={() => navigateDate("prev")} size="small">
-            <ChevronLeft />
-          </IconButton>
-
-          <Button
-            variant={isToday() ? "contained" : "outlined"}
-            startIcon={<CalendarToday />}
-            onClick={goToToday}
-            size="small"
-            sx={{ minWidth: "auto" }}
-          >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+          <IconButton onClick={() => navigateDate("prev")} size="small"><ChevronLeft /></IconButton>
+          <Button variant={isToday() ? "contained" : "outlined"} startIcon={<CalendarToday />} onClick={goToToday} size="small" sx={{ minWidth: "auto" }}>
             {isToday() ? "Hoy" : "Hoy"}
           </Button>
-
-          <IconButton onClick={() => navigateDate("next")} size="small">
-            <ChevronRight />
-          </IconButton>
-
+          <IconButton onClick={() => navigateDate("next")} size="small"><ChevronRight /></IconButton>
           <Button
             variant={hasDayRecord ? "outlined" : "contained"}
             startIcon={<Settings />}
@@ -659,101 +806,49 @@ const DailyTimesheet: React.FC = () => {
             sx={{ ml: 1 }}
             disabled={loading || (hasDayRecord && !dayConfigHasChanges)}
           >
-            {loading
-              ? "Guardando..."
-              : hasDayRecord
-              ? "Actualizar Día"
-              : "Guardar Día"}
+            {loading ? "Guardando..." : hasDayRecord ? "Actualizar Día" : "Guardar Día"}
           </Button>
         </Box>
       </Box>
 
-      {/* Current date display */}
-      <Typography
-        variant="body1"
-        color="text.secondary"
-        sx={{ mb: 1, textAlign: "center" }}
-      >
+      {/* Fecha actual */}
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 1, textAlign: "center" }}>
         {formatDate(currentDate)}
       </Typography>
 
-      {/* Day info */}
+      {/* Info del día */}
       {registroDiario && (
-        <Stack
-          direction="row"
-          spacing={1}
-          justifyContent="center"
-          sx={{ mb: 2 }}
-        >
+        <Stack direction="row" spacing={1} justifyContent="center" sx={{ mb: 2 }}>
           <Chip
-            label={`Jornada: ${
-              registroDiario.jornada === "D"
-                ? "Dia"
-                : registroDiario.jornada === "N"
-                ? "Noche"
-                : ""
-            }`}
+            label={`Jornada: ${registroDiario.jornada === "D" ? "Dia" : registroDiario.jornada === "N" ? "Noche" : ""}`}
             size="small"
             color="primary"
             variant="outlined"
           />
           <Chip
-            label={`${registroDiario.horaEntrada.substring(
-              11,
-              16
-            )} - ${registroDiario.horaSalida.substring(11, 16)}`}
+            label={`${registroDiario.horaEntrada.substring(11, 16)} - ${registroDiario.horaSalida.substring(11, 16)}`}
             size="small"
             color="secondary"
             variant="outlined"
           />
-          {registroDiario.esDiaLibre && (
-            <Chip
-              label="Día Libre"
-              size="small"
-              color="warning"
-              variant="outlined"
-            />
-          )}
-          {registroDiario.esHoraCorrida && (
-            <Chip
-              label="Hora Corrida"
-              size="small"
-              color="warning"
-              variant="outlined"
-            />
-          )}
+          {registroDiario.esDiaLibre && <Chip label="Día Libre" size="small" color="warning" variant="outlined" />}
+          {registroDiario.esHoraCorrida && <Chip label="Hora Corrida" size="small" color="warning" variant="outlined" />}
         </Stack>
       )}
 
-      {/* Welcome message */}
-      <Typography
-        variant="body2"
-        color="text.primary"
-        sx={{ mb: 3, textAlign: "center", fontWeight: "medium" }}
-      >
+      {/* Saludo */}
+      <Typography variant="body2" color="text.primary" sx={{ mb: 3, textAlign: "center", fontWeight: "medium" }}>
         ¡Buen día, {user?.nombre}! 👋
       </Typography>
 
-      {/* Day Configuration Section */}
+      {/* Configuración del día */}
       <Card sx={{ mb: 3, bgcolor: "background.paper" }}>
         <CardContent>
-          <Typography
-            variant="h6"
-            component="h2"
-            sx={{ mb: 3, fontWeight: "bold" }}
-          >
+          <Typography variant="h6" component="h2" sx={{ mb: 3, fontWeight: "bold" }}>
             Configuración del Día Laboral
           </Typography>
 
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-              gap: 2,
-              mb: 3,
-            }}
-          >
-            {/* Hora de Entrada */}
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2, mb: 3 }}>
             <TextField
               disabled={readOnly}
               fullWidth
@@ -786,26 +881,14 @@ const DailyTimesheet: React.FC = () => {
             />
           </Box>
 
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-              gap: 2,
-              mb: 3,
-            }}
-          >
-            {/* Jornada */}
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2, mb: 3 }}>
             <FormControl fullWidth size="small">
               <InputLabel>Jornada</InputLabel>
               <Select
                 disabled={readOnly}
                 name="jornada"
                 value={dayConfigData.jornada}
-                onChange={(e) =>
-                  handleDayConfigInputChange(
-                    e as React.ChangeEvent<HTMLInputElement>
-                  )
-                }
+                onChange={(e) => handleDayConfigInputChange(e as React.ChangeEvent<HTMLInputElement>)}
                 label="Jornada"
               >
                 <MenuItem value="D">Día</MenuItem>
@@ -861,20 +944,14 @@ const DailyTimesheet: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Work progress card */}
+      {/* Progreso */}
       <Card sx={{ mb: 3, bgcolor: "background.paper" }}>
         <CardContent>
           <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
             <AccessTime sx={{ mr: 1, color: "primary.main" }} />
-            <Typography variant="h6" component="h2">
-              Progreso del Día Laboral
-            </Typography>
+            <Typography variant="h6" component="h2">Progreso del Día Laboral</Typography>
             <Box sx={{ ml: "auto" }}>
-              <Typography
-                variant="body2"
-                color="primary.main"
-                fontWeight="bold"
-              >
+              <Typography variant="body2" color="primary.main" fontWeight="bold">
                 {workedHours.toFixed(1)} / {totalHours.toFixed(1)} horas
               </Typography>
             </Box>
@@ -888,39 +965,21 @@ const DailyTimesheet: React.FC = () => {
               borderRadius: 4,
               mb: 2,
               bgcolor: "grey.200",
-              "& .MuiLinearProgress-bar": {
-                borderRadius: 4,
-              },
+              "& .MuiLinearProgress-bar": { borderRadius: 4 },
             }}
           />
 
           <Typography variant="body2" color="warning.main">
-            Faltan {Math.max(totalHours - workedHours).toFixed(1)} horas para
-            completar el día
+            Faltan {Math.max(0, totalHours - workedHours).toFixed(1)} horas para completar el día
           </Typography>
         </CardContent>
       </Card>
 
-      {/* Activities section */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
-        }}
-      >
-        <Typography variant="h6" component="h2">
-          Actividades del Hoy
-        </Typography>
+      {/* Lista de actividades */}
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+        <Typography variant="h6" component="h2">Actividades de Hoy</Typography>
         {!isMobile && (
-          <Button
-            disabled={readOnly}
-            variant="contained"
-            startIcon={<Add />}
-            sx={{ borderRadius: 2 }}
-            onClick={handleDrawerOpen}
-          >
+          <Button disabled={readOnly} variant="contained" startIcon={<Add />} sx={{ borderRadius: 2 }} onClick={handleDrawerOpen}>
             Nueva Actividad
           </Button>
         )}
@@ -930,168 +989,69 @@ const DailyTimesheet: React.FC = () => {
       {registroDiario?.actividades && registroDiario.actividades.length > 0 ? (
         <Stack spacing={2}>
           {registroDiario.actividades.map((actividad, index) => (
-            <Card
-              key={actividad.id || index}
-              sx={{ bgcolor: "background.paper" }}
-            >
+            <Card key={actividad.id || index} sx={{ bgcolor: "background.paper" }}>
               <CardContent>
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    mb: 2,
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    component="h3"
-                    sx={{ fontWeight: "medium", flex: 1 }}
-                  >
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
+                  <Typography variant="h6" component="h3" sx={{ fontWeight: "medium", flex: 1 }}>
                     {actividad.job?.nombre || `Job ID: ${actividad.jobId}`}
                   </Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <Stack direction="row" spacing={1}>
-                      <Chip
-                        label={`${actividad.duracionHoras}h`}
-                        size="small"
-                        color="primary"
-                      />
-                      {actividad.esExtra && (
-                        <Chip label="Extra" size="small" color="warning" />
-                      )}
+                      {/* Horas del chip calculadas dinámicamente según "Hora Corrida" */}
+                      <Chip label={`${computeHorasActividadForDisplay(actividad)}h`} size="small" color="primary" />
+                      {actividad.esExtra && <Chip label="Extra" size="small" color="warning" />}
                     </Stack>
-                    <IconButton
-                      disabled={readOnly}
-                      size="small"
-                      onClick={() => handleEditActivity(actividad, index)}
-                      sx={{ color: "primary.main" }}
-                    >
+                    <IconButton disabled={readOnly} size="small" onClick={() => handleEditActivity(actividad, index)} sx={{ color: "primary.main" }}>
                       <Edit />
                     </IconButton>
-                    <IconButton
-                      disabled={readOnly}
-                      size="small"
-                      onClick={() => handleDeleteActivity(index)}
-                      sx={{ color: "error.main" }}
-                    >
+                    <IconButton disabled={readOnly} size="small" onClick={() => handleDeleteActivity(index)} sx={{ color: "error.main" }}>
                       <Delete />
                     </IconButton>
                   </Box>
                 </Box>
 
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 1 }}
-                >
-                  <strong>Job:</strong>{" "}
-                  {actividad.job?.codigo || actividad.jobId}
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  <strong>Job:</strong> {actividad.job?.codigo || actividad.jobId}
                 </Typography>
 
                 {actividad.className && (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 1 }}
-                  >
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     <strong>Class:</strong> {actividad.className}
                   </Typography>
                 )}
 
-                <Typography variant="body1" color="text.primary">
-                  {actividad.descripcion}
-                </Typography>
+                <Typography variant="body1" color="text.primary">{actividad.descripcion}</Typography>
               </CardContent>
             </Card>
           ))}
         </Stack>
       ) : (
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: 300,
-            textAlign: "center",
-            bgcolor: "background.paper",
-            borderRadius: 2,
-            p: 4,
-          }}
-        >
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 300, textAlign: "center", bgcolor: "background.paper", borderRadius: 2, p: 4 }}>
           <AccessTime sx={{ fontSize: 80, color: "grey.300", mb: 2 }} />
-          <Typography variant="h6" color="text.primary" gutterBottom>
-            No hay actividades para hoy
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Comienza agregando tu primera actividad del día
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            sx={{ borderRadius: 2 }}
-            onClick={handleDrawerOpen}
-          >
+          <Typography variant="h6" color="text.primary" gutterBottom>No hay actividades para hoy</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>Comienza agregando tu primera actividad del día</Typography>
+          <Button variant="contained" startIcon={<Add />} sx={{ borderRadius: 2 }} onClick={handleDrawerOpen}>
             Agregar Actividad
           </Button>
         </Box>
       )}
 
-      {/* Floating Action Button for mobile */}
+      {/* FAB */}
       {isMobile && (
-        <Fab
-          variant="extended"
-          color="primary"
-          aria-label="add"
-          onClick={handleDrawerOpen}
-          sx={{
-            position: "fixed",
-            bottom: 16,
-            right: 16,
-            textTransform: "none",
-          }}
-        >
+        <Fab variant="extended" color="primary" aria-label="add" onClick={handleDrawerOpen} sx={{ position: "fixed", bottom: 16, right: 16, textTransform: "none" }}>
           <Add sx={{ mr: 1 }} />
           Agregar Actividad
         </Fab>
       )}
 
-      {/* Drawer para Nueva/Editar Actividad */}
-      <Drawer
-        anchor="right"
-        open={drawerOpen}
-        onClose={handleDrawerClose}
-        PaperProps={{
-          sx: {
-            width: { xs: "100%", sm: 400 },
-            maxWidth: "100vw",
-          },
-        }}
-      >
-        <Box
-          sx={{
-            p: 3,
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          {/* Header */}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              mb: 3,
-            }}
-          >
+      {/* Drawer actividad */}
+      <Drawer anchor="right" open={drawerOpen} onClose={handleDrawerClose} PaperProps={{ sx: { width: { xs: "100%", sm: 400 }, maxWidth: "100vw" } }}>
+        <Box sx={{ p: 3, height: "100%", display: "flex", flexDirection: "column" }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
             <Typography variant="h6" component="h2" fontWeight="bold">
               {editingActivity ? "Editar Actividad" : "Nueva Actividad"} - Hoy
             </Typography>
-            <IconButton onClick={handleDrawerClose} size="small">
-              <Close />
-            </IconButton>
+            <IconButton onClick={handleDrawerClose} size="small"><Close /></IconButton>
           </Box>
 
           {/* Formulario */}
@@ -1113,23 +1073,47 @@ const DailyTimesheet: React.FC = () => {
               sx={{ mb: 3 }}
             />
 
-            {/* Horas Invertidas */}
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2, mb: 3 }}>
+              <TextField
+                disabled={readOnly}
+                fullWidth
+                required
+                type="time"
+                name="horaInicio"
+                label="Hora inicio actividad"
+                value={formData.horaInicio}
+                onChange={handleInputChange}
+                error={!!formErrors.horaInicio}
+                helperText={formErrors.horaInicio}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+              />
+              <TextField
+                disabled={readOnly}
+                fullWidth
+                required
+                type="time"
+                name="horaFin"
+                label="Hora fin actividad"
+                value={formData.horaFin}
+                onChange={handleInputChange}
+                error={!!formErrors.horaFin}
+                helperText={formErrors.horaFin}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+              />
+            </Box>
+
             <TextField
-              disabled={readOnly}
+              disabled
               fullWidth
               required
               name="horasInvertidas"
               label="Horas Invertidas"
               placeholder="Ej: 2.5"
               type="number"
-              inputProps={{
-                step: 0.1,
-                min: 0.1,
-              }}
+              InputProps={{ readOnly: true }}
               value={formData.horasInvertidas}
-              onChange={handleInputChange}
-              error={!!formErrors.horasInvertidas}
-              helperText={formErrors.horasInvertidas}
               sx={{ mb: 3 }}
             />
 
@@ -1137,14 +1121,12 @@ const DailyTimesheet: React.FC = () => {
             <Box sx={{ mb: 3 }}>
               <Autocomplete
                 options={jobs}
-                getOptionLabel={(option) =>
-                  `${option.codigo} - ${option.nombre}`
-                }
+                getOptionLabel={(o) => `${o.codigo} - ${o.nombre}`}
                 value={selectedJob}
                 onChange={handleJobChange}
                 loading={loadingJobs}
                 disabled={loadingJobs || readOnly}
-                isOptionEqualToValue={(option, value) => option.id === value.id}
+                isOptionEqualToValue={(o, v) => o.id === v.id}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -1156,9 +1138,7 @@ const DailyTimesheet: React.FC = () => {
                       ...params.InputProps,
                       endAdornment: (
                         <>
-                          {loadingJobs ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
+                          {loadingJobs ? <CircularProgress color="inherit" size={20} /> : null}
                           {params.InputProps.endAdornment}
                         </>
                       ),
@@ -1177,11 +1157,7 @@ const DailyTimesheet: React.FC = () => {
                     </Box>
                   </Box>
                 )}
-                noOptionsText={
-                  loadingJobs
-                    ? "Cargando jobs..."
-                    : "No hay jobs activos disponibles"
-                }
+                noOptionsText={loadingJobs ? "Cargando jobs..." : "No hay jobs activos disponibles"}
               />
             </Box>
 
@@ -1216,26 +1192,11 @@ const DailyTimesheet: React.FC = () => {
             <Box sx={{ mt: "auto", pt: 3 }}>
               <Divider sx={{ mb: 3 }} />
               <Box sx={{ display: "flex", gap: 2 }}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  onClick={handleDrawerClose}
-                  sx={{ py: 1.5 }}
-                >
+                <Button variant="outlined" fullWidth onClick={handleDrawerClose} sx={{ py: 1.5 }}>
                   Cancelar
                 </Button>
-                <Button
-                  variant="contained"
-                  fullWidth
-                  onClick={handleSubmit}
-                  sx={{ py: 1.5 }}
-                  disabled={loading}
-                >
-                  {loading
-                    ? "Guardando..."
-                    : editingActivity
-                    ? "Actualizar"
-                    : "Guardar"}
+                <Button variant="contained" fullWidth onClick={handleSubmit} sx={{ py: 1.5 }} disabled={loading}>
+                  {loading ? "Guardando..." : editingActivity ? "Actualizar" : "Guardar"}
                 </Button>
               </Box>
             </Box>
@@ -1243,18 +1204,14 @@ const DailyTimesheet: React.FC = () => {
         </Box>
       </Drawer>
 
-      {/* Snackbar para mensajes */}
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert
-          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-          severity={snackbar.severity}
-          sx={{ width: "100%" }}
-        >
+        <Alert onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))} severity={snackbar.severity} sx={{ width: "100%" }}>
           {snackbar.message}
         </Alert>
       </Snackbar>

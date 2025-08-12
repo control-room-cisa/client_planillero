@@ -53,6 +53,7 @@ interface UpdateJobDto {
 
 class JobService {
   static async getAll(): Promise<Job[]> {
+    
     try {
       const response = await api.get<JobsResponse>('/jobs');
       return response.data.data;

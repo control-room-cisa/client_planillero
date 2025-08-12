@@ -22,12 +22,16 @@ export interface ActividadData {
   esExtra: boolean;
   className?: string | null; // Cambiado para permitir null
   descripcion: string;
+  horaInicio: string;
+  horaFin:    string;
   job?: {
     id: number;
     nombre: string;
     codigo: string;
     descripcion?: string;
   };
+  esActividadDividida?: boolean;
+  idActividadPadre?: string;
 }
 
 export interface UpsertRegistroDiarioParams {
@@ -44,5 +48,7 @@ export interface UpsertRegistroDiarioParams {
     esExtra?: boolean;
     className?: string | null; // Cambiado para permitir null
     descripcion: string;
+    horaInicio: string;
+    horaFin:    string;
   }[];
 }

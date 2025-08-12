@@ -28,15 +28,14 @@ import {
 import { useAuth } from "../../hooks/useAuth";
 import type { RegisterRequest, Empresa, Departamento } from "../../types/auth";
 import { empresaService } from "../../services/empresaService";
+import { useNavigate } from "react-router-dom";
 
 interface RegisterProps {
   onRegistrationSuccess?: () => void;
-  onToggleMode?: () => void;
 }
 
 export default function Register({
   onRegistrationSuccess,
-  onToggleMode,
 }: RegisterProps) {
   const { register, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
@@ -55,6 +54,8 @@ export default function Register({
     empresaId: 0,
     departamentoId: 0,
   });
+
+  const navigate = useNavigate();
 
   // Cargar empresas al montar el componente
   useEffect(() => {
@@ -159,6 +160,7 @@ export default function Register({
           onRegistrationSuccess();
         }, 2000);
       }
+      navigate("/login");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Error al registrar usuario"
@@ -407,7 +409,6 @@ export default function Register({
               {loading ? "Registrando..." : "Registrar Colaborador"}
             </Button>
 
-            {onToggleMode && (
               <>
                 <Divider sx={{ my: 2 }}>
                   <Typography variant="body2" color="text.secondary">
@@ -420,7 +421,7 @@ export default function Register({
                     ¿Ya tienes cuenta?
                   </Typography>
                   <Button
-                    onClick={onToggleMode}
+                   onClick={() => navigate("/login")}
                     variant="outlined"
                     fullWidth
                     sx={{ textTransform: "none" }}
@@ -429,7 +430,6 @@ export default function Register({
                   </Button>
                 </Box>
               </>
-            )}
           </Box>
         </Paper>
       </Box>

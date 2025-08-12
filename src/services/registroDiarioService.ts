@@ -44,6 +44,8 @@ class RegistroDiarioService {
       "/registrodiario",
       params
     );
+    console.log("Registro diario con hora inicio:", response.data.data);
+    
     return response.data.data;
   }
 
