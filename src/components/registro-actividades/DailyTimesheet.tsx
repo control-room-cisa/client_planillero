@@ -45,7 +45,7 @@ import CalculoHorasTrabajoService from "../../services/calculoHorasTrabajoServic
 import { HorarioValidator } from "../../utils/horarioValidations";
 import type { Job } from "../../services/jobService";
 import type { RegistroDiarioData } from "../../dtos/RegistrosDiariosDataDto";
-import type { HorarioTrabajoDto } from "../../dtos/calculoHorasTrabajoDto";
+// import type { HorarioTrabajoDto } from "../../dtos/calculoHorasTrabajoDto";
 
 interface ActivityData {
   descripcion: string;

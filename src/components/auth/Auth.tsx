@@ -5,10 +5,6 @@ import Register from "./Register";
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
 
-  const toggleMode = () => {
-    setIsLogin(!isLogin);
-  };
-
   const handleRegistrationSuccess = () => {
     // Cambiar a login después de un registro exitoso
     setIsLogin(true);
@@ -17,12 +13,9 @@ export default function Auth() {
   return (
     <>
       {isLogin ? (
-        <Login onToggleMode={toggleMode} />
+        <Login />
       ) : (
-        <Register
-          onRegistrationSuccess={handleRegistrationSuccess}
-          onToggleMode={toggleMode}
-        />
+        <Register onRegistrationSuccess={handleRegistrationSuccess} />
       )}
     </>
   );
