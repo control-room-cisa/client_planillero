@@ -46,31 +46,7 @@ import { HorarioValidator } from "../../utils/horarioValidations";
 import type { Job } from "../../services/jobService";
 import type { RegistroDiarioData } from "../../dtos/RegistrosDiariosDataDto";
 // import type { HorarioTrabajoDto } from "../../dtos/calculoHorasTrabajoDto";
-
-interface ActivityData {
-  descripcion: string;
-  horaInicio: string; // HH:mm
-  horaFin: string; // HH:mm
-  horasInvertidas: string;
-  job: string;
-  class: string;
-  horaExtra: boolean;
-}
-
-interface Activity {
-  id?: number;
-  descripcion: string;
-  horaInicio?: string; // ISO
-  horaFin?: string; // ISO
-  duracionHoras: number;
-  jobId: number;
-  className?: string | null;
-  esExtra: boolean;
-  job?: {
-    nombre: string;
-    codigo: string;
-  };
-}
+import type { Activity, ActivityData } from "./types";
 
 const DailyTimesheet: React.FC = () => {
   const theme = useTheme();
@@ -106,7 +82,7 @@ const DailyTimesheet: React.FC = () => {
   const [dayConfigData, setDayConfigData] = React.useState({
     horaEntrada: "",
     horaSalida: "",
-    jornada: "D",
+    jornada: "D", // Por defecto Día
     esDiaLibre: false,
     esHoraCorrida: false,
     comentarioEmpleado: "",
@@ -115,6 +91,7 @@ const DailyTimesheet: React.FC = () => {
     [key: string]: string;
   }>({});
   const [loading, setLoading] = React.useState(false);
+  const [initialLoading, setInitialLoading] = React.useState(true);
   const [snackbar, setSnackbar] = React.useState({
     open: false,
     message: "",
@@ -131,12 +108,26 @@ const DailyTimesheet: React.FC = () => {
     horasNormales: number;
     mostrarJornada: boolean;
     mostrarNombreFestivo: boolean;
+    tipoHorario: string; // Agregar tipo de horario
   } | null>(null);
 
   // ===== Helpers de tiempo =====
   const timeToMinutes = (time: string): number => {
     const [h, m] = time.split(":").map(Number);
     return h * 60 + m;
+  };
+
+  // Función para redondear tiempo a intervalos de 15 minutos
+  const roundToQuarterHour = (time: string): string => {
+    if (!time) return time;
+    const [h, m] = time.split(":").map(Number);
+    const totalMinutes = h * 60 + m;
+    const roundedMinutes = Math.round(totalMinutes / 15) * 15;
+    const hours = Math.floor(roundedMinutes / 60);
+    const minutes = roundedMinutes % 60;
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   const getDayBoundsMinutes = () => {
@@ -163,13 +154,6 @@ const DailyTimesheet: React.FC = () => {
   const intervalOverlap = (a1: number, a2: number, b1: number, b2: number) =>
     Math.max(0, Math.min(a2, b2) - Math.max(a1, b1));
 
-  const lunchOverlapInRange = (dayStart: number, dayEnd: number) => {
-    // Almuerzo fijo 12:00–13:00
-    const L1 = 720;
-    const L2 = 780;
-    return intervalOverlap(dayStart, dayEnd, L1, L2);
-  };
-
   const buildISO = (baseDate: Date, hhmm: string, addDays = 0) => {
     const d = new Date(baseDate);
     d.setHours(0, 0, 0, 0);
@@ -193,27 +177,13 @@ const DailyTimesheet: React.FC = () => {
   // ===== Helpers de validación/cálculo =====
 
   // Devuelve error si la hora dada está fuera del rango del día (texto fijo pedido)
-  const errorOutsideRange = (which: "inicio" | "fin", hhmm: string): string => {
-    if (!hhmm) return "";
-    const { dayStart, dayEnd, crossesMidnight } = getDayBoundsMinutes();
-    if (!Number.isFinite(dayStart) || !Number.isFinite(dayEnd)) return "";
-
-    const t = normalizeToDaySpan(
-      timeToMinutes(hhmm),
-      dayStart,
-      crossesMidnight
-    );
-    if (t < dayStart || t > dayEnd) {
-      return which === "inicio"
-        ? "La hora de inicio está fuera del horario laboral"
-        : "La hora de fin está fuera del horario laboral";
-    }
-    return "";
-  };
+  // Nota: Los inputs de hora solo se muestran para Hora Extra, por lo que
+  // esta validación no aplica y se omite para evitar mensajes contradictorios.
+  const errorOutsideRange = (): string => "";
 
   // Valida Hora fin: primero rango; luego relación con inicio si el día NO cruza medianoche
   const computeHoraFinError = (fin: string, inicio: string): string => {
-    const rangoErr = errorOutsideRange("fin", fin);
+    const rangoErr = errorOutsideRange();
     if (rangoErr) return rangoErr;
     if (!fin || !inicio) return "";
 
@@ -226,6 +196,7 @@ const DailyTimesheet: React.FC = () => {
   };
 
   // Calcula HH con o sin descuento de almuerzo (12:00–13:00) según esHoraCorrida
+  // Hora de almuerzo = 0 si esHoraCorrida, 1 si no esHoraCorrida
   const computeHorasInvertidas = (
     inicioHHMM: string,
     finHHMM: string
@@ -238,8 +209,11 @@ const DailyTimesheet: React.FC = () => {
     let dur = h2 + m2 / 60 - (h1 + m1 / 60);
     if (dur < 0) dur += 24; // cruza medianoche
 
-    // Si NO es hora corrida, restar solape con almuerzo 12:00–13:00
-    if (!dayConfigData.esHoraCorrida) {
+    // Determinar hora de almuerzo: 0 si es hora corrida, 1 si no lo es
+    const horaAlmuerzo = dayConfigData.esHoraCorrida ? 0 : 1;
+
+    // Solo descontar almuerzo si horaAlmuerzo > 0 (no es hora corrida)
+    if (horaAlmuerzo > 0) {
       const { dayStart, crossesMidnight } = getDayBoundsMinutes();
       let s = normalizeToDaySpan(
         timeToMinutes(inicioHHMM),
@@ -267,7 +241,9 @@ const DailyTimesheet: React.FC = () => {
     String(Math.round(h * 100) / 100).replace(/\.0+$/, "");
 
   const computeHorasActividadForDisplayNum = (act: Activity): number => {
-    if (!act.horaInicio || !act.horaFin) return 0;
+    // Si no hay horas de inicio/fin (actividad normal), usar duracionHoras
+    if (!act.horaInicio || !act.horaFin)
+      return Math.max(0, Number(act.duracionHoras || 0));
 
     const { dayStart, crossesMidnight } = getDayBoundsMinutes();
 
@@ -281,8 +257,11 @@ const DailyTimesheet: React.FC = () => {
     // Duración base
     let hours = (e - s) / 60;
 
-    // Si NO es hora corrida, descontar solape con almuerzo 12:00–13:00
-    if (!dayConfigData.esHoraCorrida) {
+    // Determinar hora de almuerzo: 0 si es hora corrida, 1 si no lo es
+    const horaAlmuerzo = dayConfigData.esHoraCorrida ? 0 : 1;
+
+    // Solo descontar almuerzo si horaAlmuerzo > 0 (no es hora corrida)
+    if (horaAlmuerzo > 0) {
       const L1 = 720; // 12:00
       const L2 = 780; // 13:00
       const overlapMin = intervalOverlap(s, e, L1, L2);
@@ -353,34 +332,39 @@ const DailyTimesheet: React.FC = () => {
     try {
       setLoading(true);
       const dateString = currentDate.toISOString().split("T")[0];
-      const registro = await RegistroDiarioService.getByDate(dateString);
+
+      // Delay mínimo de 500ms para evitar parpadeo
+      const [registro] = await Promise.all([
+        RegistroDiarioService.getByDate(dateString),
+        new Promise((resolve) => setTimeout(resolve, 500)),
+      ]);
+
       setRegistroDiario(registro);
 
-      // Cargar validaciones de horario desde la API
-      await loadHorarioValidations(dateString, registro);
-
+      // Configurar datos base desde el registro existente (si existe)
       if (registro) {
-        const horaEntrada = registro.horaEntrada.substring(11, 16);
-        const horaSalida = registro.horaSalida.substring(11, 16);
         setDayConfigData({
-          horaEntrada,
-          horaSalida,
-          jornada: registro.jornada || "M",
+          horaEntrada: "", // Se configurará desde la API
+          horaSalida: "", // Se configurará desde la API
+          jornada: registro.jornada || "D",
           esDiaLibre: registro.esDiaLibre || false,
           esHoraCorrida: registro.esHoraCorrida || false,
           comentarioEmpleado: registro.comentarioEmpleado || "",
         });
       } else {
-        // Resetear el formulario si no hay datos
+        // Resetear el formulario si no hay datos - se configurará automáticamente en loadHorarioValidations
         setDayConfigData({
-          horaEntrada: "07:00",
-          horaSalida: "17:00",
-          jornada: "M",
+          horaEntrada: "", // Se configurará desde la API
+          horaSalida: "", // Se configurará desde la API
+          jornada: "D", // Por defecto Día
           esDiaLibre: false,
           esHoraCorrida: false,
           comentarioEmpleado: "",
         });
       }
+
+      // Cargar validaciones de horario desde la API (siempre al final para aplicar las horas)
+      await loadHorarioValidations(dateString, registro);
     } catch (e) {
       console.error("Error al cargar registro diario:", e);
       setSnackbar({
@@ -390,6 +374,7 @@ const DailyTimesheet: React.FC = () => {
       });
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -401,32 +386,48 @@ const DailyTimesheet: React.FC = () => {
     try {
       if (!user?.id) return;
 
-      // Obtener horario desde la API de cálculo
-      const horarioData =
-        await CalculoHorasTrabajoService.getHorasNormalesTrabajo(
-          user.id,
-          fecha
-        );
+      // Obtener horario desde la API de cálculo usando getHorarioTrabajo
+      // Esto incluye cantidadHorasLaborables, horarioTrabajo.inicio/fin, esDiaLibre, etc.
+      const horarioData = await CalculoHorasTrabajoService.getHorarioTrabajo(
+        user.id,
+        fecha
+      );
 
       // Determinar si hay datos existentes de la API
       const datosExistentes = Boolean(registro);
 
       // Validar según el tipo de horario
       const validacion = HorarioValidator.validateByTipo(
-        horarioData.horarioTrabajo.tipoHorario,
-        horarioData.horarioTrabajo,
+        horarioData.tipoHorario,
+        horarioData,
         datosExistentes
       );
 
-      setHorarioValidado(validacion);
+      // Crear el objeto de validación con las horas normales de la API
+      const validacionCompleta = {
+        ...validacion,
+        // Usar cantidadHorasLaborables directamente de la API
+        horasNormales: horarioData.cantidadHorasLaborables,
+        // Agregar el tipo de horario
+        tipoHorario: horarioData.tipoHorario,
+      };
 
-      // Si no hay datos existentes y hay validación, aplicar configuración automática
-      if (!datosExistentes && validacion) {
+      setHorarioValidado(validacionCompleta);
+
+      // Aplicar configuración automática desde la API cuando sea apropiado
+      if (validacion) {
+        // Siempre rellenar automáticamente HoraEntrada y HoraSalida desde la API
         setDayConfigData((prev) => ({
           ...prev,
+          // Configurar horas de entrada y salida desde la API
           horaEntrada: validacion.horaInicio,
           horaSalida: validacion.horaFin,
-          esDiaLibre: validacion.esDiaLibre,
+          // Configurar estado de día libre desde la API solo si no hay datos existentes
+          esDiaLibre: !datosExistentes
+            ? validacion.esDiaLibre
+            : prev.esDiaLibre,
+          // Configurar jornada por defecto según el tipo de horario solo si no hay datos existentes
+          jornada: !datosExistentes ? "D" : prev.jornada, // Siempre por defecto Día
         }));
       }
     } catch (error) {
@@ -470,6 +471,7 @@ const DailyTimesheet: React.FC = () => {
       descripcion: activity.descripcion || "",
       horaInicio: inicio,
       horaFin: fin,
+      // Cargar horas invertidas desde la API (duracionHoras)
       horasInvertidas: activity.duracionHoras?.toString() || "",
       job: activity.jobId?.toString() || "",
       class: activity.className || "",
@@ -541,10 +543,56 @@ const DailyTimesheet: React.FC = () => {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const { name, value, type, checked } = event.target;
-    setDayConfigData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+
+    let finalValue = type === "checkbox" ? checked : value;
+
+    // Redondear tiempos a intervalos de 15 minutos
+    if (
+      type !== "checkbox" &&
+      (name === "horaEntrada" || name === "horaSalida")
+    ) {
+      finalValue = roundToQuarterHour(value);
+    }
+
+    setDayConfigData((prev) => {
+      const newData = { ...prev, [name]: finalValue };
+
+      // Ajuste automático de hora de salida cuando se cambia esHoraCorrida
+      if (name === "esHoraCorrida" && prev.horaEntrada && prev.horaSalida) {
+        const entradaMin = timeToMinutes(prev.horaEntrada);
+        let salidaMin = timeToMinutes(prev.horaSalida);
+
+        // Determinar si es turno nocturno
+        const esTurnoNoche = entradaMin > salidaMin;
+
+        if (!esTurnoNoche) {
+          // Solo ajustar en turnos normales
+          if (checked) {
+            // Al activar hora corrida: reducir hora de salida en 1 hora
+            salidaMin -= 60;
+          } else {
+            // Al desactivar hora corrida: aumentar hora de salida en 1 hora
+            salidaMin += 60;
+          }
+
+          // Asegurar que las horas estén en rango válido
+          if (salidaMin < 0) salidaMin += 1440; // Día anterior
+          if (salidaMin >= 1440) salidaMin -= 1440; // Día siguiente
+
+          // Convertir de vuelta a formato HH:mm
+          const hours = Math.floor(salidaMin / 60);
+          const minutes = salidaMin % 60;
+          const newHoraSalida = `${hours.toString().padStart(2, "0")}:${minutes
+            .toString()
+            .padStart(2, "0")}`;
+
+          newData.horaSalida = newHoraSalida;
+        }
+      }
+
+      return newData;
+    });
+
     if (dayConfigErrors[name])
       setDayConfigErrors((prev) => ({ ...prev, [name]: "" }));
   };
@@ -688,17 +736,46 @@ const DailyTimesheet: React.FC = () => {
     const { name, value, type, checked } = event.target;
 
     setFormData((prev) => {
-      const next = { ...prev, [name]: type === "checkbox" ? checked : value };
+      let finalValue = type === "checkbox" ? checked : value;
 
-      // Recalcular horas invertidas cuando cambian inicio/fin (con lógica de almuerzo/hora corrida)
-      if (name === "horaInicio" || name === "horaFin") {
-        const v = computeHorasInvertidas(next.horaInicio, next.horaFin);
-        next.horasInvertidas = v;
+      // Redondear tiempos a intervalos de 15 minutos
+      if (
+        type !== "checkbox" &&
+        (name === "horaInicio" || name === "horaFin")
+      ) {
+        finalValue = roundToQuarterHour(value);
+      }
+
+      const next = { ...prev, [name]: finalValue };
+
+      // Manejar checkbox de hora extra
+      if (name === "horaExtra") {
+        if (checked) {
+          // Al activar hora extra: calcular automáticamente las horas invertidas
+          if (next.horaInicio && next.horaFin) {
+            const v = computeHorasInvertidas(next.horaInicio, next.horaFin);
+            next.horasInvertidas = v;
+          }
+        } else {
+          // Al desactivar hora extra: limpiar campos de tiempo y permitir edición manual
+          next.horaInicio = "";
+          next.horaFin = "";
+          next.horasInvertidas = "";
+        }
+      }
+
+      // Recalcular horas invertidas automáticamente cuando cambian inicio/fin
+      // SOLO si es hora extra (para mantener consistencia)
+      if ((name === "horaInicio" || name === "horaFin") && next.horaExtra) {
+        if (next.horaInicio && next.horaFin) {
+          const v = computeHorasInvertidas(next.horaInicio, next.horaFin);
+          next.horasInvertidas = v;
+        }
       }
 
       // === Validación en vivo SOLO para horas ===
       if (name === "horaInicio") {
-        const errInicio = errorOutsideRange("inicio", next.horaInicio);
+        const errInicio = errorOutsideRange();
         const errFin = computeHoraFinError(next.horaFin, next.horaInicio); // revalida fin
         setFormErrors((prevE) => ({
           ...prevE,
@@ -726,81 +803,137 @@ const DailyTimesheet: React.FC = () => {
 
     if (!formData.descripcion.trim())
       errors.descripcion = "La descripción es obligatoria";
-    if (!horaInicio) errors.horaInicio = "Hora inicio obligatoria";
-    if (!horaFin) errors.horaFin = "Hora fin obligatoria";
     if (!formData.job.trim()) errors.job = "El job es obligatorio";
 
-    // Horas invertidas (calcular para asegurar consistencia)
-    const horasCalc = computeHorasInvertidas(horaInicio, horaFin);
-    if (!horasCalc) {
-      errors.horasInvertidas = "Las horas invertidas son obligatorias";
+    // Validar que solo se puedan ingresar horas extra cuando el progreso normal esté al 100%
+    if (formData.horaExtra && !canAddExtraHours) {
+      errors.horaExtra =
+        "Solo puedes ingresar horas extra cuando hayas completado el 100% de las horas normales del día";
+    }
+
+    // Validar campos según si es hora extra o no
+    if (formData.horaExtra) {
+      // Para hora extra, los campos de tiempo son obligatorios
+      if (!horaInicio)
+        errors.horaInicio = "Hora inicio obligatoria para hora extra";
+      if (!horaFin) errors.horaFin = "Hora fin obligatoria para hora extra";
+
+      // Para hora extra, las horas invertidas se calculan automáticamente
+      // Validar que el cálculo sea válido
+      if (horaInicio && horaFin) {
+        const horasCalc = computeHorasInvertidas(horaInicio, horaFin);
+        if (!horasCalc || parseFloat(horasCalc) <= 0) {
+          errors.horasInvertidas = "Las horas calculadas no son válidas";
+        }
+      }
     } else {
-      const hours = parseFloat(horasCalc);
-      if (isNaN(hours) || hours <= 0)
-        errors.horasInvertidas = "Ingresa un número válido mayor a 0";
+      // Para actividades normales (no hora extra), las horas invertidas son obligatorias
+      if (!formData.horasInvertidas.trim()) {
+        errors.horasInvertidas =
+          "Las horas invertidas son obligatorias para actividades normales";
+      } else {
+        const hours = parseFloat(formData.horasInvertidas);
+        if (isNaN(hours) || hours <= 0) {
+          errors.horasInvertidas = "Ingresa un número válido mayor a 0";
+        } else {
+          // Validar que no exceda las horas normales restantes del día
+          const horasRestantes = Math.max(
+            0,
+            horasNormales - workedHoursNormales
+          );
+
+          // Si estamos editando una actividad normal, sumar sus horas actuales para no contar doble
+          let horasDisponibles = horasRestantes;
+          if (editingActivity && !editingActivity.esExtra) {
+            horasDisponibles += editingActivity.duracionHoras || 0;
+          }
+
+          if (hours > horasDisponibles) {
+            errors.horasInvertidas = `Las horas exceden el límite disponible. Solo quedan ${horasRestantes.toFixed(
+              2
+            )} horas para completar el día`;
+          }
+        }
+      }
     }
 
-    if (!horaInicio || !horaFin) {
-      setFormErrors(errors);
-      return Object.keys(errors).length === 0;
-    }
+    if (horaInicio && horaFin) {
+      // Para hora extra, validar que esté FUERA del horario laboral
+      const entradaMin = timeToMinutes(dayConfigData.horaEntrada);
+      const salidaMin = timeToMinutes(dayConfigData.horaSalida);
 
-    // Rango y relación inicio/fin
-    const { dayStart, dayEnd, crossesMidnight } = getDayBoundsMinutes();
-    const s = normalizeToDaySpan(
-      timeToMinutes(horaInicio),
-      dayStart,
-      crossesMidnight
-    );
-    const e = normalizeToDaySpan(
-      timeToMinutes(horaFin),
-      dayStart,
-      crossesMidnight
-    );
+      // Manejar turno nocturno
+      const esTurnoNoche = entradaMin > salidaMin;
 
-    if (s < dayStart || s > dayEnd) {
-      errors.horaInicio = "La hora de inicio está fuera del horario laboral";
-    }
-    if (e < dayStart || e > dayEnd) {
-      errors.horaFin = "La hora de fin está fuera del horario laboral";
-    }
-    if (
-      !crossesMidnight &&
-      timeToMinutes(horaFin) <= timeToMinutes(horaInicio)
-    ) {
-      errors.horaFin = "La hora final debe ser posterior a la inicial";
-    }
+      const inicioMin = timeToMinutes(horaInicio);
+      let finMin = timeToMinutes(horaFin);
 
-    // === Validación: no solaparse con otras actividades ===
-    if (registroDiario?.actividades && registroDiario.actividades.length > 0) {
-      let newS = s;
-      let newE = e;
-      if (newE <= newS) newE += 1440;
+      // Si fin <= inicio, la actividad cruza medianoche
+      if (finMin <= inicioMin) {
+        finMin += 1440;
+      }
 
-      const overlaps = registroDiario.actividades.some((act, idx) => {
-        if (editingActivity && idx === editingIndex) return false;
-        if (!act.horaInicio || !act.horaFin) return false;
+      // Verificar que la actividad esté completamente fuera del horario laboral
+      let estaFuera = false;
 
-        const sHM = act.horaInicio.substring(11, 16);
-        const eHM = act.horaFin.substring(11, 16);
-        let s2 = normalizeToDaySpan(
-          timeToMinutes(sHM),
-          dayStart,
-          crossesMidnight
-        );
-        let e2 = normalizeToDaySpan(
-          timeToMinutes(eHM),
-          dayStart,
-          crossesMidnight
-        );
-        if (e2 <= s2) e2 += 1440;
+      if (esTurnoNoche) {
+        // Para turno nocturno: intervalos válidos son [00:00, salidaMin] y [entradaMin, 23:59]
+        // Las actividades extra deben estar entre salidaMin y entradaMin
+        const finEnMismoDia = finMin <= 1440 ? finMin : finMin - 1440;
 
-        return newS < e2 && s2 < newE;
-      });
+        // Caso 1: Actividad completamente en el período permitido del mismo día
+        const enPeriodoPermitido =
+          (inicioMin >= salidaMin && finEnMismoDia <= entradaMin) ||
+          (inicioMin >= salidaMin &&
+            inicioMin < 1440 &&
+            finMin > 1440 &&
+            finMin - 1440 <= entradaMin);
 
-      if (overlaps) {
-        errors.horaInicio = "Este horario se solapa con otra actividad";
-        errors.horaFin = "Este horario se solapa con otra actividad";
+        estaFuera = enPeriodoPermitido;
+      } else {
+        // Para turno normal, debe estar antes de entrada o después de salida
+        estaFuera = finMin <= entradaMin || inicioMin >= salidaMin;
+      }
+
+      if (!estaFuera) {
+        const rangoPermitido = esTurnoNoche
+          ? `entre ${dayConfigData.horaSalida} y ${dayConfigData.horaEntrada}`
+          : `antes de ${dayConfigData.horaEntrada} o después de ${dayConfigData.horaSalida}`;
+        errors.horaInicio = `La hora extra debe estar ${rangoPermitido}`;
+        errors.horaFin = `La hora extra debe estar ${rangoPermitido}`;
+      }
+
+      // Validar relación inicio/fin
+      if (
+        timeToMinutes(horaFin) <= timeToMinutes(horaInicio) &&
+        finMin <= inicioMin + 1440
+      ) {
+        errors.horaFin = "La hora final debe ser posterior a la inicial";
+      }
+
+      // === Validación: no solaparse con otras actividades ===
+      if (
+        registroDiario?.actividades &&
+        registroDiario.actividades.length > 0
+      ) {
+        const overlaps = registroDiario.actividades.some((act, idx) => {
+          if (editingActivity && idx === editingIndex) return false;
+          if (!act.horaInicio || !act.horaFin) return false;
+
+          const actInicioMin = timeToMinutes(act.horaInicio.substring(11, 16));
+          let actFinMin = timeToMinutes(act.horaFin.substring(11, 16));
+
+          if (actFinMin <= actInicioMin) {
+            actFinMin += 1440;
+          }
+
+          return inicioMin < actFinMin && actInicioMin < finMin;
+        });
+
+        if (overlaps) {
+          errors.horaInicio = "Este horario se solapa con otra actividad";
+          errors.horaFin = "Este horario se solapa con otra actividad";
+        }
       }
     }
 
@@ -820,17 +953,26 @@ const DailyTimesheet: React.FC = () => {
       const endM = timeToMinutes(formData.horaFin);
       const addDay = endM <= startM ? 1 : 0;
 
-      const actividad = {
+      const actividad: any = {
         jobId: parseInt(formData.job),
-        duracionHoras: parseFloat(
-          computeHorasInvertidas(formData.horaInicio, formData.horaFin)
-        ),
         esExtra: formData.horaExtra,
         className: formData.class || undefined,
         descripcion: formData.descripcion,
-        horaInicio: buildISO(currentDate, formData.horaInicio, 0),
-        horaFin: buildISO(currentDate, formData.horaFin, addDay),
       };
+
+      // Solo agregar datos de tiempo si es hora extra
+      if (formData.horaExtra) {
+        actividad.duracionHoras = parseFloat(
+          computeHorasInvertidas(formData.horaInicio, formData.horaFin)
+        );
+        actividad.horaInicio = buildISO(currentDate, formData.horaInicio, 0);
+        actividad.horaFin = buildISO(currentDate, formData.horaFin, addDay);
+      } else {
+        // Para actividades normales, usar las horas invertidas ingresadas manualmente
+        actividad.duracionHoras = parseFloat(formData.horasInvertidas || "0");
+        actividad.horaInicio = undefined;
+        actividad.horaFin = undefined;
+      }
 
       if (registroDiario) {
         // Obtener actividades existentes
@@ -943,39 +1085,90 @@ const DailyTimesheet: React.FC = () => {
   const navigateDate = (direction: "prev" | "next") => {
     const d = new Date(currentDate);
     d.setDate(currentDate.getDate() + (direction === "prev" ? -1 : 1));
+    setInitialLoading(true); // Activar loading cuando cambie la fecha
     setCurrentDate(d);
   };
-  const goToToday = () => setCurrentDate(new Date());
+  const goToToday = () => {
+    setInitialLoading(true); // Activar loading cuando vaya a hoy
+    setCurrentDate(new Date());
+  };
   const isToday = () =>
     currentDate.toDateString() === new Date().toDateString();
 
   // ===== Horas trabajadas / Totales & progreso =====
-  const { dayStart, dayEnd } = getDayBoundsMinutes();
-  let totalHours = (dayEnd - dayStart) / 60;
+  // Ya no necesitamos calcular totalHours aquí porque las horas laborables
+  // se calculan más abajo usando la nueva lógica consistente
 
-  // Descontar almuerzo 12:00–13:00 si NO es hora corrida (total teórico del día)
-  if (!dayConfigData.esHoraCorrida) {
-    const lunchDayOverlap = lunchOverlapInRange(dayStart, dayEnd) / 60;
-    totalHours = Math.max(0, totalHours - lunchDayOverlap);
+  // SUMA de horas NORMALES (sin horas extra) para el progreso del día
+  const workedHoursNormales =
+    registroDiario?.actividades?.reduce((acc, act) => {
+      if (!act.esExtra) {
+        // Para actividades normales, usar duracionHoras
+        return acc + (act.duracionHoras || 0);
+      }
+      return acc;
+    }, 0) || 0;
+
+  // Calcular horas normales basándose en la configuración actual del día
+  // Las horas laborables son SIEMPRE: (Hora Salida - Hora Entrada) - Hora almuerzo
+  // Hora almuerzo = 0 si esHoraCorrida, 1 si no esHoraCorrida
+  let horasNormales = 0;
+
+  if (dayConfigData.horaEntrada && dayConfigData.horaSalida) {
+    const entradaMin = timeToMinutes(dayConfigData.horaEntrada);
+    let salidaMin = timeToMinutes(dayConfigData.horaSalida);
+
+    // Lógica para turno de noche: si entrada > salida, es turno nocturno
+    const esTurnoNoche = entradaMin > salidaMin;
+
+    if (esTurnoNoche) {
+      // Para turno de noche: desde entrada hasta 23:59 + desde 00:00 hasta salida
+      const horasHastaMedianoche = (24 * 60 - entradaMin) / 60; // Hasta las 24:00
+      const horasDesdeMedianoche = salidaMin / 60; // Desde las 00:00
+      horasNormales = horasHastaMedianoche + horasDesdeMedianoche;
+    } else {
+      // Turno normal: diferencia directa
+      horasNormales = (salidaMin - entradaMin) / 60;
+    }
+
+    // Determinar hora de almuerzo: 0 si es hora corrida, 1 si no lo es
+    const horaAlmuerzo = dayConfigData.esHoraCorrida ? 0 : 1;
+
+    // Aplicar la fórmula: Horas laborables = (Hsalida - Hentrada) - Hora almuerzo
+    // Solo restar almuerzo en turnos normales (no nocturnos)
+    if (!esTurnoNoche) {
+      horasNormales = Math.max(0, horasNormales - horaAlmuerzo);
+    }
+
+    // Asegurar que sea un número válido
+    horasNormales = Math.max(0, horasNormales);
+  } else {
+    // Fallback a la API si no hay configuración local
+    horasNormales = Math.max(0, horarioValidado?.horasNormales || 0);
   }
 
-  // SUMA real trabajada usando la misma lógica que los chips (consistente con "Hora Corrida")
-  const workedHours =
-    registroDiario?.actividades?.reduce(
-      (acc, act) => acc + computeHorasActividadForDisplayNum(act),
-      0
-    ) || 0;
+  // Lógica especial para jornada nocturna H2: 6 horas los martes
+  if (
+    horarioValidado?.tipoHorario === "H2" &&
+    dayConfigData.jornada === "N" &&
+    currentDate.getDay() === 2
+  ) {
+    // 2 = martes
+    horasNormales = 6;
+  }
 
-  // Usar horas normales de la validación si está disponible
-  const horasNormales = horarioValidado?.horasNormales || totalHours;
+  // Progreso basado SOLO en horas normales (sin horas extra)
   const progressPercentage = HorarioValidator.getProgressPercentage(
-    workedHours,
+    workedHoursNormales,
     horasNormales
   );
   const horasFaltantesMessage = HorarioValidator.getHorasFaltantesMessage(
-    workedHours,
+    workedHoursNormales,
     horasNormales
   );
+
+  // Verificar si se pueden ingresar horas extra (solo cuando progreso normal = 100%)
+  const canAddExtraHours = progressPercentage >= 100;
 
   // Estado del registro diario
   const hasDayRecord = Boolean(registroDiario);
@@ -1052,14 +1245,22 @@ const DailyTimesheet: React.FC = () => {
           </IconButton>
           <Button
             variant={hasDayRecord ? "outlined" : "contained"}
-            startIcon={<Settings />}
+            startIcon={
+              initialLoading ? <CircularProgress size={16} /> : <Settings />
+            }
             onClick={handleDayConfigSubmit}
             size="small"
             color={hasDayRecord ? "success" : "primary"}
             sx={{ ml: 1 }}
-            disabled={loading || (hasDayRecord && !dayConfigHasChanges)}
+            disabled={
+              initialLoading ||
+              loading ||
+              (hasDayRecord && !dayConfigHasChanges)
+            }
           >
-            {loading
+            {initialLoading
+              ? "Cargando..."
+              : loading
               ? "Guardando..."
               : hasDayRecord
               ? "Actualizar Día"
@@ -1159,6 +1360,7 @@ const DailyTimesheet: React.FC = () => {
           >
             Configuración del Día Laboral
           </Typography>
+          {/* Los valores se configuran automáticamente desde la API cuando no hay datos existentes */}
 
           <Box
             sx={{
@@ -1169,34 +1371,42 @@ const DailyTimesheet: React.FC = () => {
             }}
           >
             <TextField
-              disabled={readOnly}
+              disabled={readOnly || initialLoading}
               fullWidth
               required
               type="time"
               name="horaEntrada"
               label="Hora de Entrada"
-              value={dayConfigData.horaEntrada}
+              value={initialLoading ? "" : dayConfigData.horaEntrada}
               onChange={handleDayConfigInputChange}
               error={!!dayConfigErrors.horaEntrada}
               helperText={dayConfigErrors.horaEntrada}
               InputLabelProps={{ shrink: true }}
               size="small"
+              inputProps={{
+                step: 900, // 15 minutos en segundos
+              }}
+              placeholder={initialLoading ? "Cargando..." : ""}
             />
 
             {/* Hora de Salida */}
             <TextField
-              disabled={readOnly}
+              disabled={readOnly || initialLoading}
               fullWidth
               required
               type="time"
               name="horaSalida"
               label="Hora de Salida"
-              value={dayConfigData.horaSalida}
+              value={initialLoading ? "" : dayConfigData.horaSalida}
               onChange={handleDayConfigInputChange}
               error={!!dayConfigErrors.horaSalida}
               helperText={dayConfigErrors.horaSalida}
               InputLabelProps={{ shrink: true }}
               size="small"
+              inputProps={{
+                step: 900, // 15 minutos en segundos
+              }}
+              placeholder={initialLoading ? "Cargando..." : ""}
             />
           </Box>
 
@@ -1208,13 +1418,14 @@ const DailyTimesheet: React.FC = () => {
               mb: 3,
             }}
           >
-            {horarioValidado?.mostrarJornada && (
+            {/* Jornada solo visible para tipo horario H2 */}
+            {horarioValidado?.tipoHorario === "H2" && (
               <FormControl fullWidth size="small">
                 <InputLabel>Jornada</InputLabel>
                 <Select
-                  disabled={readOnly}
+                  disabled={readOnly || initialLoading}
                   name="jornada"
-                  value={dayConfigData.jornada}
+                  value={initialLoading ? "" : dayConfigData.jornada}
                   onChange={(e) =>
                     handleDayConfigInputChange(
                       e as React.ChangeEvent<HTMLInputElement>
@@ -1233,9 +1444,9 @@ const DailyTimesheet: React.FC = () => {
               <FormControlLabel
                 control={
                   <Checkbox
-                    disabled={readOnly}
+                    disabled={readOnly || initialLoading}
                     name="esDiaLibre"
-                    checked={dayConfigData.esDiaLibre}
+                    checked={initialLoading ? false : dayConfigData.esDiaLibre}
                     onChange={handleDayConfigInputChange}
                     color="primary"
                   />
@@ -1248,9 +1459,11 @@ const DailyTimesheet: React.FC = () => {
               <FormControlLabel
                 control={
                   <Checkbox
-                    disabled={readOnly}
+                    disabled={readOnly || initialLoading}
                     name="esHoraCorrida"
-                    checked={dayConfigData.esHoraCorrida}
+                    checked={
+                      initialLoading ? false : dayConfigData.esHoraCorrida
+                    }
                     onChange={handleDayConfigInputChange}
                     color="primary"
                   />
@@ -1262,14 +1475,18 @@ const DailyTimesheet: React.FC = () => {
 
           {/* Comentario del Colaborador */}
           <TextField
-            disabled={readOnly}
+            disabled={readOnly || initialLoading}
             fullWidth
             multiline
             rows={2}
             name="comentarioEmpleado"
             label="Comentario (opcional)"
-            placeholder="Agregar comentarios adicionales..."
-            value={dayConfigData.comentarioEmpleado}
+            placeholder={
+              initialLoading
+                ? "Cargando..."
+                : "Agregar comentarios adicionales..."
+            }
+            value={initialLoading ? "" : dayConfigData.comentarioEmpleado}
             onChange={handleDayConfigInputChange}
             size="small"
           />
@@ -1285,31 +1502,42 @@ const DailyTimesheet: React.FC = () => {
               Progreso del Día Laboral
             </Typography>
             <Box sx={{ ml: "auto" }}>
-              <Typography
-                variant="body2"
-                color="primary.main"
-                fontWeight="bold"
-              >
-                {workedHours.toFixed(1)} / {horasNormales.toFixed(1)} horas
-              </Typography>
+              {initialLoading ? (
+                <CircularProgress size={20} />
+              ) : (
+                <Typography
+                  variant="body2"
+                  color="primary.main"
+                  fontWeight="bold"
+                >
+                  {workedHoursNormales.toFixed(2)} / {horasNormales.toFixed(2)}{" "}
+                  horas
+                </Typography>
+              )}
+              {/* Las horas normales se obtienen desde la API usando cantidadHorasLaborables */}
             </Box>
           </Box>
 
-          <LinearProgress
-            variant="determinate"
-            value={progressPercentage}
-            sx={{
-              height: 8,
-              borderRadius: 4,
-              mb: 2,
-              bgcolor: "grey.200",
-              "& .MuiLinearProgress-bar": { borderRadius: 4 },
-            }}
-          />
+          {initialLoading ? (
+            <LinearProgress sx={{ height: 8, borderRadius: 4, mb: 2 }} />
+          ) : (
+            <LinearProgress
+              variant="determinate"
+              value={progressPercentage}
+              sx={{
+                height: 8,
+                borderRadius: 4,
+                mb: 2,
+                bgcolor: "grey.200",
+                "& .MuiLinearProgress-bar": { borderRadius: 4 },
+              }}
+            />
+          )}
 
           <Typography variant="body2" color="warning.main">
-            {horasFaltantesMessage}
+            {initialLoading ? "Calculando progreso..." : horasFaltantesMessage}
           </Typography>
+          {/* El mensaje se calcula usando las horas normales obtenidas desde la API */}
         </CardContent>
       </Card>
 
@@ -1327,97 +1555,151 @@ const DailyTimesheet: React.FC = () => {
         </Typography>
         {!isMobile && (
           <Button
-            disabled={readOnly}
+            disabled={readOnly || initialLoading}
             variant="contained"
-            startIcon={<Add />}
+            startIcon={
+              initialLoading ? <CircularProgress size={16} /> : <Add />
+            }
             sx={{ borderRadius: 2 }}
             onClick={handleDrawerOpen}
           >
-            Nueva Actividad
+            {initialLoading ? "Cargando..." : "Nueva Actividad"}
           </Button>
         )}
       </Box>
 
       {/* Activities list or empty state */}
-      {registroDiario?.actividades && registroDiario.actividades.length > 0 ? (
+      {initialLoading ? (
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: 200,
+            textAlign: "center",
+            bgcolor: "background.paper",
+            borderRadius: 2,
+            p: 4,
+          }}
+        >
+          <CircularProgress sx={{ mb: 2 }} />
+          <Typography variant="h6" color="text.primary" gutterBottom>
+            Cargando actividades...
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Obteniendo los datos del día
+          </Typography>
+        </Box>
+      ) : registroDiario?.actividades &&
+        registroDiario.actividades.length > 0 ? (
         <Stack spacing={2}>
-          {registroDiario.actividades.map((actividad, index) => (
-            <Card
-              key={actividad.id || index}
-              sx={{ bgcolor: "background.paper" }}
-            >
-              <CardContent>
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    mb: 2,
-                  }}
-                >
-                  <Typography
-                    variant="h6"
-                    component="h3"
-                    sx={{ fontWeight: "medium", flex: 1 }}
+          {(() => {
+            // Ordenar actividades: primero normales, luego extra, ambas por hora
+            const actividadesOrdenadas = [...registroDiario.actividades].sort(
+              (a, b) => {
+                // Primero ordenar por tipo: normales antes que extra
+                if (a.esExtra !== b.esExtra) {
+                  return a.esExtra ? 1 : -1; // Normales primero (-1), extra después (1)
+                }
+
+                // Si ambas son del mismo tipo, ordenar por hora
+                if (a.horaInicio && b.horaInicio) {
+                  // Para actividades con hora (extra), ordenar por hora de inicio
+                  return a.horaInicio.localeCompare(b.horaInicio);
+                } else if (a.horaInicio && !b.horaInicio) {
+                  // Actividades con hora van antes que las sin hora
+                  return -1;
+                } else if (!a.horaInicio && b.horaInicio) {
+                  // Actividades sin hora van después que las con hora
+                  return 1;
+                } else {
+                  // Ambas sin hora, mantener orden original
+                  return 0;
+                }
+              }
+            );
+
+            return actividadesOrdenadas.map((actividad, index) => (
+              <Card
+                key={actividad.id || index}
+                sx={{ bgcolor: "background.paper" }}
+              >
+                <CardContent>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      mb: 2,
+                    }}
                   >
-                    {actividad.job?.nombre || `Job ID: ${actividad.jobId}`}
-                  </Typography>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Stack direction="row" spacing={1}>
-                      {/* Horas del chip calculadas dinámicamente según "Hora Corrida" */}
-                      <Chip
-                        label={`${computeHorasActividadForDisplay(actividad)}h`}
+                    <Typography
+                      variant="h6"
+                      component="h3"
+                      sx={{ fontWeight: "medium", flex: 1 }}
+                    >
+                      {actividad.job?.nombre || `Job ID: ${actividad.jobId}`}
+                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Stack direction="row" spacing={1}>
+                        {/* Horas del chip calculadas dinámicamente según "Hora Corrida" */}
+                        <Chip
+                          label={`${computeHorasActividadForDisplay(
+                            actividad
+                          )}h`}
+                          size="small"
+                          color="primary"
+                        />
+                        {actividad.esExtra && (
+                          <Chip label="Extra" size="small" color="warning" />
+                        )}
+                      </Stack>
+                      <IconButton
+                        disabled={readOnly}
                         size="small"
-                        color="primary"
-                      />
-                      {actividad.esExtra && (
-                        <Chip label="Extra" size="small" color="warning" />
-                      )}
-                    </Stack>
-                    <IconButton
-                      disabled={readOnly}
-                      size="small"
-                      onClick={() => handleEditActivity(actividad, index)}
-                      sx={{ color: "primary.main" }}
-                    >
-                      <Edit />
-                    </IconButton>
-                    <IconButton
-                      disabled={readOnly}
-                      size="small"
-                      onClick={() => handleDeleteActivity(index)}
-                      sx={{ color: "error.main" }}
-                    >
-                      <Delete />
-                    </IconButton>
+                        onClick={() => handleEditActivity(actividad, index)}
+                        sx={{ color: "primary.main" }}
+                      >
+                        <Edit />
+                      </IconButton>
+                      <IconButton
+                        disabled={readOnly}
+                        size="small"
+                        onClick={() => handleDeleteActivity(index)}
+                        sx={{ color: "error.main" }}
+                      >
+                        <Delete />
+                      </IconButton>
+                    </Box>
                   </Box>
-                </Box>
 
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 1 }}
-                >
-                  <strong>Job:</strong>{" "}
-                  {actividad.job?.codigo || actividad.jobId}
-                </Typography>
-
-                {actividad.className && (
                   <Typography
                     variant="body2"
                     color="text.secondary"
                     sx={{ mb: 1 }}
                   >
-                    <strong>Class:</strong> {actividad.className}
+                    <strong>Job:</strong>{" "}
+                    {actividad.job?.codigo || actividad.jobId}
                   </Typography>
-                )}
 
-                <Typography variant="body1" color="text.primary">
-                  {actividad.descripcion}
-                </Typography>
-              </CardContent>
-            </Card>
-          ))}
+                  {actividad.className && (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 1 }}
+                    >
+                      <strong>Class:</strong> {actividad.className}
+                    </Typography>
+                  )}
+
+                  <Typography variant="body1" color="text.primary">
+                    {actividad.descripcion}
+                  </Typography>
+                </CardContent>
+              </Card>
+            ));
+          })()}
         </Stack>
       ) : (
         <Box
@@ -1452,12 +1734,13 @@ const DailyTimesheet: React.FC = () => {
       )}
 
       {/* FAB */}
-      {isMobile && (
+      {isMobile && !initialLoading && (
         <Fab
           variant="extended"
           color="primary"
           aria-label="add"
           onClick={handleDrawerOpen}
+          disabled={readOnly}
           sx={{
             position: "fixed",
             bottom: 16,
@@ -1522,54 +1805,86 @@ const DailyTimesheet: React.FC = () => {
               sx={{ mb: 3 }}
             />
 
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-                gap: 2,
-                mb: 3,
-              }}
-            >
-              <TextField
-                disabled={readOnly}
-                fullWidth
-                required
-                type="time"
-                name="horaInicio"
-                label="Hora inicio actividad"
-                value={formData.horaInicio}
-                onChange={handleInputChange}
-                error={!!formErrors.horaInicio}
-                helperText={formErrors.horaInicio}
-                InputLabelProps={{ shrink: true }}
-                size="small"
-              />
-              <TextField
-                disabled={readOnly}
-                fullWidth
-                required
-                type="time"
-                name="horaFin"
-                label="Hora fin actividad"
-                value={formData.horaFin}
-                onChange={handleInputChange}
-                error={!!formErrors.horaFin}
-                helperText={formErrors.horaFin}
-                InputLabelProps={{ shrink: true }}
-                size="small"
-              />
-            </Box>
+            {/* Inputs de hora solo se muestran si se marca Hora Extra */}
+            {formData.horaExtra && (
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+                  gap: 2,
+                  mb: 3,
+                }}
+              >
+                <TextField
+                  disabled={readOnly}
+                  fullWidth
+                  required
+                  type="time"
+                  name="horaInicio"
+                  label="Hora inicio actividad"
+                  value={formData.horaInicio}
+                  onChange={handleInputChange}
+                  error={!!formErrors.horaInicio}
+                  helperText={formErrors.horaInicio}
+                  InputLabelProps={{ shrink: true }}
+                  size="small"
+                  inputProps={{
+                    step: 900, // 15 minutos en segundos
+                  }}
+                />
+                <TextField
+                  disabled={readOnly}
+                  fullWidth
+                  required
+                  type="time"
+                  name="horaFin"
+                  label="Hora fin actividad"
+                  value={formData.horaFin}
+                  onChange={handleInputChange}
+                  error={!!formErrors.horaFin}
+                  helperText={formErrors.horaFin}
+                  InputLabelProps={{ shrink: true }}
+                  size="small"
+                  inputProps={{
+                    step: 900, // 15 minutos en segundos
+                  }}
+                />
+              </Box>
+            )}
 
+            {/* Input de horas invertidas */}
             <TextField
-              disabled
+              disabled={readOnly || formData.horaExtra}
               fullWidth
-              required
+              required={formData.horaExtra}
               name="horasInvertidas"
               label="Horas Invertidas"
-              placeholder="Ej: 2.5"
+              placeholder={
+                formData.horaExtra ? "Calculado automáticamente" : "Ej: 2.5"
+              }
               type="number"
-              InputProps={{ readOnly: true }}
+              error={!!formErrors.horasInvertidas}
+              helperText={
+                formErrors.horasInvertidas ||
+                (formData.horaExtra
+                  ? "Calculado automáticamente desde las horas de inicio y fin"
+                  : `Horas restantes: ${Math.max(
+                      0,
+                      horasNormales - workedHoursNormales
+                    ).toFixed(0)}h`)
+              }
+              InputProps={{
+                readOnly: formData.horaExtra,
+                endAdornment: formData.horaExtra && (
+                  <Box sx={{ display: "flex", alignItems: "center", mr: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Auto
+                    </Typography>
+                  </Box>
+                ),
+              }}
               value={formData.horasInvertidas}
+              onChange={handleInputChange}
               sx={{ mb: 3 }}
             />
 
@@ -1583,6 +1898,7 @@ const DailyTimesheet: React.FC = () => {
                 loading={loadingJobs}
                 disabled={loadingJobs || readOnly}
                 isOptionEqualToValue={(o, v) => o.id === v.id}
+                groupBy={(option) => option.empresa.nombre}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -1610,8 +1926,31 @@ const DailyTimesheet: React.FC = () => {
                         {option.codigo} - {option.nombre}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {option.empresa.nombre}
+                        {option.descripcion || "Sin descripción"}
                       </Typography>
+                    </Box>
+                  </Box>
+                )}
+                renderGroup={(params) => (
+                  <Box key={params.key}>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
+                        color: "primary.main",
+                        backgroundColor: "background.paper",
+                        px: 2,
+                        py: 1,
+                        borderBottom: "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
+                      {params.group}
+                    </Typography>
+                    <Box component="li" sx={{ p: 0 }}>
+                      <ul style={{ padding: 0, margin: 0 }}>
+                        {params.children}
+                      </ul>
                     </Box>
                   </Box>
                 )}
@@ -1639,15 +1978,19 @@ const DailyTimesheet: React.FC = () => {
             <FormControlLabel
               control={
                 <Checkbox
-                  disabled={readOnly}
+                  disabled={readOnly || !canAddExtraHours}
                   name="horaExtra"
                   checked={formData.horaExtra}
                   onChange={handleInputChange}
                   color="primary"
                 />
               }
-              label="Hora Extra (fuera del horario 7AM - 5PM)"
-              sx={{ mb: 3 }}
+              label={`Hora Extra (fuera del horario)${
+                !canAddExtraHours
+                  ? " - Completa primero las horas normales"
+                  : ""
+              }`}
+              sx={{ mb: 0.5 }}
             />
 
             {/* Botones */}
@@ -1676,6 +2019,18 @@ const DailyTimesheet: React.FC = () => {
                     : "Guardar"}
                 </Button>
               </Box>
+
+              {/* Mensaje informativo sobre horas extra */}
+              {!canAddExtraHours && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mt: 2, textAlign: "center", fontSize: "0.875rem" }}
+                >
+                  Completa las horas normales al 100% para poder ingresar horas
+                  extra
+                </Typography>
+              )}
             </Box>
           </Box>
         </Box>
