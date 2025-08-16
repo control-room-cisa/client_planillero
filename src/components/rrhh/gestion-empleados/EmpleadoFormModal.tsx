@@ -24,7 +24,7 @@ import type {
   Empleado,
 } from "../../../services/empleadoService";
 
-import type { Empresa } from "../../../types/auth";
+import type { Departamento, Empresa } from "../../../types/auth";
 import { useEmpleadoValidation } from "../../../hooks/useEmpleadoValidation";
 import EmpleadoService from "../../../services/empleadoService";
 
@@ -42,6 +42,7 @@ type EmpleadoFormData = Omit<
   "codigo" | "urlFotoPerfil" | "urlCv" | "departamento"
 > & {
   contrasena: string;
+  empresaId: number;
 };
 
 const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
@@ -90,6 +91,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     nombreMadre: "",
     nombrePadre: "",
     fechaInicioIngreso: undefined,
+    empresaId: 0,
     /** campos faltantes */
   });
 
@@ -99,6 +101,36 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
   }>({});
 
   const [loading, setLoading] = React.useState(false);
+
+  const [departamentosDisponibles, setDepartamentosDisponibles] =
+    React.useState<Departamento[]>([]);
+  // NEW: helper para encontrar la empresa a la que pertenece un departamento
+  const getEmpresaIdFromDepartamento = React.useCallback(
+    (departamentoId: number | undefined) => {
+      if (!departamentoId) return 0;
+      const emp = empresas.find((e) =>
+        e.departamentos?.some((d) => d.id === departamentoId)
+      );
+      return emp?.id ?? 0;
+    },
+    [empresas]
+  );
+  // NEW
+  React.useEffect(() => {
+    if (formData.empresaId && formData.empresaId > 0) {
+      const empresaSel = empresas.find((e) => e.id === formData.empresaId);
+      const deps = empresaSel?.departamentos ?? [];
+      setDepartamentosDisponibles(deps);
+
+      // si el dep actual no pertenece a la nueva empresa, resetéalo
+      if (!deps.some((d) => d.id === formData.departamentoId)) {
+        setFormData((prev) => ({ ...prev, departamentoId: 0 }));
+      }
+    } else {
+      setDepartamentosDisponibles([]);
+      setFormData((prev) => ({ ...prev, departamentoId: 0 }));
+    }
+  }, [formData.empresaId, formData.departamentoId, empresas]);
 
   // Reset form when modal opens/closes
   React.useEffect(() => {
@@ -119,6 +151,14 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     try {
       setLoading(true);
       const empleadoCompleto = await EmpleadoService.getById(empleado.id);
+
+      const departamentoId = empleadoCompleto.departamentoId || 0;
+      const empresaId = getEmpresaIdFromDepartamento(departamentoId);
+
+      // prepara lista de departamentos según la empresa detectada
+      const empresaSeleccionada = empresas.find((e) => e.id === empresaId);
+      setDepartamentosDisponibles(empresaSeleccionada?.departamentos ?? []);
+
       setFormData({
         nombre: empleadoCompleto.nombre,
         apellido: empleadoCompleto.apellido || "",
@@ -131,8 +171,9 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         direccion: empleadoCompleto.direccion || "",
         contrasena: "",
         rolId: empleadoCompleto.rolId || 1,
-        departamentoId: empleadoCompleto.departamentoId || 1,
-        activo: empleadoCompleto.activo || true,
+        departamentoId, // CHANGED
+        empresaId, // NEW
+        activo: empleadoCompleto.activo ?? true,
         nombreUsuario: empleadoCompleto.nombreUsuario || "",
         tipoHorario: empleadoCompleto.tipoHorario as any,
         estadoCivil: empleadoCompleto.estadoCivil as any,
@@ -191,6 +232,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       nombreMadre: "",
       nombrePadre: "",
       fechaInicioIngreso: undefined,
+      empresaId: 0,
     });
     setSelectedFiles({});
     clearErrors();
@@ -249,10 +291,15 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         await EmpleadoService.update(updateData, selectedFiles);
         onSuccess("Colaborador actualizado exitosamente");
       } else {
-        await EmpleadoService.create(
-          formData as CreateEmpleadoDto,
-          selectedFiles
-        );
+        // Ensure all required fields for CreateEmpleadoDto are present
+        const createData: CreateEmpleadoDto = {
+          ...formData,
+          urlFotoPerfil: "", // or selectedFiles?.urlFotoPerfil if needed
+          codigo: "", // provide a default or generate as needed
+          departamento: "", // provide a default or map from departamentoId if needed
+          urlCv: "", // or selectedFiles?.urlCv if needed
+        };
+        await EmpleadoService.create(createData, selectedFiles);
         onSuccess("Colaborador creado exitosamente");
       }
 
@@ -277,6 +324,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       formData.tipoHorario &&
       formData.tipoContrato &&
       formData.rolId &&
+      formData.empresaId &&
       formData.departamentoId &&
       (isEditing || formData.contrasena) &&
       !hasErrors()
@@ -539,7 +587,33 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                 )}
               </FormControl>
 
-              <FormControl fullWidth error={!!fieldErrors.departamentoId}>
+              {/* Empresa */}
+              <FormControl fullWidth>
+                <InputLabel>Empresa *</InputLabel>
+                <Select
+                  name="empresaId"
+                  value={formData.empresaId}
+                  onChange={handleSelectChange}
+                  label="Empresa *"
+                  required
+                >
+                  <MenuItem value={0} disabled>
+                    <em>Seleccionar empresa</em>
+                  </MenuItem>
+                  {empresas.map((empresa) => (
+                    <MenuItem key={empresa.id} value={empresa.id}>
+                      {empresa.nombre}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {/* Departamento (dependiente de Empresa) */}
+              <FormControl
+                fullWidth
+                error={!!fieldErrors.departamentoId}
+                disabled={formData.empresaId === 0}
+              >
                 <InputLabel>Departamento *</InputLabel>
                 <Select
                   name="departamentoId"
@@ -548,9 +622,18 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   label="Departamento *"
                   required
                 >
-                  {empresas.map((empresa) => (
-                    <MenuItem key={empresa.id} value={empresa.id}>
-                      {empresa.nombre}
+                  <MenuItem value={0} disabled>
+                    <em>
+                      {formData.empresaId === 0
+                        ? "Primero selecciona una empresa"
+                        : departamentosDisponibles.length === 0
+                        ? "No hay departamentos disponibles"
+                        : "Seleccionar departamento"}
+                    </em>
+                  </MenuItem>
+                  {departamentosDisponibles.map((dep) => (
+                    <MenuItem key={dep.id} value={dep.id}>
+                      {dep.nombre}
                     </MenuItem>
                   ))}
                 </Select>
