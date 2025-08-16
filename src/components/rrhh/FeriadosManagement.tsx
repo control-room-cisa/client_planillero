@@ -20,6 +20,7 @@ import {
   Snackbar,
   Alert,
   Chip,
+  InputAdornment,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -32,6 +33,29 @@ import * as React from "react";
 
 import FeriadoService from "../../services/feriadoService";
 import type { Feriado, CreateFeriadoDto } from "../../services/feriadoService";
+
+/** Helper: interpreta "YYYY-MM-DD" como medianoche LOCAL (evita el -1 día por UTC) */
+const parseLocalDate = (s: string): Date => {
+  if (!s) return new Date(NaN);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (m) {
+    const [, y, mm, d] = m;
+    return new Date(Number(y), Number(mm) - 1, Number(d));
+  }
+  return new Date(s); // fallback si viene con hora/ISO completa
+};
+
+/** Devuelve true si la fecha (solo día) ya pasó respecto a hoy local (00:00) */
+const isPastDate = (dateString: string) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = parseLocalDate(dateString);
+  return d.getTime() < today.getTime();
+};
+
+/** Color del chip según pasado/próximo */
+const getDateChipColor = (dateString: string) =>
+  isPastDate(dateString) ? "default" : "primary";
 
 const FeriadosManagement: React.FC = () => {
   // Estados
@@ -73,9 +97,10 @@ const FeriadosManagement: React.FC = () => {
     setLoading(true);
     try {
       const data = await FeriadoService.getAll();
-      // Ordenar por fecha (más recientes primero)
+      // Ordenar por fecha (más recientes primero) usando fecha LOCAL
       const sortedData = data.sort(
-        (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+        (a, b) =>
+          parseLocalDate(b.fecha).getTime() - parseLocalDate(a.fecha).getTime()
       );
       setFeriados(sortedData);
     } catch (err) {
@@ -115,7 +140,7 @@ const FeriadosManagement: React.FC = () => {
       setIsEditing(true);
       setCurrentFeriado(feriado);
       setFormData({
-        fecha: feriado.fecha,
+        fecha: feriado.fecha, // mantiene "YYYY-MM-DD"
         nombre: feriado.nombre,
         descripcion: feriado.descripcion || "",
       });
@@ -184,23 +209,15 @@ const FeriadosManagement: React.FC = () => {
     return matchesSearchTerm;
   });
 
-  // Función para formatear fecha
+  // Función para formatear fecha (usa fecha local)
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = parseLocalDate(dateString);
     return date.toLocaleDateString("es-ES", {
       weekday: "long",
       year: "numeric",
       month: "long",
       day: "numeric",
     });
-  };
-
-  // Función para obtener el color del chip según si es pasado o futuro
-  const getDateChipColor = (dateString: string) => {
-    const today = new Date();
-    const feriadoDate = new Date(dateString);
-    const isPast = feriadoDate < today;
-    return isPast ? "default" : "primary";
   };
 
   return (
@@ -220,7 +237,9 @@ const FeriadosManagement: React.FC = () => {
           sx={{ flexGrow: 1 }}
           InputProps={{
             startAdornment: (
-              <SearchIcon sx={{ color: "action.active", mr: 1 }} />
+              <InputAdornment position="start">
+                <SearchIcon sx={{ color: "action.active" }} />
+              </InputAdornment>
             ),
           }}
         />
@@ -287,11 +306,7 @@ const FeriadosManagement: React.FC = () => {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={
-                        new Date(feriado.fecha) < new Date()
-                          ? "Pasado"
-                          : "Próximo"
-                      }
+                      label={isPastDate(feriado.fecha) ? "Pasado" : "Próximo"}
                       color={getDateChipColor(feriado.fecha)}
                       size="small"
                     />
