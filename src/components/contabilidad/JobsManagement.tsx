@@ -34,7 +34,11 @@ import {
   FilterAlt as FilterIcon,
 } from "@mui/icons-material";
 import JobService from "../../services/jobService";
-import type { Job, CreateJobDto, UpdateJobDto } from "../../services/jobService";
+import type {
+  Job,
+  CreateJobDto,
+  UpdateJobDto,
+} from "../../services/jobService";
 import { empresaService } from "../../services/empresaService";
 import type { Empresa } from "../../types/auth";
 
@@ -67,13 +71,16 @@ const JobsManagement: React.FC = () => {
   });
 
   // Función para mostrar notificaciones
-  const showSnackbar = React.useCallback((message: string, severity: "success" | "error") => {
-    setSnackbar({
-      open: true,
-      message,
-      severity,
-    });
-  }, []);
+  const showSnackbar = React.useCallback(
+    (message: string, severity: "success" | "error") => {
+      setSnackbar({
+        open: true,
+        message,
+        severity,
+      });
+    },
+    []
+  );
 
   // Funciones para cargar datos
   const fetchJobs = React.useCallback(async () => {
@@ -129,21 +136,30 @@ const JobsManagement: React.FC = () => {
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
     try {
-      // console.log(`Intentando cambiar estado de job ${id} de ${currentStatus} a ${!currentStatus}`);
-      // // Usar update en lugar de toggleActive
-      // const updatedJob = await JobService.update(id, { activo: !currentStatus });
-      // console.log('Job actualizado:', updatedJob);
-      
-      // Actualizar el estado local de forma más segura
-      setJobs(prevJobs => 
-        prevJobs.map(job => 
+      // Optimistic update: actualizar el estado local inmediatamente
+      setJobs((prevJobs) =>
+        prevJobs.map((job) =>
           job.id === id ? { ...job, activo: !currentStatus } : job
         )
       );
-      
-      showSnackbar(`Job ${!currentStatus ? 'activado' : 'desactivado'} exitosamente`, "success");
+
+      // Llamar a la API para actualizar el estado en el servidor
+      await JobService.update(id, { activo: !currentStatus });
+
+      showSnackbar(
+        `Job ${!currentStatus ? "activado" : "desactivado"} exitosamente`,
+        "success"
+      );
     } catch (err) {
       console.error("Error al cambiar estado del job:", err);
+
+      // Revertir el cambio optimista en caso de error
+      setJobs((prevJobs) =>
+        prevJobs.map((job) =>
+          job.id === id ? { ...job, activo: currentStatus } : job
+        )
+      );
+
       showSnackbar("Error al cambiar estado del job", "error");
     }
   };
@@ -154,7 +170,8 @@ const JobsManagement: React.FC = () => {
       codigo: "",
       descripcion: "",
       empresaId: 0,
-      mostrarEmpresaId: selectedEmpresaId !== "" ? Number(selectedEmpresaId) : 0,
+      mostrarEmpresaId:
+        selectedEmpresaId !== "" ? Number(selectedEmpresaId) : 0,
       activo: true,
     });
     setCurrentJob(null);
@@ -190,9 +207,12 @@ const JobsManagement: React.FC = () => {
       // Asegurarse de que mostrarEmpresaId sea el valor del filtro seleccionado
       const dataToSend = {
         ...formData,
-        mostrarEmpresaId: selectedEmpresaId !== "" ? Number(selectedEmpresaId) : formData.mostrarEmpresaId
+        mostrarEmpresaId:
+          selectedEmpresaId !== ""
+            ? Number(selectedEmpresaId)
+            : formData.mostrarEmpresaId,
       };
-      
+
       await JobService.create(dataToSend);
       showSnackbar("Job creado exitosamente", "success");
       handleCloseDialog();
@@ -205,14 +225,17 @@ const JobsManagement: React.FC = () => {
 
   const handleUpdateJob = async () => {
     if (!currentJob) return;
-    
+
     try {
       // Asegurarse de que mostrarEmpresaId sea el valor del filtro seleccionado
       const dataToSend = {
         ...formData,
-        mostrarEmpresaId: selectedEmpresaId !== "" ? Number(selectedEmpresaId) : formData.mostrarEmpresaId
+        mostrarEmpresaId:
+          selectedEmpresaId !== ""
+            ? Number(selectedEmpresaId)
+            : formData.mostrarEmpresaId,
       };
-      
+
       await JobService.update(currentJob.id, dataToSend as UpdateJobDto);
       showSnackbar("Job actualizado exitosamente", "success");
       handleCloseDialog();
@@ -241,20 +264,20 @@ const JobsManagement: React.FC = () => {
   };
 
   // Filtrar jobs por término de búsqueda y empresa seleccionada
-  const filteredJobs = jobs.filter(
-    (job) => {
-      // Filtro por término de búsqueda
-      const matchesSearchTerm = 
-        job.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        job.codigo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        job.descripcion?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      // Filtro por empresa seleccionada - solo mostrar jobs si hay una empresa seleccionada
-      const matchesEmpresa = selectedEmpresaId === "" || job.mostrarEmpresaId === Number(selectedEmpresaId);
-      
-      return matchesSearchTerm && matchesEmpresa;
-    }
-  );
+  const filteredJobs = jobs.filter((job) => {
+    // Filtro por término de búsqueda
+    const matchesSearchTerm =
+      job.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      job.codigo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      job.descripcion?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Filtro por empresa seleccionada - solo mostrar jobs si hay una empresa seleccionada
+    const matchesEmpresa =
+      selectedEmpresaId === "" ||
+      job.mostrarEmpresaId === Number(selectedEmpresaId);
+
+    return matchesSearchTerm && matchesEmpresa;
+  });
 
   // Verificar si hay una empresa seleccionada para habilitar el botón de agregar
   const isAddButtonDisabled = selectedEmpresaId === "";
@@ -300,7 +323,9 @@ const JobsManagement: React.FC = () => {
           onChange={(e) => setSearchTerm(e.target.value)}
           sx={{ flexGrow: 1 }}
           InputProps={{
-            startAdornment: <SearchIcon sx={{ color: "action.active", mr: 1 }} />,
+            startAdornment: (
+              <SearchIcon sx={{ color: "action.active", mr: 1 }} />
+            ),
           }}
         />
         <Button
@@ -352,7 +377,7 @@ const JobsManagement: React.FC = () => {
                   <TableCell>{job.codigo}</TableCell>
                   <TableCell>{job.nombre}</TableCell>
                   <TableCell>{job.descripcion}</TableCell>
-                  <TableCell>{job.empresa?.nombre || '-'}</TableCell>
+                  <TableCell>{job.empresa?.nombre || "-"}</TableCell>
                   <TableCell align="center">
                     <Switch
                       checked={job.activo}
@@ -382,7 +407,12 @@ const JobsManagement: React.FC = () => {
       </TableContainer>
 
       {/* Diálogo para crear/editar */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>
           {isEditing ? "Editar Job" : "Crear Nuevo Job"}
         </DialogTitle>
@@ -416,7 +446,9 @@ const JobsManagement: React.FC = () => {
             <FormControl fullWidth>
               <InputLabel>Empresa</InputLabel>
               <Select
-                value={formData.empresaId === 0 ? "" : formData.empresaId.toString()}
+                value={
+                  formData.empresaId === 0 ? "" : formData.empresaId.toString()
+                }
                 onChange={handleEmpresaChange}
                 label="Empresa"
                 required
@@ -437,7 +469,9 @@ const JobsManagement: React.FC = () => {
             onClick={isEditing ? handleUpdateJob : handleCreateJob}
             variant="contained"
             color="primary"
-            disabled={!formData.nombre || !formData.codigo || formData.empresaId === 0}
+            disabled={
+              !formData.nombre || !formData.codigo || formData.empresaId === 0
+            }
           >
             {isEditing ? "Actualizar" : "Crear"}
           </Button>
@@ -463,4 +497,4 @@ const JobsManagement: React.FC = () => {
   );
 };
 
-export default JobsManagement; 
+export default JobsManagement;
