@@ -72,20 +72,26 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
 
   onOpenNominas,
 }) => {
-  // Índice básico ordenado alfabéticamente por nombre completo
-  const empleadosIndex: EmpleadoIndexItem[] = React.useMemo(() => {
-    return (empleados ?? [])
-      .map((e) => ({
-        id: e.id as number,
-        codigo: e.codigo ?? null,
-        nombreCompleto: `${e.nombre ?? ""} ${e.apellido ?? ""}`.trim(),
-      }))
-      .sort((a, b) =>
-        a.nombreCompleto
-          .toLocaleLowerCase()
-          .localeCompare(b.nombreCompleto.toLocaleLowerCase())
-      );
+  const fullName = (e: Empleado) =>
+    `${e.nombre ?? ""} ${e.apellido ?? ""}`.trim();
+
+  // ✅ Lista ordenada alfabéticamente para la TABLA
+  const sortedEmpleados: Empleado[] = React.useMemo(() => {
+    return [...(empleados ?? [])].sort((a, b) =>
+      fullName(a)
+        .toLocaleLowerCase()
+        .localeCompare(fullName(b).toLocaleLowerCase())
+    );
   }, [empleados]);
+
+  // ✅ Índice resumido basado en la lista ORDENADA (coincide con la vista)
+  const empleadosIndex: EmpleadoIndexItem[] = React.useMemo(() => {
+    return (sortedEmpleados ?? []).map((e) => ({
+      id: e.id as unknown as number,
+      codigo: e.codigo ?? null,
+      nombreCompleto: fullName(e),
+    }));
+  }, [sortedEmpleados]);
 
   // TopBar con selector de empresa (solo si te pasan `empresas`)
   const TopBar = (empresas?.length ?? 0) > 0 && (
@@ -165,7 +171,7 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
   }
 
   // Sin empleados
-  if (!empleados || empleados.length === 0) {
+  if (!sortedEmpleados || sortedEmpleados.length === 0) {
     return (
       <TableContainer component={Paper}>
         {TopBar}
@@ -193,7 +199,7 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
     );
   }
 
-  // Tabla principal
+  // Tabla principal (usa lista ORDENADA)
   return (
     <TableContainer component={Paper}>
       {TopBar}
@@ -210,7 +216,7 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
           </TableRow>
         </TableHead>
         <TableBody>
-          {empleados.map((empleado) => (
+          {sortedEmpleados.map((empleado) => (
             <TableRow key={empleado.id}>
               <TableCell>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -276,9 +282,10 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
                   color="info"
                   onClick={() => {
                     if (onOpenNominas) {
+                      // ✅ Pasamos el índice ORDENADO para navegación en Nóminas
                       onOpenNominas(empleado, empleadosIndex);
                     } else {
-                      // compatibilidad si aún usas onNominaClick
+                      // Compatibilidad con implementación existente
                       onNominaClick(empleado);
                     }
                   }}

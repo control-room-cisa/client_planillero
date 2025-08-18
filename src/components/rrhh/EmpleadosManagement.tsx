@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Snackbar, Alert } from "@mui/material";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
 import EmpleadoService from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
 import type { Empleado } from "../../services/empleadoService";
@@ -14,9 +14,11 @@ import type { LayoutOutletCtx } from "../Layout";
 
 const EmpleadosManagement: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation() as any;
 
   // 👉 Trae setters/estado compartido desde el Layout (Outlet Context)
-  const { setSelectedEmpleado } = useOutletContext<LayoutOutletCtx>();
+  const { setSelectedEmpleado, setEmpleadosIndex } =
+    useOutletContext<LayoutOutletCtx>();
 
   // Estados principales
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
@@ -51,9 +53,14 @@ const EmpleadosManagement: React.FC = () => {
 
   // Funciones para cargar datos
   const fetchEmpleados = useCallback(async () => {
+    // No cargar empleados hasta seleccionar una empresa
+    if (!selectedEmpresaId) {
+      setEmpleados([]);
+      return;
+    }
     setLoading(true);
     try {
-      const empresaId = selectedEmpresaId ? parseInt(selectedEmpresaId) : undefined;
+      const empresaId = parseInt(selectedEmpresaId);
       const data = await EmpleadoService.getAll(empresaId);
       setEmpleados(data);
     } catch (err) {
@@ -78,6 +85,16 @@ const EmpleadosManagement: React.FC = () => {
   useEffect(() => {
     fetchEmpresas();
   }, [fetchEmpresas]);
+
+  // Restaurar filtros si se regresa desde nominas
+  useEffect(() => {
+    if (location.state?.selectedEmpresaId) {
+      setSelectedEmpresaId(location.state.selectedEmpresaId);
+    }
+    if (location.state?.searchTerm) {
+      setSearchTerm(location.state.searchTerm);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     fetchEmpleados();
@@ -145,8 +162,16 @@ const EmpleadosManagement: React.FC = () => {
 
   // 👉 Navegación a Nóminas usando contexto (persiste al cambiar de ruta)
   const handleNominaClick = (empleado: Empleado) => {
+    // Persistir índice y empleado seleccionado en contexto
+    setEmpleadosIndex(empleadosIndexList);
     setSelectedEmpleado(empleado);
-    navigate("/rrhh/nominas");
+    // Navegar a nóminas manteniendo filtros (empresa y búsqueda)
+    navigate("/rrhh/nominas", {
+      state: {
+        selectedEmpresaId,
+        searchTerm,
+      },
+    });
   };
 
   const handleCloseSnackbar = (): void => {
@@ -164,6 +189,21 @@ const EmpleadosManagement: React.FC = () => {
       empleado.cargo?.toLowerCase().includes(q)
     );
   });
+
+  // Índice de empleados ordenado alfabéticamente para navegación
+  const empleadosIndexList = React.useMemo(() => {
+    return filteredEmpleados
+      .map((e) => ({
+        id: e.id,
+        codigo: e.codigo ?? null,
+        nombreCompleto: `${e.nombre ?? ""} ${e.apellido ?? ""}`.trim(),
+      }))
+      .sort((a, b) =>
+        a.nombreCompleto
+          .toLowerCase()
+          .localeCompare(b.nombreCompleto.toLowerCase())
+      );
+  }, [filteredEmpleados]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -218,7 +258,11 @@ const EmpleadosManagement: React.FC = () => {
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: "100%" }}>
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

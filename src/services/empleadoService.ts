@@ -7,6 +7,7 @@ interface Empleado {
   codigo?: string;
   departamento?: string;
   empresaId?: number;
+  empresa?: { nombre: string };
   urlFotoPerfil?: string;
   urlCv?: string;
   correoElectronico?: string;

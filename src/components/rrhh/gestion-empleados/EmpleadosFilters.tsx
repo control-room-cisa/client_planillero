@@ -56,7 +56,9 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
               onChange={(e) => onEmpresaChange(e.target.value)}
               label="Empresa"
             >
-              <MenuItem value="">Todas las empresas</MenuItem>
+              <MenuItem value="" disabled>
+                Selecciona una empresa
+              </MenuItem>
               {empresas.map((empresa) => (
                 <MenuItem key={empresa.id} value={empresa.id.toString()}>
                   {empresa.nombre}
