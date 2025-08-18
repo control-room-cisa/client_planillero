@@ -6,6 +6,26 @@ import type {
 } from "../dtos/calculoHorasTrabajoDto";
 import api from "./api";
 
+// Interfaces para el desglose de incidencias
+export interface DesgloseIncidencias {
+  normal: { horas: number; porcentaje: string };
+  overtime25: { horas: number; porcentaje: string };
+  overtime50: { horas: number; porcentaje: string };
+  overtime75: { horas: number; porcentaje: string };
+  overtime100: { horas: number; porcentaje: string };
+  totalHoras: number;
+  horasNormales: number;
+  diferencia: number;
+}
+
+export interface ResumenHorasTrabajo {
+  empleadoId: string | number;
+  fechaInicio: string;
+  fechaFin: string;
+  conteoHoras: ConteoHorasTrabajadasDto;
+  desgloseIncidencias: DesgloseIncidencias;
+}
+
 class CalculoHorasTrabajoService {
   /**
    * Obtiene el horario de trabajo de un empleado para una fecha específica
@@ -56,6 +76,103 @@ class CalculoHorasTrabajoService {
   }
 
   /**
+   * Calcula el desglose de incidencias basado en las horas trabajadas vs normales
+   * @param conteoHoras Objeto con el conteo de horas del backend
+   * @returns Desglose de incidencias con horas y porcentajes
+   */
+  static calcularDesgloseIncidencias(
+    conteoHoras: ConteoHorasTrabajadasDto
+  ): DesgloseIncidencias {
+    const horasNormales = conteoHoras.cantidadHoras.normal || 0;
+    const horasP25 = conteoHoras.cantidadHoras.p25 || 0;
+    const horasP50 = conteoHoras.cantidadHoras.p50 || 0;
+    const horasP75 = conteoHoras.cantidadHoras.p75 || 0;
+    const horasP100 = conteoHoras.cantidadHoras.p100 || 0;
+
+    const totalHorasTrabajadas =
+      horasNormales + horasP25 + horasP50 + horasP75 + horasP100;
+    const totalHorasLaborables = conteoHoras.totalHorasLaborables || 0;
+
+    // Si no hay horas trabajadas, retornar valores en cero
+    if (totalHorasTrabajadas === 0) {
+      return {
+        normal: { horas: 0, porcentaje: "0%" },
+        overtime25: { horas: 0, porcentaje: "0%" },
+        overtime50: { horas: 0, porcentaje: "0%" },
+        overtime75: { horas: 0, porcentaje: "0%" },
+        overtime100: { horas: 0, porcentaje: "0%" },
+        totalHoras: 0,
+        horasNormales: totalHorasLaborables,
+        diferencia: -totalHorasLaborables,
+      };
+    }
+
+    return {
+      normal: {
+        horas: horasNormales,
+        porcentaje: `${((horasNormales / totalHorasTrabajadas) * 100).toFixed(
+          1
+        )}%`,
+      },
+      overtime25: {
+        horas: horasP25,
+        porcentaje: `${((horasP25 / totalHorasTrabajadas) * 100).toFixed(1)}%`,
+      },
+      overtime50: {
+        horas: horasP50,
+        porcentaje: `${((horasP50 / totalHorasTrabajadas) * 100).toFixed(1)}%`,
+      },
+      overtime75: {
+        horas: horasP75,
+        porcentaje: `${((horasP75 / totalHorasTrabajadas) * 100).toFixed(1)}%`,
+      },
+      overtime100: {
+        horas: horasP100,
+        porcentaje: `${((horasP100 / totalHorasTrabajadas) * 100).toFixed(1)}%`,
+      },
+      totalHoras: totalHorasTrabajadas,
+      horasNormales: totalHorasLaborables,
+      diferencia: totalHorasTrabajadas - totalHorasLaborables,
+    };
+  }
+
+  /**
+   * Obtiene el resumen completo de horas de trabajo con desglose de incidencias
+   * @param empleadoId ID del empleado
+   * @param fechaInicio Fecha de inicio en formato YYYY-MM-DD
+   * @param fechaFin Fecha de fin en formato YYYY-MM-DD
+   * @returns Resumen completo con conteo y desglose
+   */
+  static async getResumenHorasTrabajo(
+    empleadoId: string | number,
+    fechaInicio: string,
+    fechaFin: string
+  ): Promise<ResumenHorasTrabajo> {
+    try {
+      // Obtener el conteo de horas
+      const conteoHoras = await this.getConteoHoras(
+        empleadoId,
+        fechaInicio,
+        fechaFin
+      );
+
+      // Calcular el desglose de incidencias
+      const desgloseIncidencias = this.calcularDesgloseIncidencias(conteoHoras);
+
+      return {
+        empleadoId,
+        fechaInicio,
+        fechaFin,
+        conteoHoras,
+        desgloseIncidencias,
+      };
+    } catch (error) {
+      console.error("Error al obtener resumen de horas de trabajo:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Obtiene las horas normales a trabajar para un empleado en una fecha específica
    * @param empleadoId ID del empleado
    * @param fecha Fecha en formato YYYY-MM-DD
@@ -73,7 +190,7 @@ class CalculoHorasTrabajoService {
   }> {
     try {
       const horario = await this.getHorarioTrabajo(empleadoId, fecha);
-      
+
       return {
         horarioTrabajo: horario,
         horasNormales: horario.cantidadHorasLaborables,

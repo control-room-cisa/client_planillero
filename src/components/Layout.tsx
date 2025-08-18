@@ -2,9 +2,20 @@
 import * as React from "react";
 import { styled, useTheme } from "@mui/material/styles";
 import {
-  Box, CssBaseline, Typography, Divider, IconButton,
-  List, ListItem, ListItemButton, ListItemIcon, ListItemText,
-  Avatar, Menu, MenuItem, Tooltip
+  Box,
+  CssBaseline,
+  Typography,
+  Divider,
+  IconButton,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Avatar,
+  Menu,
+  MenuItem,
+  Tooltip,
 } from "@mui/material";
 import MuiDrawer from "@mui/material/Drawer";
 import MuiAppBar from "@mui/material/AppBar";
@@ -27,71 +38,110 @@ const drawerWidth = 240;
 const settings = ["Cerrar Sesión"];
 
 const DrawerHeader = styled("div")(({ theme }) => ({
-  display: "flex", alignItems: "center", justifyContent: "flex-end",
-  padding: theme.spacing(0, 1), ...theme.mixins.toolbar,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  padding: theme.spacing(0, 1),
+  ...theme.mixins.toolbar,
 }));
 
-const AppBar = styled(MuiAppBar, { shouldForwardProp: (prop) => prop !== "open" })<{
+const AppBar = styled(MuiAppBar, {
+  shouldForwardProp: (prop) => prop !== "open",
+})<{
   open?: boolean;
 }>(({ theme, open }) => ({
   zIndex: theme.zIndex.drawer + 1,
   transition: theme.transitions.create(["width", "margin"], {
-    easing: theme.transitions.easing.sharp, duration: theme.transitions.duration.leavingScreen,
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.leavingScreen,
   }),
   ...(open && {
-    marginLeft: drawerWidth, width: `calc(100% - ${drawerWidth}px)`,
+    marginLeft: drawerWidth,
+    width: `calc(100% - ${drawerWidth}px)`,
     transition: theme.transitions.create(["width", "margin"], {
-      easing: theme.transitions.easing.sharp, duration: theme.transitions.duration.enteringScreen,
+      easing: theme.transitions.easing.sharp,
+      duration: theme.transitions.duration.enteringScreen,
     }),
   }),
 }));
 
-const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== "open" })<{
+const Drawer = styled(MuiDrawer, {
+  shouldForwardProp: (prop) => prop !== "open",
+})<{
   open?: boolean;
 }>(({ theme, open }) => ({
-  width: drawerWidth, flexShrink: 0, whiteSpace: "nowrap", boxSizing: "border-box",
+  width: drawerWidth,
+  flexShrink: 0,
+  whiteSpace: "nowrap",
+  boxSizing: "border-box",
   ...(open && {
     width: drawerWidth,
     transition: theme.transitions.create("width", {
-      easing: theme.transitions.easing.sharp, duration: theme.transitions.duration.enteringScreen,
+      easing: theme.transitions.easing.sharp,
+      duration: theme.transitions.duration.enteringScreen,
     }),
     overflowX: "hidden",
     "& .MuiDrawer-paper": {
       width: drawerWidth,
       transition: theme.transitions.create("width", {
-        easing: theme.transitions.easing.sharp, duration: theme.transitions.duration.enteringScreen,
+        easing: theme.transitions.easing.sharp,
+        duration: theme.transitions.duration.enteringScreen,
       }),
       overflowX: "hidden",
     },
   }),
   ...(!open && {
     transition: theme.transitions.create("width", {
-      easing: theme.transitions.easing.sharp, duration: theme.transitions.duration.leavingScreen,
+      easing: theme.transitions.easing.sharp,
+      duration: theme.transitions.duration.leavingScreen,
     }),
-    overflowX: "hidden", width: `calc(${theme.spacing(7)} + 1px)`,
+    overflowX: "hidden",
+    width: `calc(${theme.spacing(7)} + 1px)`,
     [theme.breakpoints.up("sm")]: { width: `calc(${theme.spacing(8)} + 1px)` },
     "& .MuiDrawer-paper": {
       transition: theme.transitions.create("width", {
-        easing: theme.transitions.easing.sharp, duration: theme.transitions.duration.leavingScreen,
+        easing: theme.transitions.easing.sharp,
+        duration: theme.transitions.duration.leavingScreen,
       }),
-      overflowX: "hidden", width: `calc(${theme.spacing(7)} + 1px)`,
-      [theme.breakpoints.up("sm")]: { width: `calc(${theme.spacing(8)} + 1px)` },
+      overflowX: "hidden",
+      width: `calc(${theme.spacing(7)} + 1px)`,
+      [theme.breakpoints.up("sm")]: {
+        width: `calc(${theme.spacing(8)} + 1px)`,
+      },
     },
   }),
 }));
+
+// 👉 Tipo auxiliar para el índice de empleados usado por NominasDashboard
+export type EmpleadoIndexItem = {
+  id: number;
+  codigo?: string | null;
+  nombreCompleto: string;
+};
 
 // 👉 Exporta el tipo del contexto para usar en hijos (Nominas, etc.)
 export type LayoutOutletCtx = {
   selectedEmpleado: Empleado | null;
   setSelectedEmpleado: (e: Empleado | null) => void;
+
+  // NUEVO: índice de empleados y su setter (para navegación en Nóminas)
+  empleadosIndex: EmpleadoIndexItem[];
+  setEmpleadosIndex: (list: EmpleadoIndexItem[]) => void;
 };
 
 export default function Layout() {
   const theme = useTheme();
   const { user, logout } = useAuth();
   const [open, setOpen] = React.useState(false);
-  const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
-  const [selectedEmpleado, setSelectedEmpleado] = React.useState<Empleado | null>(null);
+  const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(
+    null
+  );
+
+  const [selectedEmpleado, _setSelectedEmpleado] =
+    React.useState<Empleado | null>(null);
+  const [empleadosIndex, _setEmpleadosIndex] = React.useState<
+    EmpleadoIndexItem[]
+  >([]);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -99,7 +149,8 @@ export default function Layout() {
   // ===== Ruta inicial por rol cuando se entra a "/"
   React.useEffect(() => {
     if (location.pathname !== "/") return;
-    if (user?.rolId === 3) return navigate("/rrhh/planillas", { replace: true });
+    if (user?.rolId === 3)
+      return navigate("/rrhh/planillas", { replace: true });
     if (user?.rolId === 4) return navigate("/contabilidad", { replace: true });
     // rol 1 (colaborador) o supervisor 2
     return navigate("/registro", { replace: true });
@@ -110,37 +161,76 @@ export default function Layout() {
     // Contabilidad (rol 4)
     if (user?.rolId === 4) {
       return [
-        { id: "contabilidad", text: "Dashboard Contabilidad", icon: <FindInPageIcon />, path: "/contabilidad" },
+        {
+          id: "contabilidad",
+          text: "Dashboard Contabilidad",
+          icon: <FindInPageIcon />,
+          path: "/contabilidad",
+        },
       ];
     }
 
     // RRHH (rol 3)  -> sin notificaciones
     if (user?.rolId === 3) {
       return [
-        { id: "rrhh-planillas", text: "Revisión Planillas RRHH", icon: <FindInPageIcon />, path: "/rrhh/planillas" },
-        { id: "colaboradores", text: "Gestión de Colaboradores", icon: <PeopleIcon />, path: "/rrhh/colaboradores" },
-        { id: "feriados", text: "Gestión de Feriados", icon: <EventIcon />, path: "/rrhh/feriados" },
+        {
+          id: "rrhh-planillas",
+          text: "Revisión Planillas RRHH",
+          icon: <FindInPageIcon />,
+          path: "/rrhh/planillas",
+        },
+        {
+          id: "colaboradores",
+          text: "Gestión de Colaboradores",
+          icon: <PeopleIcon />,
+          path: "/rrhh/colaboradores",
+        },
+        {
+          id: "feriados",
+          text: "Gestión de Feriados",
+          icon: <EventIcon />,
+          path: "/rrhh/feriados",
+        },
       ];
     }
 
     // Supervisor (rol 2) -> sin notificaciones
     if (user?.rolId === 2) {
       return [
-        { id: "registro", text: "Nuevo Registro Diario", icon: <PostAddIcon />, path: "/registro" },
-        { id: "supervision", text: "Revisión Planillas Supervisor", icon: <FindInPageIcon />, path: "/supervision/planillas" },
-
+        {
+          id: "registro",
+          text: "Nuevo Registro Diario",
+          icon: <PostAddIcon />,
+          path: "/registro",
+        },
+        {
+          id: "supervision",
+          text: "Revisión Planillas Supervisor",
+          icon: <FindInPageIcon />,
+          path: "/supervision/planillas",
+        },
       ];
     }
 
     // Colaborador (rol 1) -> con notificaciones
     return [
-      { id: "registro", text: "Nuevo Registro Diario", icon: <PostAddIcon />, path: "/registro" },
-      { id: "notificaciones", text: "Notificaciones", icon: <NotificationsIcon />, path: "/notificaciones" },
+      {
+        id: "registro",
+        text: "Nuevo Registro Diario",
+        icon: <PostAddIcon />,
+        path: "/registro",
+      },
+      {
+        id: "notificaciones",
+        text: "Notificaciones",
+        icon: <NotificationsIcon />,
+        path: "/notificaciones",
+      },
     ];
   }, [user?.rolId]);
 
-
-  const handleOpenUserMenu = (e: React.MouseEvent<HTMLElement>) => setAnchorElUser(e.currentTarget);
+  const handleOpenUserMenu = (e: React.MouseEvent<HTMLElement>) =>
+    setAnchorElUser(e.currentTarget);
   const handleCloseUserMenu = () => setAnchorElUser(null);
   const handleLogout = () => {
     logout();
@@ -155,8 +245,13 @@ export default function Layout() {
       <CssBaseline />
       <AppBar position="fixed" open={open}>
         <Toolbar>
-          <IconButton color="inherit" aria-label="open drawer" onClick={() => setOpen(true)}
-            edge="start" sx={{ marginRight: 5, ...(open && { display: "none" }) }}>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            onClick={() => setOpen(true)}
+            edge="start"
+            sx={{ marginRight: 5, ...(open && { display: "none" }) }}
+          >
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
@@ -166,18 +261,29 @@ export default function Layout() {
             <Tooltip title={`${user?.nombre} ${user?.apellido}`}>
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
                 <Avatar alt={`${user?.nombre} ${user?.apellido}`}>
-                  {user?.nombre?.[0]}{user?.apellido?.[0]}
+                  {user?.nombre?.[0]}
+                  {user?.apellido?.[0]}
                 </Avatar>
               </IconButton>
             </Tooltip>
             <Menu
-              sx={{ mt: "45px" }} id="menu-appbar" anchorEl={anchorElUser}
+              sx={{ mt: "45px" }}
+              id="menu-appbar"
+              anchorEl={anchorElUser}
               anchorOrigin={{ vertical: "top", horizontal: "right" }}
               transformOrigin={{ vertical: "top", horizontal: "right" }}
-              open={Boolean(anchorElUser)} onClose={handleCloseUserMenu}
+              open={Boolean(anchorElUser)}
+              onClose={handleCloseUserMenu}
             >
               {settings.map((setting) => (
-                <MenuItem key={setting} onClick={setting === "Cerrar Sesión" ? handleLogout : handleCloseUserMenu}>
+                <MenuItem
+                  key={setting}
+                  onClick={
+                    setting === "Cerrar Sesión"
+                      ? handleLogout
+                      : handleCloseUserMenu
+                  }
+                >
                   <Typography textAlign="center">{setting}</Typography>
                 </MenuItem>
               ))}
@@ -189,7 +295,11 @@ export default function Layout() {
       <Drawer variant="permanent" open={open}>
         <DrawerHeader>
           <IconButton onClick={() => setOpen(false)}>
-            {theme.direction === "rtl" ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+            {theme.direction === "rtl" ? (
+              <ChevronRightIcon />
+            ) : (
+              <ChevronLeftIcon />
+            )}
           </IconButton>
         </DrawerHeader>
         <Divider />
@@ -200,13 +310,24 @@ export default function Layout() {
                 onClick={() => navigate(item.path)}
                 selected={isItemSelected(item.path)}
                 sx={{
-                  minHeight: 48, justifyContent: open ? "initial" : "center", px: 2.5,
+                  minHeight: 48,
+                  justifyContent: open ? "initial" : "center",
+                  px: 2.5,
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 0, mr: open ? 3 : "auto", justifyContent: "center" }}>
+                <ListItemIcon
+                  sx={{
+                    minWidth: 0,
+                    mr: open ? 3 : "auto",
+                    justifyContent: "center",
+                  }}
+                >
                   {item.icon}
                 </ListItemIcon>
-                <ListItemText primary={item.text} sx={{ opacity: open ? 1 : 0 }} />
+                <ListItemText
+                  primary={item.text}
+                  sx={{ opacity: open ? 1 : 0 }}
+                />
               </ListItemButton>
             </ListItem>
           ))}
@@ -215,8 +336,19 @@ export default function Layout() {
 
       <Box component="main" sx={{ flexGrow: 1 }}>
         <DrawerHeader />
-        {/* 👉 Outlet con contexto para compartir el empleado seleccionado */}
-        <Outlet context={{ selectedEmpleado, setSelectedEmpleado } satisfies LayoutOutletCtx} />
+        {/* 👉 Outlet con contexto extendido */}
+        <Outlet
+          context={
+            {
+              selectedEmpleado,
+              setSelectedEmpleado: (e: Empleado | null) =>
+                _setSelectedEmpleado(e),
+              empleadosIndex,
+              setEmpleadosIndex: (list: EmpleadoIndexItem[]) =>
+                _setEmpleadosIndex(list),
+            } satisfies LayoutOutletCtx
+          }
+        />
       </Box>
     </Box>
   );

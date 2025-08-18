@@ -31,5 +31,42 @@ export interface ConteoHorasTrabajadasDto {
     p50: number; // 50% de recargo
     p75: number; // 75% de recargo
     p100: number; // 100% de recargo (doble)
+    libre: number; // 0 del valor de la hora normal
+    almuerzo: number; // 0 del valor de la hora normal
   };
+  // Campos adicionales que pueden venir del backend
+  totalHorasTrabajadas?: number;
+  totalHorasLaborables?: number;
+  diasLaborados?: number;
+  diasVacaciones?: number;
+}
+
+/**
+ * Tipos de intervalos en la línea de tiempo del día
+ */
+export enum TipoIntervalo {
+  NORMAL = "NORMAL",
+  EXTRA = "EXTRA",
+  ALMUERZO = "ALMUERZO",
+  LIBRE = "LIBRE",
+}
+
+/**
+ * Representa un intervalo de tiempo en el día
+ */
+export interface IntervaloTiempo {
+  horaInicio: string; // HH:mm format
+  horaFin: string; // HH:mm format
+  tipo: TipoIntervalo;
+  jobId?: number; // Solo para NORMAL y EXTRA
+  descripcion?: string;
+}
+
+/**
+ * Línea de tiempo completa del día (24 horas)
+ */
+export interface LineaTiempoDia {
+  fecha: string;
+  empleadoId: string;
+  intervalos: IntervaloTiempo[];
 }
