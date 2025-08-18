@@ -48,6 +48,15 @@ import type { RegistroDiarioData } from "../../dtos/RegistrosDiariosDataDto";
 // import type { HorarioTrabajoDto } from "../../dtos/calculoHorasTrabajoDto";
 import type { Activity, ActivityData } from "./types";
 
+const TZ = "America/Tegucigalpa"; // UTC-6 fijo
+const ymdInTZ = (d: Date) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+
 const DailyTimesheet: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -331,7 +340,7 @@ const DailyTimesheet: React.FC = () => {
   const loadRegistroDiario = async () => {
     try {
       setLoading(true);
-      const dateString = currentDate.toISOString().split("T")[0];
+      const dateString = ymdInTZ(currentDate);
 
       // Delay mínimo de 500ms para evitar parpadeo
       const [registro] = await Promise.all([
@@ -439,6 +448,18 @@ const DailyTimesheet: React.FC = () => {
   // ===== Drawer =====
   const handleDrawerOpen = async () => {
     setDrawerOpen(true);
+
+    // Si el día tiene 0 horas normales, fuerza Hora Extra y limpia campos manuales
+    if (horasNormales === 0) {
+      setFormData((prev) => ({
+        ...prev,
+        horaExtra: true,
+        horasInvertidas: "",
+        horaInicio: "",
+        horaFin: "",
+      }));
+    }
+
     await loadJobs();
   };
 
@@ -494,7 +515,7 @@ const DailyTimesheet: React.FC = () => {
 
     try {
       setLoading(true);
-      const dateString = currentDate.toISOString().split("T")[0];
+      const dateString = ymdInTZ(currentDate);
 
       const actividadesActualizadas = registroDiario.actividades
         .filter((_, i) => i !== index)
@@ -630,7 +651,7 @@ const DailyTimesheet: React.FC = () => {
 
     try {
       setLoading(true);
-      const dateString = currentDate.toISOString().split("T")[0];
+      const dateString = ymdInTZ(currentDate);
       const horaEntradaISO = buildISO(
         currentDate,
         dayConfigData.horaEntrada,
@@ -937,6 +958,14 @@ const DailyTimesheet: React.FC = () => {
       }
     }
 
+    // Si el día no tiene horas normales, no se permiten actividades normales
+    if (!formData.horaExtra && horasNormales === 0) {
+      errors.horasInvertidas =
+        "Este día no tiene horas normales; usa Hora Extra";
+      setFormErrors(errors);
+      return false;
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -946,7 +975,7 @@ const DailyTimesheet: React.FC = () => {
 
     try {
       setLoading(true);
-      const dateString = currentDate.toISOString().split("T")[0];
+      const dateString = ymdInTZ(currentDate);
 
       // Construir ISO para inicio/fin (si el fin es <= inicio, poner fin al DÍA SIGUIENTE)
       const startM = timeToMinutes(formData.horaInicio);
@@ -1092,8 +1121,7 @@ const DailyTimesheet: React.FC = () => {
     setInitialLoading(true); // Activar loading cuando vaya a hoy
     setCurrentDate(new Date());
   };
-  const isToday = () =>
-    currentDate.toDateString() === new Date().toDateString();
+  const isToday = () => ymdInTZ(currentDate) === ymdInTZ(new Date());
 
   // ===== Horas trabajadas / Totales & progreso =====
   // Ya no necesitamos calcular totalHours aquí porque las horas laborables
@@ -1158,21 +1186,25 @@ const DailyTimesheet: React.FC = () => {
   }
 
   // Progreso basado SOLO en horas normales (sin horas extra)
-  const progressPercentage = HorarioValidator.getProgressPercentage(
-    workedHoursNormales,
-    horasNormales
-  );
+  const progressPercentage =
+    horasNormales === 0
+      ? 100
+      : HorarioValidator.getProgressPercentage(
+          workedHoursNormales,
+          horasNormales
+        );
   const horasFaltantesMessage = HorarioValidator.getHorasFaltantesMessage(
     workedHoursNormales,
     horasNormales
   );
 
   // Verificar si se pueden ingresar horas extra (solo cuando progreso normal = 100%)
-  const canAddExtraHours = progressPercentage >= 100;
+  const canAddExtraHours = horasNormales === 0 || progressPercentage >= 100;
 
   // Estado del registro diario
   const hasDayRecord = Boolean(registroDiario);
   const dayConfigHasChanges = hasChangesInDayConfig();
+  const forceExtra = horasNormales === 0;
 
   // Recalcular horasInvertidas cuando cambia hora corrida / entrada / salida
   React.useEffect(() => {
@@ -1868,6 +1900,8 @@ const DailyTimesheet: React.FC = () => {
                 formErrors.horasInvertidas ||
                 (formData.horaExtra
                   ? "Calculado automáticamente desde las horas de inicio y fin"
+                  : horasNormales === 0
+                  ? "Este día solo admite horas extra"
                   : `Horas restantes: ${Math.max(
                       0,
                       horasNormales - workedHoursNormales
@@ -1978,15 +2012,17 @@ const DailyTimesheet: React.FC = () => {
             <FormControlLabel
               control={
                 <Checkbox
-                  disabled={readOnly || !canAddExtraHours}
+                  disabled={
+                    readOnly || (!canAddExtraHours && !forceExtra) || forceExtra
+                  }
                   name="horaExtra"
-                  checked={formData.horaExtra}
-                  onChange={handleInputChange}
+                  checked={forceExtra ? true : formData.horaExtra}
+                  onChange={forceExtra ? undefined : handleInputChange}
                   color="primary"
                 />
               }
               label={`Hora Extra (fuera del horario)${
-                !canAddExtraHours
+                !canAddExtraHours && !forceExtra
                   ? " - Completa primero las horas normales"
                   : ""
               }`}
