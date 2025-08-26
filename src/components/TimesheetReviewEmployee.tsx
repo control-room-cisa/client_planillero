@@ -14,7 +14,7 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { es } from "date-fns/locale";
 import { FilterList as FilterIcon } from "@mui/icons-material";
-import { PlanillaStatuses, type PlanillaStatus } from "./rrhh/planillaConstants";
+import type { PlanillaStatus } from "./rrhh/planillaConstants";
 import ViewEmployeeApproved from "./ViewEmployeeApproved";
 
 const TimesheetReviewEmployee: React.FC = () => {
@@ -28,8 +28,8 @@ const TimesheetReviewEmployee: React.FC = () => {
 
   const [startDate, setStartDate] = useState<Date | null>(lastWeek);
   const [endDate, setEndDate] = useState<Date | null>(today);
-  const [statusFilter, setStatusFilter] = useState<PlanillaStatus>("Pendiente");
   const [openFilters, setOpenFilters] = useState(!isMobile);
+  const [statusFilter, setStatusFilter] = useState<PlanillaStatus>("Rechazado");
 
   // Ajusta apertura al cambiar a móvil/escritorio
   React.useEffect(() => {
@@ -76,11 +76,7 @@ const TimesheetReviewEmployee: React.FC = () => {
             onChange={(e) => setStatusFilter(e.target.value as PlanillaStatus)}
             style={{ width: "100%", padding: 8, borderRadius: 4 }}
           >
-            {PlanillaStatuses.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
+            <option value="Rechazado">Rechazado</option>
           </select>
         </Box>
       </Paper>

@@ -28,6 +28,7 @@ import type {
 } from "../../dtos/RegistrosDiariosDataDto";
 import type { Empleado } from "../../services/empleadoService";
 import type { PlanillaStatus } from "./planillaConstants";
+import ymdInTZ from "../../utils/timeZone";
 
 interface Props {
   empleado: Empleado;
@@ -59,17 +60,24 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
     const start = Date.now();
     try {
       const days: string[] = [];
-      const current = new Date(startDate);
-      while (current <= endDate) {
-        days.push(current.toISOString().split("T")[0]);
-        current.setDate(current.getDate() + 1);
+      const cursor = new Date(startDate);
+      const endLocal = new Date(endDate);
+      cursor.setHours(0, 0, 0, 0);
+      endLocal.setHours(0, 0, 0, 0);
+
+      while (cursor.getTime() <= endLocal.getTime()) {
+        const ymd = ymdInTZ(cursor);
+        if (ymd) days.push(ymd);
+        cursor.setDate(cursor.getDate() + 1);
       }
+
       const results = await Promise.all(
         days.map((fecha) => RegistroDiarioService.getByDate(fecha, empleado.id))
       );
+
       const filtered = results
         .filter((r): r is RegistroDiarioData => r !== null)
-        // Solo mostrar registros aprobados por el supervisor
+        // RRHH solo ve lo que ya aprobó Supervisor
         .filter((r) => r.aprobacionSupervisor === true)
         .filter((r) => {
           switch (status) {
@@ -81,6 +89,7 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
               return r.aprobacionRrhh === false;
           }
         });
+
       setRegistros(filtered);
     } catch (err) {
       console.error("Error fetching registros:", err);
@@ -91,7 +100,7 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
       });
     } finally {
       const elapsed = Date.now() - start;
-      const wait = Math.max(0, 1000 - elapsed);
+      const wait = Math.max(0, 800 - elapsed);
       setTimeout(() => setLoading(false), wait);
     }
   }, [startDate, endDate, empleado.id, status]);
@@ -161,7 +170,7 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
     });
   };
 
-  // Función para calcular el resumen de horas
+  // Resumen de horas normal/extra/total
   const calcularResumenHoras = (actividades?: ActividadData[]) => {
     if (!actividades || actividades.length === 0) {
       return { normales: 0, extras: 0, total: 0 };
@@ -175,22 +184,50 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
       .filter((a) => a.esExtra)
       .reduce((sum, act) => sum + act.duracionHoras, 0);
 
-    return {
-      normales,
-      extras,
-      total: normales + extras,
-    };
+    return { normales, extras, total: normales + extras };
   };
 
-  // Función para formatear correctamente la hora
+  // Hora exacta del ISO → UTC (no aplica TZ del navegador)
   const formatTimeCorrectly = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString("es-ES", {
+    const d = new Date(dateString);
+    return d.toLocaleTimeString("es-ES", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
-      timeZone: "UTC", // Usar UTC para evitar conversiones de zona horaria
+      timeZone: "UTC",
     });
+  };
+
+  // Mostrar 'registro.fecha' sin desfase
+  const formatDateInSpanish = (ymd: string) => {
+    if (!ymd) return "Fecha no disponible";
+    const [y, m, d] = ymd.split("-").map(Number);
+    const date = new Date(y, m - 1, d); // local date, sin conversión
+    const days = [
+      "domingo",
+      "lunes",
+      "martes",
+      "miércoles",
+      "jueves",
+      "viernes",
+      "sábado",
+    ];
+    const months = [
+      "enero",
+      "febrero",
+      "marzo",
+      "abril",
+      "mayo",
+      "junio",
+      "julio",
+      "agosto",
+      "septiembre",
+      "octubre",
+      "noviembre",
+      "diciembre",
+    ];
+    return `${days[date.getDay()]} ${date.getDate()} de ${months[date.getMonth()]
+      } del ${date.getFullYear()}`;
   };
 
   return (
@@ -225,7 +262,9 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
                     sx={{ mb: 1 }}
                   >
                     <Typography variant="subtitle1">
-                      {registro.fecha}
+                      {registro.fecha
+                        ? formatDateInSpanish(registro.fecha)
+                        : "Fecha no disponible"}
                     </Typography>
                     {!registro.esDiaLibre ? (
                       <>
@@ -392,8 +431,7 @@ const PlanillaDetallePreviewRrhh: React.FC<Props> = ({
 
           {!loading && registros.length === 0 && (
             <Typography>
-              No hay registros aprobados por el supervisor para las fechas
-              seleccionadas.
+              No hay registros aprobados por el supervisor para las fechas seleccionadas.
             </Typography>
           )}
         </Stack>

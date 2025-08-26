@@ -45,7 +45,7 @@ class RegistroDiarioService {
       params
     );
     console.log("Registro diario con hora inicio:", response.data.data);
-    
+
     return response.data.data;
   }
 
@@ -131,6 +131,19 @@ class RegistroDiarioService {
     const response = await api.patch<ApiResponse<RegistroDiarioData>>(
       `/registrodiario/aprobacion-rrhh/${registroId}`,
       payload
+    );
+    return response.data.data;
+  }
+
+  // Metodo para actualizar job de un empleado por el supervisor
+  static async upsertForEmpleado(
+    empleadoId: number,
+    params: UpsertRegistroDiarioParams
+  ): Promise<RegistroDiarioData> {
+    const response = await api.post<ApiResponse<RegistroDiarioData>>(
+      "/registrodiario",
+      params,
+      { params: { empleadoId } } // <- indica a qué empleado aplicará el upsert
     );
     return response.data.data;
   }

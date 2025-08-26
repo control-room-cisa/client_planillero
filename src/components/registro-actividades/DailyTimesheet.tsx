@@ -57,6 +57,12 @@ const ymdInTZ = (d: Date) =>
     day: "2-digit",
   }).format(d);
 
+type JobConJerarquia = Job & {
+  indentLevel: number;
+  parentCodigo?: string | null;
+};
+
+
 const DailyTimesheet: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -81,9 +87,10 @@ const DailyTimesheet: React.FC = () => {
   );
 
   // Jobs
-  const [jobs, setJobs] = React.useState<Job[]>([]);
+  const [jobs, setJobs] = React.useState<JobConJerarquia[]>([]);
   const [loadingJobs, setLoadingJobs] = React.useState(false);
-  const [selectedJob, setSelectedJob] = React.useState<Job | null>(null);
+  const [selectedJob, setSelectedJob] = React.useState<JobConJerarquia | null>(null);
+
 
   // Registro diario
   const [registroDiario, setRegistroDiario] =
@@ -119,6 +126,8 @@ const DailyTimesheet: React.FC = () => {
     mostrarNombreFestivo: boolean;
     tipoHorario: string; // Agregar tipo de horario
   } | null>(null);
+
+  const isH1Laboral = horarioValidado?.tipoHorario === "H1"
 
   // ===== Helpers de tiempo =====
   const timeToMinutes = (time: string): number => {
@@ -320,7 +329,22 @@ const DailyTimesheet: React.FC = () => {
     try {
       setLoadingJobs(true);
       const jobsData = await JobService.getAll();
-      setJobs(jobsData.filter((j) => j.activo === true));
+      const jobsActivos = jobsData.filter((j) => j.activo === true);
+
+      const jobMap = new Map(jobsActivos.map((j) => [j.codigo, j]));
+
+      const jobsConJerarquia: JobConJerarquia[] = jobsActivos.map((j) => {
+        const isSubJob = j.codigo.includes(".");
+        const padreCodigo = isSubJob ? j.codigo.split(".")[0] : null;
+        const parentJob = padreCodigo ? jobMap.get(padreCodigo) : null;
+        return {
+          ...j,
+          indentLevel: isSubJob ? 1 : 0,
+          parentCodigo: parentJob?.codigo || null,
+        };
+      });
+
+      setJobs(jobsConJerarquia);
     } catch (e) {
       console.error("Error al cargar jobs:", e);
       setSnackbar({
@@ -332,6 +356,7 @@ const DailyTimesheet: React.FC = () => {
       setLoadingJobs(false);
     }
   };
+
 
   const readOnly = !!(
     registroDiario?.aprobacionSupervisor || registroDiario?.aprobacionRrhh
@@ -567,6 +592,10 @@ const DailyTimesheet: React.FC = () => {
 
     let finalValue = type === "checkbox" ? checked : value;
 
+    if ((name === "esDiaLibre" || name === "esHoraCorrida") && horasCero) {
+      return;
+    }
+
     // Redondear tiempos a intervalos de 15 minutos
     if (
       type !== "checkbox" &&
@@ -642,7 +671,7 @@ const DailyTimesheet: React.FC = () => {
       dayConfigData.esDiaLibre !== registroDiario.esDiaLibre ||
       dayConfigData.esHoraCorrida !== registroDiario.esHoraCorrida ||
       dayConfigData.comentarioEmpleado !==
-        (registroDiario.comentarioEmpleado || "")
+      (registroDiario.comentarioEmpleado || "")
     );
   };
 
@@ -702,24 +731,27 @@ const DailyTimesheet: React.FC = () => {
           setSnackbar({
             open: true,
             severity: "error",
-            message: `Hay ${
-              outOfRange.length
-            } actividad fuera del nuevo rango (${rango}).
+            message: `Hay ${outOfRange.length
+              } actividad fuera del nuevo rango (${rango}).
                ${" "} debes actualizar actividad
               `,
           });
           setLoading(false);
           return; // BLOQUEA el guardado del día
         }
-      }
+      };
+
+      const esDiaLibreFinal = horasCero ? false : dayConfigData.esDiaLibre;
+      const esHoraCorridaFinal = horasCero ? false : dayConfigData.esHoraCorrida;
+
 
       const params = {
         fecha: dateString,
         horaEntrada: horaEntradaISO,
         horaSalida: horaSalidaISO,
         jornada: dayConfigData.jornada,
-        esDiaLibre: dayConfigData.esDiaLibre,
-        esHoraCorrida: dayConfigData.esHoraCorrida,
+        esDiaLibre: esDiaLibreFinal,
+        esHoraCorrida: esHoraCorridaFinal,
         comentarioEmpleado: dayConfigData.comentarioEmpleado,
         actividades:
           registroDiario?.actividades?.map((act) => ({
@@ -812,7 +844,7 @@ const DailyTimesheet: React.FC = () => {
     });
   };
 
-  const handleJobChange = (_e: React.SyntheticEvent, value: Job | null) => {
+  const handleJobChange = (_e: React.SyntheticEvent, value: JobConJerarquia | null) => {
     setSelectedJob(value);
     setFormData((prev) => ({ ...prev, job: value ? value.id.toString() : "" }));
     if (formErrors.job) setFormErrors((prev) => ({ ...prev, job: "" }));
@@ -1106,9 +1138,8 @@ const DailyTimesheet: React.FC = () => {
       "noviembre",
       "diciembre",
     ];
-    return `${days[date.getDay()]}, ${date.getDate()} de ${
-      months[date.getMonth()]
-    } de ${date.getFullYear()}`;
+    return `${days[date.getDay()]}, ${date.getDate()} de ${months[date.getMonth()]
+      } de ${date.getFullYear()}`;
   };
 
   const navigateDate = (direction: "prev" | "next") => {
@@ -1190,9 +1221,9 @@ const DailyTimesheet: React.FC = () => {
     horasNormales === 0
       ? 100
       : HorarioValidator.getProgressPercentage(
-          workedHoursNormales,
-          horasNormales
-        );
+        workedHoursNormales,
+        horasNormales
+      );
   const horasFaltantesMessage = HorarioValidator.getHorasFaltantesMessage(
     workedHoursNormales,
     horasNormales
@@ -1205,6 +1236,19 @@ const DailyTimesheet: React.FC = () => {
   const hasDayRecord = Boolean(registroDiario);
   const dayConfigHasChanges = hasChangesInDayConfig();
   const forceExtra = horasNormales === 0;
+  const horasCero = horasNormales === 0;
+
+  React.useEffect(() => {
+    if (horasCero) {
+      setDayConfigData(prev => {
+        if (!prev.esDiaLibre && !prev.esHoraCorrida) return prev;
+        return { ...prev, esDiaLibre: false, esHoraCorrida: false };
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [horasCero, dayConfigData.horaEntrada, dayConfigData.horaSalida]);
+
+
 
   // Recalcular horasInvertidas cuando cambia hora corrida / entrada / salida
   React.useEffect(() => {
@@ -1293,10 +1337,10 @@ const DailyTimesheet: React.FC = () => {
             {initialLoading
               ? "Cargando..."
               : loading
-              ? "Guardando..."
-              : hasDayRecord
-              ? "Actualizar Día"
-              : "Guardar Día"}
+                ? "Guardando..."
+                : hasDayRecord
+                  ? "Actualizar Día"
+                  : "Guardar Día"}
           </Button>
         </Box>
       </Box>
@@ -1320,13 +1364,12 @@ const DailyTimesheet: React.FC = () => {
         >
           {horarioValidado?.mostrarJornada && (
             <Chip
-              label={`Jornada: ${
-                registroDiario.jornada === "D"
-                  ? "Dia"
-                  : registroDiario.jornada === "N"
+              label={`Jornada: ${registroDiario.jornada === "D"
+                ? "Dia"
+                : registroDiario.jornada === "N"
                   ? "Noche"
                   : ""
-              }`}
+                }`}
               size="small"
               color="primary"
               variant="outlined"
@@ -1403,7 +1446,7 @@ const DailyTimesheet: React.FC = () => {
             }}
           >
             <TextField
-              disabled={readOnly || initialLoading}
+              disabled={readOnly || initialLoading || isH1Laboral}
               fullWidth
               required
               type="time"
@@ -1423,7 +1466,7 @@ const DailyTimesheet: React.FC = () => {
 
             {/* Hora de Salida */}
             <TextField
-              disabled={readOnly || initialLoading}
+              disabled={readOnly || initialLoading || isH1Laboral}
               fullWidth
               required
               type="time"
@@ -1476,7 +1519,7 @@ const DailyTimesheet: React.FC = () => {
               <FormControlLabel
                 control={
                   <Checkbox
-                    disabled={readOnly || initialLoading}
+                    disabled={readOnly || initialLoading || horasCero}
                     name="esDiaLibre"
                     checked={initialLoading ? false : dayConfigData.esDiaLibre}
                     onChange={handleDayConfigInputChange}
@@ -1491,7 +1534,7 @@ const DailyTimesheet: React.FC = () => {
               <FormControlLabel
                 control={
                   <Checkbox
-                    disabled={readOnly || initialLoading}
+                    disabled={readOnly || initialLoading || horasCero}
                     name="esHoraCorrida"
                     checked={
                       initialLoading ? false : dayConfigData.esHoraCorrida
@@ -1901,8 +1944,8 @@ const DailyTimesheet: React.FC = () => {
                 (formData.horaExtra
                   ? "Calculado automáticamente desde las horas de inicio y fin"
                   : horasNormales === 0
-                  ? "Este día solo admite horas extra"
-                  : `Horas restantes: ${Math.max(
+                    ? "Este día solo admite horas extra"
+                    : `Horas restantes: ${Math.max(
                       0,
                       horasNormales - workedHoursNormales
                     ).toFixed(0)}h`)
@@ -1955,8 +1998,11 @@ const DailyTimesheet: React.FC = () => {
                 )}
                 renderOption={(props, option) => (
                   <Box component="li" {...props}>
-                    <Box>
-                      <Typography variant="body2" fontWeight="medium">
+                    <Box sx={{ pl: option.indentLevel * 4 }}>
+                      <Typography
+                        variant="body2"
+                        fontWeight="bold"
+                      >
                         {option.codigo} - {option.nombre}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -1964,7 +2010,9 @@ const DailyTimesheet: React.FC = () => {
                       </Typography>
                     </Box>
                   </Box>
+
                 )}
+
                 renderGroup={(params) => (
                   <Box key={params.key}>
                     <Typography
@@ -2021,11 +2069,10 @@ const DailyTimesheet: React.FC = () => {
                   color="primary"
                 />
               }
-              label={`Hora Extra (fuera del horario)${
-                !canAddExtraHours && !forceExtra
-                  ? " - Completa primero las horas normales"
-                  : ""
-              }`}
+              label={`Hora Extra (fuera del horario)${!canAddExtraHours && !forceExtra
+                ? " - Completa primero las horas normales"
+                : ""
+                }`}
               sx={{ mb: 0.5 }}
             />
 
@@ -2051,8 +2098,8 @@ const DailyTimesheet: React.FC = () => {
                   {loading
                     ? "Guardando..."
                     : editingActivity
-                    ? "Actualizar"
-                    : "Guardar"}
+                      ? "Actualizar"
+                      : "Guardar"}
                 </Button>
               </Box>
 
