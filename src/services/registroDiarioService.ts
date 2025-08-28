@@ -147,6 +147,26 @@ class RegistroDiarioService {
     );
     return response.data.data;
   }
+
+  /**
+   * Método específico para que supervisores actualicen jobs de actividades
+   * de otros empleados. Solo disponible para supervisores (rolId = 2).
+   */
+  static async updateJobBySupervisor(
+    empleadoId: number,
+    actividadId: number,
+    nuevoJobId: number
+  ): Promise<RegistroDiarioData> {
+    const response = await api.patch<ApiResponse<RegistroDiarioData>>(
+      "/registrodiario/update-job-supervisor",
+      {
+        empleadoId,
+        actividadId,
+        nuevoJobId,
+      }
+    );
+    return response.data.data;
+  }
 }
 
 export default RegistroDiarioService;

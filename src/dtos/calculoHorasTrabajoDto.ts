@@ -42,14 +42,10 @@ export interface ConteoHorasTrabajadasDto {
 }
 
 /**
+/**
  * Tipos de intervalos en la línea de tiempo del día
  */
-export enum TipoIntervalo {
-  NORMAL = "NORMAL",
-  EXTRA = "EXTRA",
-  ALMUERZO = "ALMUERZO",
-  LIBRE = "LIBRE",
-}
+export type TipoIntervalo = "NORMAL" | "EXTRA" | "ALMUERZO" | "LIBRE";
 
 /**
  * Representa un intervalo de tiempo en el día

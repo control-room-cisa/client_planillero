@@ -38,7 +38,6 @@ import RegistroDiarioService from "../../services/registroDiarioService";
 import type {
   RegistroDiarioData,
   ActividadData,
-  UpsertRegistroDiarioParams,
 } from "../../dtos/RegistrosDiariosDataDto";
 import type { Empleado } from "../../services/empleadoService";
 import type { PlanillaStatus } from "../rrhh/planillaConstants";
@@ -87,8 +86,11 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   const [selectedJob, setSelectedJob] = useState<JobConJerarquia | null>(null);
 
   // Para saber qué registro/actividad se está editando
-  const [targetRegistro, setTargetRegistro] = useState<RegistroDiarioData | null>(null);
-  const [targetActividad, setTargetActividad] = useState<ActividadData | null>(null);
+  const [targetRegistro, setTargetRegistro] =
+    useState<RegistroDiarioData | null>(null);
+  const [targetActividad, setTargetActividad] = useState<ActividadData | null>(
+    null
+  );
 
   const fetchRegistros = useCallback(async () => {
     if (!startDate || !endDate) {
@@ -152,7 +154,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
       const jobsConJerarquia: JobConJerarquia[] = jobsActivos.map((j: any) => {
         const parts = (j.codigo || "").split(".");
         const indentLevel = Math.max(0, parts.length - 1);
-        const padreCodigo = indentLevel > 0 ? parts.slice(0, -1).join(".") : null;
+        const padreCodigo =
+          indentLevel > 0 ? parts.slice(0, -1).join(".") : null;
         const parentJob = padreCodigo ? jobMap.get(padreCodigo) : null;
         return { ...j, indentLevel, parentCodigo: parentJob?.codigo || null };
       });
@@ -161,7 +164,11 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
       return jobsConJerarquia;
     } catch (e) {
       console.error("Error al cargar jobs:", e);
-      setSnackbar({ open: true, message: "Error al cargar la lista de jobs", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Error al cargar la lista de jobs",
+        severity: "error",
+      });
       return [];
     } finally {
       setLoadingJobs(false);
@@ -180,7 +187,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
       (actividad.job && actividad.job.id) ??
       (typeof actividad.jobId === "number" ? actividad.jobId : undefined);
 
-    const pre = currentJobId != null ? list.find(j => j.id === currentJobId) : null;
+    const pre =
+      currentJobId != null ? list.find((j) => j.id === currentJobId) : null;
     setSelectedJob(pre ?? null);
 
     setJobDialogOpen(true);
@@ -195,63 +203,45 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
 
   const saveJobChange = async () => {
     if (!targetRegistro || !targetActividad || !selectedJob) {
-      setSnackbar({ open: true, message: "Selecciona un Job válido", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Selecciona un Job válido",
+        severity: "error",
+      });
       return;
     }
     if (!targetActividad.id) {
-      setSnackbar({ open: true, message: "La actividad no tiene id; no se puede actualizar", severity: "error" });
-      return;
-    }
-
-    const actividadesActualizadas = (targetRegistro.actividades || []).map((a) => {
-      const base = {
-        jobId: a.jobId,
-        duracionHoras: a.duracionHoras,
-        esExtra: a.esExtra,
-        className: a.className ?? null,
-        descripcion: a.descripcion,
-        horaInicio: (a as any).horaInicio ?? null,
-        horaFin: (a as any).horaFin ?? null,
-      };
-      return a.id === targetActividad.id ? { ...base, jobId: selectedJob.id } : base;
-    });
-
-    const safeFecha =
-      targetRegistro.fecha ??
-      (targetRegistro.horaEntrada ? ymdInTZ(new Date(targetRegistro.horaEntrada)) : undefined);
-
-    const safeHoraEntrada = targetRegistro.horaEntrada;
-    const safeHoraSalida = targetRegistro.horaSalida;
-
-    if (!safeFecha || !safeHoraEntrada || !safeHoraSalida) {
       setSnackbar({
         open: true,
-        message: "El registro no tiene fecha/horas válidas para actualizar.",
+        message: "La actividad no tiene id; no se puede actualizar",
         severity: "error",
       });
       return;
     }
 
-    const params: UpsertRegistroDiarioParams = {
-      fecha: safeFecha,
-      horaEntrada: safeHoraEntrada,
-      horaSalida: safeHoraSalida,
-      jornada: targetRegistro.jornada,
-      esDiaLibre: targetRegistro.esDiaLibre,
-      esHoraCorrida: targetRegistro.esHoraCorrida,
-      comentarioEmpleado: targetRegistro.comentarioEmpleado ?? undefined,
-      actividades: actividadesActualizadas as any,
-    };
-
     setLoading(true);
     try {
-      await RegistroDiarioService.upsertForEmpleado(empleado.id, params);
-      setSnackbar({ open: true, message: "Job actualizado correctamente", severity: "success" });
+      // Usar el nuevo método específico para supervisores
+      await RegistroDiarioService.updateJobBySupervisor(
+        empleado.id,
+        targetActividad.id,
+        selectedJob.id
+      );
+
+      setSnackbar({
+        open: true,
+        message: "Job actualizado correctamente",
+        severity: "success",
+      });
       closeJobDialog();
       await fetchRegistros();
     } catch (err) {
       console.error("Error al actualizar Job:", err);
-      setSnackbar({ open: true, message: "Error al actualizar el Job", severity: "error" });
+      setSnackbar({
+        open: true,
+        message: "Error al actualizar el Job",
+        severity: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -337,8 +327,29 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     const [y, m, d] = ymd.split("-").map(Number);
     const date = new Date(y, m - 1, d);
 
-    const days = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
-    const months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+    const days = [
+      "domingo",
+      "lunes",
+      "martes",
+      "miércoles",
+      "jueves",
+      "viernes",
+      "sábado",
+    ];
+    const months = [
+      "enero",
+      "febrero",
+      "marzo",
+      "abril",
+      "mayo",
+      "junio",
+      "julio",
+      "agosto",
+      "septiembre",
+      "octubre",
+      "noviembre",
+      "diciembre",
+    ];
 
     const dayName = days[date.getDay()];
     const day = date.getDate();
@@ -348,7 +359,9 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     return `${dayName} ${day} de ${month} del ${year}`;
   };
 
-  const calcularHorasNormalesEsperadas = (registro: RegistroDiarioData): number => {
+  const calcularHorasNormalesEsperadas = (
+    registro: RegistroDiarioData
+  ): number => {
     if (registro.esDiaLibre) return 0;
 
     const entrada = new Date(registro.horaEntrada);
@@ -367,11 +380,14 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     return Math.max(0, horasTrabajo - horaAlmuerzo);
   };
 
-  const validarHorasExtra = (registro: RegistroDiarioData): { valido: boolean; errores: string[] } => {
+  const validarHorasExtra = (
+    registro: RegistroDiarioData
+  ): { valido: boolean; errores: string[] } => {
     if (registro.esDiaLibre) return { valido: true, errores: [] };
 
     const errores: string[] = [];
-    const actividadesExtra = registro.actividades?.filter((a) => a.esExtra) || [];
+    const actividadesExtra =
+      registro.actividades?.filter((a) => a.esExtra) || [];
 
     if (actividadesExtra.length === 0) return { valido: true, errores: [] };
 
@@ -383,7 +399,9 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
 
     for (const act of actividadesExtra) {
       if (!act.horaInicio || !act.horaFin) {
-        errores.push(`Actividad extra "${act.descripcion}" no tiene horas de inicio/fin`);
+        errores.push(
+          `Actividad extra "${act.descripcion}" no tiene horas de inicio/fin`
+        );
         continue;
       }
 
@@ -395,7 +413,9 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
 
       const estaFuera = finMin <= entradaMin || inicioMin >= salidaMin;
       if (!estaFuera) {
-        errores.push(`Actividad extra "${act.descripcion}" se traslapa con el horario laboral`);
+        errores.push(
+          `Actividad extra "${act.descripcion}" se traslapa con el horario laboral`
+        );
       }
     }
 
@@ -403,7 +423,13 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
       for (let j = i + 1; j < actividadesExtra.length; j++) {
         const act1 = actividadesExtra[i];
         const act2 = actividadesExtra[j];
-        if (!act1.horaInicio || !act1.horaFin || !act2.horaInicio || !act2.horaFin) continue;
+        if (
+          !act1.horaInicio ||
+          !act1.horaFin ||
+          !act2.horaInicio ||
+          !act2.horaFin
+        )
+          continue;
 
         const inicio1 = new Date(act1.horaInicio);
         const fin1 = new Date(act1.horaFin);
@@ -419,7 +445,9 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
         if (fin2Min <= inicio2Min) fin2Min += 24 * 60;
 
         if (!(fin1Min <= inicio2Min || fin2Min <= inicio1Min)) {
-          errores.push(`Actividades extra "${act1.descripcion}" y "${act2.descripcion}" se traslapan`);
+          errores.push(
+            `Actividades extra "${act1.descripcion}" y "${act2.descripcion}" se traslapan`
+          );
         }
       }
     }
@@ -430,7 +458,13 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
       <Box sx={{ p: { xs: 2, md: 3 } }}>
-        <Typography marginLeft={4} variant="h6" color="primary" fontWeight="bold" gutterBottom>
+        <Typography
+          marginLeft={4}
+          variant="h6"
+          color="primary"
+          fontWeight="bold"
+          gutterBottom
+        >
           {empleado.nombre} {empleado.apellido}
           {empleado.codigo ? ` (${empleado.codigo})` : ""}
         </Typography>
@@ -438,27 +472,37 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
 
         <Box sx={{ height: 4, mb: 2 }}>
           {loading && (
-            <LinearProgress sx={{ transition: "opacity 0.5s", opacity: loading ? 1 : 0 }} />
+            <LinearProgress
+              sx={{ transition: "opacity 0.5s", opacity: loading ? 1 : 0 }}
+            />
           )}
         </Box>
 
         <Stack spacing={2}>
           {registros.map((registro, idx) => {
             const normales =
-              registro.actividades?.filter((a) => !a.esExtra).reduce((s, a) => s + a.duracionHoras, 0) ?? 0;
+              registro.actividades
+                ?.filter((a) => !a.esExtra)
+                .reduce((s, a) => s + a.duracionHoras, 0) ?? 0;
             const extras =
-              registro.actividades?.filter((a) => a.esExtra).reduce((s, a) => s + a.duracionHoras, 0) ?? 0;
+              registro.actividades
+                ?.filter((a) => a.esExtra)
+                .reduce((s, a) => s + a.duracionHoras, 0) ?? 0;
             const total = normales + extras;
             const disabled = registro.aprobacionRrhh === true;
 
-            const horasNormalesEsperadas = calcularHorasNormalesEsperadas(registro);
+            const horasNormalesEsperadas =
+              calcularHorasNormalesEsperadas(registro);
             const validacionHorasExtra = validarHorasExtra(registro);
-            const validacionHorasNormales = Math.abs(normales - horasNormalesEsperadas) < 0.1;
+            const validacionHorasNormales =
+              Math.abs(normales - horasNormalesEsperadas) < 0.1;
 
             const entrada = new Date(registro.horaEntrada);
             const salida = new Date(registro.horaSalida);
-            const entradaMin = entrada.getUTCHours() * 60 + entrada.getUTCMinutes();
-            const salidaMin = salida.getUTCHours() * 60 + salida.getUTCMinutes();
+            const entradaMin =
+              entrada.getUTCHours() * 60 + entrada.getUTCMinutes();
+            const salidaMin =
+              salida.getUTCHours() * 60 + salida.getUTCMinutes();
             const esTurnoNocturno = entradaMin > salidaMin;
 
             return (
@@ -472,7 +516,9 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                     sx={{ mb: 1 }}
                   >
                     <Typography variant="subtitle1">
-                      {registro.fecha ? formatDateInSpanish(registro.fecha) : "Fecha no disponible"}
+                      {registro.fecha
+                        ? formatDateInSpanish(registro.fecha)
+                        : "Fecha no disponible"}
                     </Typography>
                     {registro.esDiaLibre ? (
                       <Chip label="Día libre" color="info" size="small" />
@@ -485,10 +531,18 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                           Salida: {formatTimeCorrectly(registro.horaSalida)}
                         </Typography>
                         {esTurnoNocturno && (
-                          <Chip label="Jornada Nocturna" color="secondary" size="small" />
+                          <Chip
+                            label="Jornada Nocturna"
+                            color="secondary"
+                            size="small"
+                          />
                         )}
                         {registro.esHoraCorrida && (
-                          <Chip label="Hora Corrida" color="warning" size="small" />
+                          <Chip
+                            label="Hora Corrida"
+                            color="warning"
+                            size="small"
+                          />
                         )}
                       </>
                     )}
@@ -528,12 +582,17 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                         <TableBody>
                           {registro.actividades
                             ?.slice()
-                            .sort((a, b) => (a.esExtra === b.esExtra ? 0 : a.esExtra ? 1 : -1))
+                            .sort((a, b) =>
+                              a.esExtra === b.esExtra ? 0 : a.esExtra ? 1 : -1
+                            )
                             .map((act: ActividadData) => (
                               <TableRow key={act.id ?? act.jobId}>
                                 <TableCell>{act.descripcion}</TableCell>
                                 <TableCell>
-                                  <Chip label={`${act.duracionHoras}h`} size="small" />
+                                  <Chip
+                                    label={`${act.duracionHoras}h`}
+                                    size="small"
+                                  />
                                 </TableCell>
                                 <TableCell>{act.job?.nombre}</TableCell>
                                 <TableCell>{act.job?.codigo}</TableCell>
@@ -551,7 +610,9 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                       <IconButton
                                         aria-label="Editar job"
                                         size="small"
-                                        onClick={() => openJobDialog(registro, act)}
+                                        onClick={() =>
+                                          openJobDialog(registro, act)
+                                        }
                                         disabled={disabled}
                                       >
                                         <EditIcon fontSize="small" />
@@ -568,30 +629,51 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                     <Stack spacing={1.5}>
                       {registro.actividades
                         ?.slice()
-                        .sort((a, b) => (a.esExtra === b.esExtra ? 0 : a.esExtra ? 1 : -1))
+                        .sort((a, b) =>
+                          a.esExtra === b.esExtra ? 0 : a.esExtra ? 1 : -1
+                        )
                         .map((act: ActividadData) => (
-                          <Paper key={act.id ?? act.jobId} variant="outlined" sx={{ p: 1.5 }}>
+                          <Paper
+                            key={act.id ?? act.jobId}
+                            variant="outlined"
+                            sx={{ p: 1.5 }}
+                          >
                             <Stack spacing={1}>
                               <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
                                   Descripción
                                 </Typography>
-                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                <Typography
+                                  variant="body2"
+                                  sx={{ fontWeight: 600 }}
+                                >
                                   {act.descripcion}
                                 </Typography>
                               </Box>
 
                               <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
                                   Horas
                                 </Typography>
                                 <Box>
-                                  <Chip label={`${act.duracionHoras}h`} size="small" />
+                                  <Chip
+                                    label={`${act.duracionHoras}h`}
+                                    size="small"
+                                  />
                                 </Box>
                               </Box>
 
                               <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
                                   Job
                                 </Typography>
                                 <Typography variant="body2">
@@ -600,7 +682,10 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                               </Box>
 
                               <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
                                   Código
                                 </Typography>
                                 <Typography variant="body2">
@@ -609,7 +694,10 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                               </Box>
 
                               <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
                                   Tipo
                                 </Typography>
                                 <Box>
@@ -622,7 +710,10 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                               </Box>
 
                               <Box>
-                                <Typography variant="caption" color="text.secondary">
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
                                   Clase
                                 </Typography>
                                 <Typography variant="body2">
@@ -630,13 +721,20 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                 </Typography>
                               </Box>
 
-                              <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  justifyContent: "flex-end",
+                                }}
+                              >
                                 <Tooltip title="Editar job">
                                   <span>
                                     <IconButton
                                       aria-label="Editar job"
                                       size="small"
-                                      onClick={() => openJobDialog(registro, act)}
+                                      onClick={() =>
+                                        openJobDialog(registro, act)
+                                      }
                                       disabled={disabled}
                                     >
                                       <EditIcon fontSize="small" />
@@ -651,7 +749,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                   )}
 
                   {/* Validaciones */}
-                  {(validacionHorasNormales === false || !validacionHorasExtra.valido) && (
+                  {(validacionHorasNormales === false ||
+                    !validacionHorasExtra.valido) && (
                     <Box sx={{ mt: 2, mb: 2 }}>
                       <Typography
                         variant="subtitle2"
@@ -663,19 +762,33 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                       </Typography>
 
                       {!validacionHorasNormales && (
-                        <Typography variant="body2" color="error.main" sx={{ mb: 1 }}>
-                          📊 Horas normales no coinciden: Registradas: {normales}h | Esperadas:{" "}
+                        <Typography
+                          variant="body2"
+                          color="error.main"
+                          sx={{ mb: 1 }}
+                        >
+                          📊 Horas normales no coinciden: Registradas:{" "}
+                          {normales}h | Esperadas:{" "}
                           {horasNormalesEsperadas.toFixed(2)}h
                         </Typography>
                       )}
 
                       {!validacionHorasExtra.valido && (
                         <>
-                          <Typography variant="body2" color="error.main" sx={{ mb: 1 }}>
+                          <Typography
+                            variant="body2"
+                            color="error.main"
+                            sx={{ mb: 1 }}
+                          >
                             🕐 Problemas con horas extra:
                           </Typography>
                           {validacionHorasExtra.errores.map((error, i) => (
-                            <Typography key={i} variant="body2" color="error.main" sx={{ ml: 2, mb: 0.5 }}>
+                            <Typography
+                              key={i}
+                              variant="body2"
+                              color="error.main"
+                              sx={{ ml: 2, mb: 0.5 }}
+                            >
                               • {error}
                             </Typography>
                           ))}
@@ -705,7 +818,11 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                           variant="outlined"
                           color={validacionHorasNormales ? "default" : "error"}
                         />
-                        <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ ml: 1 }}
+                        >
                           (esperadas: {horasNormalesEsperadas.toFixed(2)}h)
                         </Typography>
                       </Stack>
@@ -714,8 +831,17 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                         <Typography variant="body2" color="text.secondary">
                           Extras:
                         </Typography>
-                        <Chip label={`${extras}h`} size="small" color="error" variant="outlined" />
-                        <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                        <Chip
+                          label={`${extras}h`}
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                        />
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ ml: 1 }}
+                        >
                           {!validacionHorasExtra.valido && "(con errores)"}
                         </Typography>
                       </Stack>
@@ -724,7 +850,12 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                         <Typography variant="body2" color="text.secondary">
                           Total:
                         </Typography>
-                        <Chip label={`${total}h`} size="small" color="primary" variant="outlined" />
+                        <Chip
+                          label={`${total}h`}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
                       </Stack>
                     </Stack>
                   </Box>
@@ -746,7 +877,11 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                     <Button
                       variant="outlined"
                       color="success"
-                      disabled={disabled}
+                      disabled={
+                        disabled ||
+                        !validacionHorasNormales ||
+                        !validacionHorasExtra.valido
+                      }
                       onClick={() => handleAprobar(registro.id!)}
                       fullWidth={isMobile}
                     >
@@ -759,7 +894,9 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
           })}
 
           {!loading && registros.length === 0 && (
-            <Typography>No hay registros para las fechas seleccionadas.</Typography>
+            <Typography>
+              No hay registros para las fechas seleccionadas.
+            </Typography>
           )}
         </Stack>
 
@@ -810,7 +947,9 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                     ...params.InputProps,
                     endAdornment: (
                       <>
-                        {loadingJobs ? <CircularProgress color="inherit" size={20} /> : null}
+                        {loadingJobs ? (
+                          <CircularProgress color="inherit" size={20} />
+                        ) : null}
                         {params.InputProps.endAdornment}
                       </>
                     ),
@@ -850,7 +989,11 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                   </Box>
                 </Box>
               )}
-              noOptionsText={loadingJobs ? "Cargando jobs..." : "No hay jobs activos disponibles"}
+              noOptionsText={
+                loadingJobs
+                  ? "Cargando jobs..."
+                  : "No hay jobs activos disponibles"
+              }
             />
           </Stack>
         </DialogContent>
