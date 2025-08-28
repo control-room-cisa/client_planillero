@@ -10,7 +10,8 @@ export const useEmployees = () => {
     const fetchEmployees = async () => {
       try {
         setLoading(true);
-        const empleados = await EmpleadoService.getAll();
+        // Obtener solo empleados del departamento del supervisor
+        const empleados = await EmpleadoService.getByDepartment();
         setEmployees(empleados);
       } catch (err: any) {
         console.error(err);

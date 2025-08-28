@@ -547,7 +547,9 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                     {empleado.cargo}
                   </Typography>
                 )}
-                <Typography variant="subtitle1">ID: {empleado.id}</Typography>
+                <Typography variant="subtitle1">
+                  {empleado.codigo || "Sin código asignado"}
+                </Typography>
               </Box>
             </Box>
 
@@ -662,7 +664,10 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         {/* Error */}
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
+            {error.response?.data?.message ||
+              (error.response?.status === 404
+                ? "No se pudo conectar con el servidor"
+                : "Error al cargar los datos")}
             <Button size="small" onClick={refetch} sx={{ ml: 2 }}>
               Reintentar
             </Button>

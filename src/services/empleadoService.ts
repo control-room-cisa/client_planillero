@@ -149,6 +149,18 @@ class EmpleadoService {
     }
   }
 
+  static async getByDepartment(): Promise<Empleado[]> {
+    try {
+      const response = await api.get<EmpleadosResponse>(
+        "/empleados/departamento"
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Error al obtener empleados del departamento:", error);
+      throw new Error("Error al cargar la lista de empleados del departamento");
+    }
+  }
+
   static async getById(id: number): Promise<Empleado> {
     try {
       const response = await api.get<EmpleadoResponse>(`/empleados/${id}`);

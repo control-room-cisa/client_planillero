@@ -14,7 +14,7 @@ interface UseHorasTrabajoProps {
 interface UseHorasTrabajoReturn {
   resumenHoras: ResumenHorasTrabajo | null;
   loading: boolean;
-  error: string | null;
+  error: any | null;
   refetch: () => Promise<void>;
 }
 
@@ -28,7 +28,7 @@ export const useHorasTrabajo = ({
     null
   );
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<any | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!enabled || !empleadoId || !fechaInicio || !fechaFin) {
@@ -47,7 +47,7 @@ export const useHorasTrabajo = ({
       setResumenHoras(resumen);
     } catch (err: any) {
       console.error("Error al cargar datos de horas:", err);
-      setError(err.message || "Error al cargar datos de horas");
+      setError(err);
     } finally {
       setLoading(false);
     }

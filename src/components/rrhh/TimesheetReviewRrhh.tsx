@@ -302,7 +302,7 @@ const TimesheetReviewRrhh: React.FC = () => {
                 <PersonIcon sx={{ fontSize: 40 }} />
               </Avatar>
               <Typography variant="h6" mt={2}>
-                Selecciona un empleado
+                Selecciona un colaborador
               </Typography>
             </Box>
           )}

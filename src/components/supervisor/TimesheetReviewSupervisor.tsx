@@ -90,7 +90,7 @@ const TimesheetReviewSupervisor: React.FC = () => {
           <TextField
             {...params}
             size="small"
-            placeholder="Buscar empleado"
+            placeholder="Buscar colaborador"
             InputProps={{
               ...params.InputProps,
               startAdornment: <SearchIcon sx={{ mr: 1 }} />,
@@ -207,7 +207,7 @@ const TimesheetReviewSupervisor: React.FC = () => {
                 <PersonIcon sx={{ fontSize: 40 }} />
               </Avatar>
               <Typography variant="h6" mt={2}>
-                Selecciona un empleado
+                Selecciona un colaborador
               </Typography>
             </Box>
           )}
