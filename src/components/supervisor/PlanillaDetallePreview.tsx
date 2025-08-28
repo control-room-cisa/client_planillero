@@ -880,7 +880,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                       disabled={
                         disabled ||
                         !validacionHorasNormales ||
-                        !validacionHorasExtra.valido
+                        !validacionHorasExtra.valido ||
+                        registro.aprobacionSupervisor === true
                       }
                       onClick={() => handleAprobar(registro.id!)}
                       fullWidth={isMobile}
