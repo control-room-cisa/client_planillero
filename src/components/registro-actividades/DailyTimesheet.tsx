@@ -1969,13 +1969,19 @@ const DailyTimesheet: React.FC = () => {
             <Box sx={{ mb: 3 }}>
               <Autocomplete
                 options={jobs}
-                getOptionLabel={(o) => `${o.codigo} - ${o.nombre}`}
+                getOptionLabel={(o) => (o ? `${o.codigo} - ${o.nombre}` : "")}
                 value={selectedJob}
                 onChange={handleJobChange}
                 loading={loadingJobs}
                 disabled={loadingJobs || readOnly}
-                isOptionEqualToValue={(o, v) => o.id === v.id}
-                groupBy={(option) => option.empresa.nombre}
+                isOptionEqualToValue={(o, v) =>
+                  !!o && !!v ? o.id === v.id : false
+                }
+                groupBy={(option) =>
+                  option?.mostrarEmpresaId && option?.empresa?.nombre
+                    ? option.empresa.nombre
+                    : "— Especiales —"
+                }
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -1998,12 +2004,20 @@ const DailyTimesheet: React.FC = () => {
                 )}
                 renderOption={(props, option) => (
                   <Box component="li" {...props}>
-                    <Box sx={{ pl: option.indentLevel * 4 }}>
-                      <Typography variant="body2" fontWeight="bold">
-                        {option.codigo} - {option.nombre}
+                    <Box sx={{ pl: (option?.indentLevel ?? 0) * 4 }}>
+                      <Typography
+                        variant="body2"
+                        fontWeight="bold"
+                        color={
+                          option?.mostrarEmpresaId && option?.empresa?.nombre
+                            ? "text.primary"
+                            : "error.main"
+                        }
+                      >
+                        {option?.codigo} - {option?.nombre}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {option.descripcion || "Sin descripción"}
+                        {option?.descripcion || "Sin descripción"}
                       </Typography>
                     </Box>
                   </Box>
@@ -2014,7 +2028,10 @@ const DailyTimesheet: React.FC = () => {
                       variant="subtitle2"
                       sx={{
                         fontWeight: 600,
-                        color: "primary.main",
+                        color:
+                          params.group === "— Especiales —"
+                            ? "error.main"
+                            : "primary.main",
                         backgroundColor: "background.paper",
                         px: 2,
                         py: 1,
