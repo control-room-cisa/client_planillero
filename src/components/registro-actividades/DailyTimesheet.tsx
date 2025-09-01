@@ -43,6 +43,8 @@ import RegistroDiarioService from "../../services/registroDiarioService";
 import JobService from "../../services/jobService";
 import CalculoHorasTrabajoService from "../../services/calculoHorasTrabajoService";
 import { HorarioValidator } from "../../utils/horarioValidations";
+import useHorarioRules from "../../hooks/useHorarioRules";
+import { HorarioRulesFactory } from "../../utils/horarioRules";
 import type { Job } from "../../services/jobService";
 import type { RegistroDiarioData } from "../../dtos/RegistrosDiariosDataDto";
 // import type { HorarioTrabajoDto } from "../../dtos/calculoHorasTrabajoDto";
@@ -61,7 +63,6 @@ type JobConJerarquia = Job & {
   indentLevel: number;
   parentCodigo?: string | null;
 };
-
 
 const DailyTimesheet: React.FC = () => {
   const theme = useTheme();
@@ -89,8 +90,9 @@ const DailyTimesheet: React.FC = () => {
   // Jobs
   const [jobs, setJobs] = React.useState<JobConJerarquia[]>([]);
   const [loadingJobs, setLoadingJobs] = React.useState(false);
-  const [selectedJob, setSelectedJob] = React.useState<JobConJerarquia | null>(null);
-
+  const [selectedJob, setSelectedJob] = React.useState<JobConJerarquia | null>(
+    null
+  );
 
   // Registro diario
   const [registroDiario, setRegistroDiario] =
@@ -127,7 +129,12 @@ const DailyTimesheet: React.FC = () => {
     tipoHorario: string; // Agregar tipo de horario
   } | null>(null);
 
-  const isH1Laboral = horarioValidado?.tipoHorario === "H1"
+  // Reglas de UI ahora controlan visibilidad/habilitación por tipo de horario
+  const horarioRules = useHorarioRules({
+    tipoHorario: horarioValidado?.tipoHorario || undefined,
+    formData: dayConfigData,
+    apiData: horarioValidado,
+  });
 
   // ===== Helpers de tiempo =====
   const timeToMinutes = (time: string): number => {
@@ -213,8 +220,7 @@ const DailyTimesheet: React.FC = () => {
     return "";
   };
 
-  // Calcula HH con o sin descuento de almuerzo (12:00–13:00) según esHoraCorrida
-  // Hora de almuerzo = 0 si esHoraCorrida, 1 si no esHoraCorrida
+  // Calcula HH con o sin descuento de almuerzo (12:00–13:00) según reglas del horario
   const computeHorasInvertidas = (
     inicioHHMM: string,
     finHHMM: string
@@ -227,8 +233,8 @@ const DailyTimesheet: React.FC = () => {
     let dur = h2 + m2 / 60 - (h1 + m1 / 60);
     if (dur < 0) dur += 24; // cruza medianoche
 
-    // Determinar hora de almuerzo: 0 si es hora corrida, 1 si no lo es
-    const horaAlmuerzo = dayConfigData.esHoraCorrida ? 0 : 1;
+    // Determinar hora de almuerzo usando reglas del horario
+    const horaAlmuerzo = horarioRules.utils.calculateLunchHours();
 
     // Solo descontar almuerzo si horaAlmuerzo > 0 (no es hora corrida)
     if (horaAlmuerzo > 0) {
@@ -275,8 +281,8 @@ const DailyTimesheet: React.FC = () => {
     // Duración base
     let hours = (e - s) / 60;
 
-    // Determinar hora de almuerzo: 0 si es hora corrida, 1 si no lo es
-    const horaAlmuerzo = dayConfigData.esHoraCorrida ? 0 : 1;
+    // Determinar hora de almuerzo usando reglas del horario
+    const horaAlmuerzo = horarioRules.utils.calculateLunchHours();
 
     // Solo descontar almuerzo si horaAlmuerzo > 0 (no es hora corrida)
     if (horaAlmuerzo > 0) {
@@ -356,7 +362,6 @@ const DailyTimesheet: React.FC = () => {
       setLoadingJobs(false);
     }
   };
-
 
   const readOnly = !!(
     registroDiario?.aprobacionSupervisor || registroDiario?.aprobacionRrhh
@@ -448,21 +453,16 @@ const DailyTimesheet: React.FC = () => {
 
       setHorarioValidado(validacionCompleta);
 
-      // Aplicar configuración automática desde la API cuando sea apropiado
+      // Aplicar configuración automática desde la API usando reglas
       if (validacion) {
-        // Siempre rellenar automáticamente HoraEntrada y HoraSalida desde la API
-        setDayConfigData((prev) => ({
-          ...prev,
-          // Configurar horas de entrada y salida desde la API
-          horaEntrada: validacion.horaInicio,
-          horaSalida: validacion.horaFin,
-          // Configurar estado de día libre desde la API solo si no hay datos existentes
-          esDiaLibre: !datosExistentes
-            ? validacion.esDiaLibre
-            : prev.esDiaLibre,
-          // Configurar jornada por defecto según el tipo de horario solo si no hay datos existentes
-          jornada: !datosExistentes ? "D" : prev.jornada, // Siempre por defecto Día
-        }));
+        setDayConfigData((prev) =>
+          HorarioRulesFactory.processApiDefaults(
+            horarioData.tipoHorario,
+            prev,
+            horarioData,
+            datosExistentes
+          )
+        );
       }
     } catch (error) {
       console.error("Error al cargar validaciones de horario:", error);
@@ -671,7 +671,7 @@ const DailyTimesheet: React.FC = () => {
       dayConfigData.esDiaLibre !== registroDiario.esDiaLibre ||
       dayConfigData.esHoraCorrida !== registroDiario.esHoraCorrida ||
       dayConfigData.comentarioEmpleado !==
-      (registroDiario.comentarioEmpleado || "")
+        (registroDiario.comentarioEmpleado || "")
     );
   };
 
@@ -731,19 +731,21 @@ const DailyTimesheet: React.FC = () => {
           setSnackbar({
             open: true,
             severity: "error",
-            message: `Hay ${outOfRange.length
-              } actividad fuera del nuevo rango (${rango}).
+            message: `Hay ${
+              outOfRange.length
+            } actividad fuera del nuevo rango (${rango}).
                ${" "} debes actualizar actividad
               `,
           });
           setLoading(false);
           return; // BLOQUEA el guardado del día
         }
-      };
+      }
 
       const esDiaLibreFinal = horasCero ? false : dayConfigData.esDiaLibre;
-      const esHoraCorridaFinal = horasCero ? false : dayConfigData.esHoraCorrida;
-
+      const esHoraCorridaFinal = horasCero
+        ? false
+        : dayConfigData.esHoraCorrida;
 
       const params = {
         fecha: dateString,
@@ -844,7 +846,10 @@ const DailyTimesheet: React.FC = () => {
     });
   };
 
-  const handleJobChange = (_e: React.SyntheticEvent, value: JobConJerarquia | null) => {
+  const handleJobChange = (
+    _e: React.SyntheticEvent,
+    value: JobConJerarquia | null
+  ) => {
     setSelectedJob(value);
     setFormData((prev) => ({ ...prev, job: value ? value.id.toString() : "" }));
     if (formErrors.job) setFormErrors((prev) => ({ ...prev, job: "" }));
@@ -1138,8 +1143,9 @@ const DailyTimesheet: React.FC = () => {
       "noviembre",
       "diciembre",
     ];
-    return `${days[date.getDay()]}, ${date.getDate()} de ${months[date.getMonth()]
-      } de ${date.getFullYear()}`;
+    return `${days[date.getDay()]}, ${date.getDate()} de ${
+      months[date.getMonth()]
+    } de ${date.getFullYear()}`;
   };
 
   const navigateDate = (direction: "prev" | "next") => {
@@ -1168,62 +1174,22 @@ const DailyTimesheet: React.FC = () => {
       return acc;
     }, 0) || 0;
 
-  // Calcular horas normales basándose en la configuración actual del día
-  // Las horas laborables son SIEMPRE: (Hora Salida - Hora Entrada) - Hora almuerzo
-  // Hora almuerzo = 0 si esHoraCorrida, 1 si no esHoraCorrida
-  let horasNormales = 0;
-
-  if (dayConfigData.horaEntrada && dayConfigData.horaSalida) {
-    const entradaMin = timeToMinutes(dayConfigData.horaEntrada);
-    let salidaMin = timeToMinutes(dayConfigData.horaSalida);
-
-    // Lógica para turno de noche: si entrada > salida, es turno nocturno
-    const esTurnoNoche = entradaMin > salidaMin;
-
-    if (esTurnoNoche) {
-      // Para turno de noche: desde entrada hasta 23:59 + desde 00:00 hasta salida
-      const horasHastaMedianoche = (24 * 60 - entradaMin) / 60; // Hasta las 24:00
-      const horasDesdeMedianoche = salidaMin / 60; // Desde las 00:00
-      horasNormales = horasHastaMedianoche + horasDesdeMedianoche;
-    } else {
-      // Turno normal: diferencia directa
-      horasNormales = (salidaMin - entradaMin) / 60;
-    }
-
-    // Determinar hora de almuerzo: 0 si es hora corrida, 1 si no lo es
-    const horaAlmuerzo = dayConfigData.esHoraCorrida ? 0 : 1;
-
-    // Aplicar la fórmula: Horas laborables = (Hsalida - Hentrada) - Hora almuerzo
-    // Solo restar almuerzo en turnos normales (no nocturnos)
-    if (!esTurnoNoche) {
-      horasNormales = Math.max(0, horasNormales - horaAlmuerzo);
-    }
-
-    // Asegurar que sea un número válido
-    horasNormales = Math.max(0, horasNormales);
-  } else {
-    // Fallback a la API si no hay configuración local
-    horasNormales = Math.max(0, horarioValidado?.horasNormales || 0);
-  }
-
-  // Lógica especial para jornada nocturna H2: 6 horas los martes
-  if (
-    horarioValidado?.tipoHorario === "H2" &&
-    dayConfigData.jornada === "N" &&
-    currentDate.getDay() === 2
-  ) {
-    // 2 = martes
-    horasNormales = 6;
-  }
+  // Calcular horas normales usando reglas del horario
+  const horasNormales = HorarioRulesFactory.calculateNormalHours(
+    horarioValidado?.tipoHorario,
+    dayConfigData,
+    horarioValidado,
+    { now: currentDate }
+  );
 
   // Progreso basado SOLO en horas normales (sin horas extra)
   const progressPercentage =
     horasNormales === 0
       ? 100
       : HorarioValidator.getProgressPercentage(
-        workedHoursNormales,
-        horasNormales
-      );
+          workedHoursNormales,
+          horasNormales
+        );
   const horasFaltantesMessage = HorarioValidator.getHorasFaltantesMessage(
     workedHoursNormales,
     horasNormales
@@ -1231,6 +1197,8 @@ const DailyTimesheet: React.FC = () => {
 
   // Verificar si se pueden ingresar horas extra (solo cuando progreso normal = 100%)
   const canAddExtraHours = horasNormales === 0 || progressPercentage >= 100;
+  const disableHoraCorrida =
+    horasNormales === 0 && horarioValidado?.tipoHorario === "H1";
 
   // Estado del registro diario
   const hasDayRecord = Boolean(registroDiario);
@@ -1240,15 +1208,13 @@ const DailyTimesheet: React.FC = () => {
 
   React.useEffect(() => {
     if (horasCero) {
-      setDayConfigData(prev => {
+      setDayConfigData((prev) => {
         if (!prev.esDiaLibre && !prev.esHoraCorrida) return prev;
         return { ...prev, esDiaLibre: false, esHoraCorrida: false };
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [horasCero, dayConfigData.horaEntrada, dayConfigData.horaSalida]);
-
-
 
   // Recalcular horasInvertidas cuando cambia hora corrida / entrada / salida
   React.useEffect(() => {
@@ -1337,10 +1303,10 @@ const DailyTimesheet: React.FC = () => {
             {initialLoading
               ? "Cargando..."
               : loading
-                ? "Guardando..."
-                : hasDayRecord
-                  ? "Actualizar Día"
-                  : "Guardar Día"}
+              ? "Guardando..."
+              : hasDayRecord
+              ? "Actualizar Día"
+              : "Guardar Día"}
           </Button>
         </Box>
       </Box>
@@ -1364,12 +1330,13 @@ const DailyTimesheet: React.FC = () => {
         >
           {horarioValidado?.mostrarJornada && (
             <Chip
-              label={`Jornada: ${registroDiario.jornada === "D"
-                ? "Dia"
-                : registroDiario.jornada === "N"
+              label={`Jornada: ${
+                registroDiario.jornada === "D"
+                  ? "Dia"
+                  : registroDiario.jornada === "N"
                   ? "Noche"
                   : ""
-                }`}
+              }`}
               size="small"
               color="primary"
               variant="outlined"
@@ -1446,7 +1413,11 @@ const DailyTimesheet: React.FC = () => {
             }}
           >
             <TextField
-              disabled={readOnly || initialLoading || isH1Laboral}
+              disabled={
+                readOnly ||
+                initialLoading ||
+                !horarioRules.utils.isFieldEnabled("horaEntrada")
+              }
               fullWidth
               required
               type="time"
@@ -1466,7 +1437,11 @@ const DailyTimesheet: React.FC = () => {
 
             {/* Hora de Salida */}
             <TextField
-              disabled={readOnly || initialLoading || isH1Laboral}
+              disabled={
+                readOnly ||
+                initialLoading ||
+                !horarioRules.utils.isFieldEnabled("horaSalida")
+              }
               fullWidth
               required
               type="time"
@@ -1493,12 +1468,16 @@ const DailyTimesheet: React.FC = () => {
               mb: 3,
             }}
           >
-            {/* Jornada solo visible para tipo horario H2 */}
-            {horarioValidado?.tipoHorario === "H2" && (
+            {/* Jornada según reglas */}
+            {horarioRules.utils.isFieldVisible("jornada") && (
               <FormControl fullWidth size="small">
                 <InputLabel>Jornada</InputLabel>
                 <Select
-                  disabled={readOnly || initialLoading}
+                  disabled={
+                    readOnly ||
+                    initialLoading ||
+                    !horarioRules.utils.isFieldEnabled("jornada")
+                  }
                   name="jornada"
                   value={initialLoading ? "" : dayConfigData.jornada}
                   onChange={(e) =>
@@ -1515,37 +1494,58 @@ const DailyTimesheet: React.FC = () => {
             )}
 
             {/* Es Día Libre */}
-            <Box sx={{ display: "flex", alignItems: "center", height: "40px" }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    disabled={readOnly || initialLoading || horasCero}
-                    name="esDiaLibre"
-                    checked={initialLoading ? false : dayConfigData.esDiaLibre}
-                    onChange={handleDayConfigInputChange}
-                    color="primary"
-                  />
-                }
-                label="Día Libre"
-              />
-            </Box>
+            {horarioRules.utils.isFieldVisible("esDiaLibre") && (
+              <Box
+                sx={{ display: "flex", alignItems: "center", height: "40px" }}
+              >
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      disabled={
+                        readOnly ||
+                        initialLoading ||
+                        horasCero ||
+                        !horarioRules.utils.isFieldEnabled("esDiaLibre")
+                      }
+                      name="esDiaLibre"
+                      checked={
+                        initialLoading ? false : dayConfigData.esDiaLibre
+                      }
+                      onChange={handleDayConfigInputChange}
+                      color="primary"
+                    />
+                  }
+                  label="Día Libre"
+                />
+              </Box>
+            )}
             {/* Es Hora Corrida */}
-            <Box sx={{ display: "flex", alignItems: "center", height: "40px" }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    disabled={readOnly || initialLoading || horasCero}
-                    name="esHoraCorrida"
-                    checked={
-                      initialLoading ? false : dayConfigData.esHoraCorrida
-                    }
-                    onChange={handleDayConfigInputChange}
-                    color="primary"
-                  />
-                }
-                label="Hora Corrida"
-              />
-            </Box>
+            {horarioRules.utils.isFieldVisible("esHoraCorrida") && (
+              <Box
+                sx={{ display: "flex", alignItems: "center", height: "40px" }}
+              >
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      disabled={
+                        readOnly ||
+                        initialLoading ||
+                        horasCero ||
+                        disableHoraCorrida ||
+                        !horarioRules.utils.isFieldEnabled("esHoraCorrida")
+                      }
+                      name="esHoraCorrida"
+                      checked={
+                        initialLoading ? false : dayConfigData.esHoraCorrida
+                      }
+                      onChange={handleDayConfigInputChange}
+                      color="primary"
+                    />
+                  }
+                  label="Hora Corrida"
+                />
+              </Box>
+            )}
           </Box>
 
           {/* Comentario del Colaborador */}
@@ -1944,8 +1944,8 @@ const DailyTimesheet: React.FC = () => {
                 (formData.horaExtra
                   ? "Calculado automáticamente desde las horas de inicio y fin"
                   : horasNormales === 0
-                    ? "Este día solo admite horas extra"
-                    : `Horas restantes: ${Math.max(
+                  ? "Este día solo admite horas extra"
+                  : `Horas restantes: ${Math.max(
                       0,
                       horasNormales - workedHoursNormales
                     ).toFixed(0)}h`)
@@ -1999,10 +1999,7 @@ const DailyTimesheet: React.FC = () => {
                 renderOption={(props, option) => (
                   <Box component="li" {...props}>
                     <Box sx={{ pl: option.indentLevel * 4 }}>
-                      <Typography
-                        variant="body2"
-                        fontWeight="bold"
-                      >
+                      <Typography variant="body2" fontWeight="bold">
                         {option.codigo} - {option.nombre}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
@@ -2010,9 +2007,7 @@ const DailyTimesheet: React.FC = () => {
                       </Typography>
                     </Box>
                   </Box>
-
                 )}
-
                 renderGroup={(params) => (
                   <Box key={params.key}>
                     <Typography
@@ -2069,10 +2064,11 @@ const DailyTimesheet: React.FC = () => {
                   color="primary"
                 />
               }
-              label={`Hora Extra (fuera del horario)${!canAddExtraHours && !forceExtra
-                ? " - Completa primero las horas normales"
-                : ""
-                }`}
+              label={`Hora Extra (fuera del horario)${
+                !canAddExtraHours && !forceExtra
+                  ? " - Completa primero las horas normales"
+                  : ""
+              }`}
               sx={{ mb: 0.5 }}
             />
 
@@ -2098,8 +2094,8 @@ const DailyTimesheet: React.FC = () => {
                   {loading
                     ? "Guardando..."
                     : editingActivity
-                      ? "Actualizar"
-                      : "Guardar"}
+                    ? "Actualizar"
+                    : "Guardar"}
                 </Button>
               </Box>
 
