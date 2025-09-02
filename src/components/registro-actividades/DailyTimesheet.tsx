@@ -337,9 +337,14 @@ const DailyTimesheet: React.FC = () => {
       const jobsData = await JobService.getAll();
       const jobsActivos = jobsData.filter((j) => j.activo === true);
 
-      const jobMap = new Map(jobsActivos.map((j) => [j.codigo, j]));
+      // Filtrar jobs especiales solo para horas normales
+      const jobsFiltrados = formData.horaExtra
+        ? jobsActivos.filter((j) => !j.especial) // Solo jobs normales para hora extra
+        : jobsActivos; // Todos los jobs para horas normales
 
-      const jobsConJerarquia: JobConJerarquia[] = jobsActivos.map((j) => {
+      const jobMap = new Map(jobsFiltrados.map((j) => [j.codigo, j]));
+
+      const jobsConJerarquia: JobConJerarquia[] = jobsFiltrados.map((j) => {
         const isSubJob = j.codigo.includes(".");
         const padreCodigo = isSubJob ? j.codigo.split(".")[0] : null;
         const parentJob = padreCodigo ? jobMap.get(padreCodigo) : null;
@@ -526,6 +531,13 @@ const DailyTimesheet: React.FC = () => {
     setDrawerOpen(true);
     await loadJobs();
   };
+
+  // Efecto para recargar jobs cuando cambie hora extra
+  React.useEffect(() => {
+    if (drawerOpen) {
+      loadJobs();
+    }
+  }, [formData.horaExtra, drawerOpen]);
 
   // Efecto para establecer el job seleccionado cuando se cargan los jobs y hay una actividad en edición
   React.useEffect(() => {
@@ -810,6 +822,11 @@ const DailyTimesheet: React.FC = () => {
           if (next.horaInicio && next.horaFin) {
             const v = computeHorasInvertidas(next.horaInicio, next.horaFin);
             next.horasInvertidas = v;
+          }
+          // Limpiar job si es especial al activar hora extra
+          if (selectedJob?.especial) {
+            setSelectedJob(null);
+            next.job = "";
           }
         } else {
           // Al desactivar hora extra: limpiar campos de tiempo y permitir edición manual

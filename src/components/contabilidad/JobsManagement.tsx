@@ -447,7 +447,11 @@ const JobsManagement: React.FC = () => {
               <InputLabel>Empresa</InputLabel>
               <Select
                 value={
-                  formData.empresaId === 0 ? "" : formData.empresaId.toString()
+                  formData.empresaId === 0 ||
+                  formData.empresaId === null ||
+                  formData.empresaId === undefined
+                    ? ""
+                    : formData.empresaId.toString()
                 }
                 onChange={handleEmpresaChange}
                 label="Empresa"
@@ -470,7 +474,11 @@ const JobsManagement: React.FC = () => {
             variant="contained"
             color="primary"
             disabled={
-              !formData.nombre || !formData.codigo || formData.empresaId === 0
+              !formData.nombre ||
+              !formData.codigo ||
+              formData.empresaId === 0 ||
+              formData.empresaId === null ||
+              formData.empresaId === undefined
             }
           >
             {isEditing ? "Actualizar" : "Crear"}

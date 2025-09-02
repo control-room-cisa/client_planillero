@@ -1437,7 +1437,7 @@ export default function RegistroActividades() {
                         {option.codigo} - {option.nombre}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {option.empresa.nombre}
+                        {option.empresa?.nombre || "Sin empresa"}
                       </Typography>
                     </Box>
                   </Box>

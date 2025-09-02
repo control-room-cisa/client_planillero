@@ -1,4 +1,4 @@
-import api from './api';
+import api from "./api";
 
 interface Job {
   id: number;
@@ -8,10 +8,11 @@ interface Job {
   createdAt: string;
   updatedAt: string | null;
   deletedAt: string | null;
-  empresaId: number;
-  mostrarEmpresaId: number;
+  empresaId: number | null;
+  mostrarEmpresaId: number | null;
   activo: boolean;
-  empresa: {
+  especial?: boolean;
+  empresa?: {
     id: number;
     codigo: string | null;
     nombre: string;
@@ -37,29 +38,30 @@ interface CreateJobDto {
   nombre: string;
   codigo: string;
   descripcion: string;
-  empresaId: number;
-  mostrarEmpresaId: number;
+  empresaId?: number | null;
+  mostrarEmpresaId?: number | null;
   activo?: boolean;
+  especial?: boolean;
 }
 
 interface UpdateJobDto {
   nombre?: string;
   codigo?: string;
   descripcion?: string;
-  empresaId?: number;
-  mostrarEmpresaId?: number;
+  empresaId?: number | null;
+  mostrarEmpresaId?: number | null;
   activo?: boolean;
+  especial?: boolean;
 }
 
 class JobService {
   static async getAll(): Promise<Job[]> {
-    
     try {
-      const response = await api.get<JobsResponse>('/jobs');
+      const response = await api.get<JobsResponse>("/jobs");
       return response.data.data;
     } catch (error) {
-      console.error('Error al obtener jobs:', error);
-      throw new Error('Error al cargar la lista de jobs');
+      console.error("Error al obtener jobs:", error);
+      throw new Error("Error al cargar la lista de jobs");
     }
   }
 
@@ -69,17 +71,17 @@ class JobService {
       return response.data.data;
     } catch (error) {
       console.error(`Error al obtener job ${id}:`, error);
-      throw new Error('Error al cargar el job');
+      throw new Error("Error al cargar el job");
     }
   }
 
   static async create(jobData: CreateJobDto): Promise<Job> {
     try {
-      const response = await api.post<JobResponse>('/jobs', jobData);
+      const response = await api.post<JobResponse>("/jobs", jobData);
       return response.data.data;
     } catch (error) {
-      console.error('Error al crear job:', error);
-      throw new Error('Error al crear el job');
+      console.error("Error al crear job:", error);
+      throw new Error("Error al crear el job");
     }
   }
 
@@ -89,7 +91,7 @@ class JobService {
       return response.data.data;
     } catch (error) {
       console.error(`Error al actualizar job ${id}:`, error);
-      throw new Error('Error al actualizar el job');
+      throw new Error("Error al actualizar el job");
     }
   }
 
@@ -100,10 +102,10 @@ class JobService {
       await api.delete(`/jobs/${id}`);
     } catch (error) {
       console.error(`Error al eliminar job ${id}:`, error);
-      throw new Error('Error al eliminar el job');
+      throw new Error("Error al eliminar el job");
     }
   }
 }
 
 export default JobService;
-export type { Job, CreateJobDto, UpdateJobDto }; 
+export type { Job, CreateJobDto, UpdateJobDto };
