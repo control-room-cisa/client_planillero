@@ -200,13 +200,12 @@ export default function RegistroActividades() {
 
       // Auto-config si no hay datos en BD
       if (!datosExistentes && validacion) {
-        const tipo = horarioData.horarioTrabajo.tipoHorario;
         setDayConfigData((prev) => ({
           ...prev,
           horaEntrada: validacion.horaInicio,
           horaSalida: validacion.horaFin,
           esDiaLibre: validacion.esDiaLibre,
-          // Quitar forzado: no marcar Hora Corrida automtico para H2
+          // Quitar forzado: no marcar Hora Corrida automático para H2
           esHoraCorrida: prev.esHoraCorrida,
         }));
       }

@@ -22,6 +22,13 @@ export interface HorarioFormRulesConfig {
   calculateNormalHours: (formData: any, apiData?: any, ctx?: { now?: Date }) => number;
   calculateLunchHours: (formData: any) => number;
   processApiDefaults: (prev: any, apiData: any | null | undefined, hasExisting: boolean) => any;
+  // Permite que cada regla reaccione a cambios de campos y devuelva un nuevo formData
+  onFieldChange?: (
+    fieldName: FieldName,
+    nextValue: any,
+    prevFormData: any,
+    apiData?: any
+  ) => any;
 }
 
 export interface HorarioRuleEngine {

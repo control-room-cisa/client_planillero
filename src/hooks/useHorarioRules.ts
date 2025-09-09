@@ -38,6 +38,18 @@ export const useHorarioRules = ({ tipoHorario, formData, apiData }: UseHorarioRu
         ),
       calculateLunchHours: () =>
         HorarioRulesFactory.calculateLunchHours(tipoHorario || undefined, formData),
+      onFieldChange: (
+        field: FieldName,
+        nextValue: any,
+        prevFormData: any
+      ) =>
+        HorarioRulesFactory.onFieldChange(
+          tipoHorario || undefined,
+          field,
+          nextValue,
+          prevFormData,
+          apiData
+        ),
     }),
     [tipoHorario, formData, apiData]
   );

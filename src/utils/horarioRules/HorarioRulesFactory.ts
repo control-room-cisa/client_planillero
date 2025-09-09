@@ -42,6 +42,20 @@ export class HorarioRulesFactory {
   static calculateLunchHours(tipoHorario: string | undefined, formData: any) {
     return this.getConfig(tipoHorario).calculateLunchHours(formData);
   }
+
+  static onFieldChange(
+    tipoHorario: string | undefined,
+    field: FieldName,
+    nextValue: any,
+    prevFormData: any,
+    apiData?: any
+  ) {
+    const cfg = this.getConfig(tipoHorario);
+    if (typeof cfg.onFieldChange === "function") {
+      return cfg.onFieldChange(field, nextValue, prevFormData, apiData);
+    }
+    return { ...prevFormData, [field]: nextValue };
+  }
 }
 
 export default HorarioRulesFactory;
