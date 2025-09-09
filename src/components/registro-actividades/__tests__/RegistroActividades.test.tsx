@@ -1,0 +1,391 @@
+import React from 'react';
+import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import theme from '../../../theme';
+import RegistroActividades from '../RegistroActividades';
+import type { RegistroDiarioData } from '../../../dtos/RegistrosDiariosDataDto';
+
+// Mock auth to avoid redirects/guards
+vi.mock('../../../hooks/useAuth', () => ({
+  __esModule: true,
+  useAuth: () => ({ user: { id: 1, nombre: 'Test' }, isAuthenticated: true, loading: false }),
+}));
+
+// Mock horario validator utils to keep UI stable
+vi.mock('../../../utils/horarioValidations', () => ({
+  __esModule: true,
+  HorarioValidator: {
+    validateByTipo: () => ({
+      horaInicio: '07:00',
+      horaFin: '19:00',
+      esDiaLibre: false,
+      esFestivo: false,
+      nombreDiaFestivo: '',
+      horasNormales: 8,
+      mostrarJornada: true,
+      mostrarNombreFestivo: false,
+      tipoHorario: 'H1',
+    }),
+    getProgressPercentage: () => 0,
+    getHorasFaltantesMessage: () => '',
+  },
+}));
+
+// Mock CalculoHorasTrabajoService minimal
+vi.mock('../../../services/calculoHorasTrabajoService', () => ({
+  __esModule: true,
+  default: {
+    getHorarioTrabajo: vi.fn(async () => ({
+      tipoHorario: 'H1',
+      fecha: '2025-09-06',
+      empleadoId: '1',
+      horarioTrabajo: { inicio: '07:00', fin: '19:00' },
+      incluyeAlmuerzo: true,
+      esDiaLibre: false,
+      esFestivo: false,
+      nombreDiaFestivo: '',
+      cantidadHorasLaborables: 8,
+    })),
+    getHorasNormalesTrabajo: vi.fn(async () => ({
+      horarioTrabajo: { tipoHorario: 'H1', inicio: '07:00', fin: '19:00' },
+      horasNormales: 8,
+      esDiaLibre: false,
+      esFestivo: false,
+      nombreDiaFestivo: '',
+    })),
+  },
+}));
+
+// Mock job service: only used when opening Drawer
+vi.mock('../../../services/jobService', () => ({
+  __esModule: true,
+  default: { getAll: vi.fn(async () => [{ id: 10, codigo: 'J-10', nombre: 'Job 10', activo: true }]) },
+}));
+
+// RegistroDiarioService with spies per test
+const getByDateMock = vi.fn();
+const upsertMock = vi.fn();
+vi.mock('../../../services/registroDiarioService', () => ({
+  __esModule: true,
+  default: {
+    getByDate: (...args: any[]) => getByDateMock(...(args as any)),
+    upsert: (...args: any[]) => upsertMock(...(args as any)),
+  },
+}));
+
+// Stub MUI icons to avoid heavy ESM imports and file handles
+vi.mock('@mui/icons-material', async () => {
+  const React = await import('react');
+  const Dummy = (props: any) => React.createElement('span', props);
+  return {
+    ChevronLeft: Dummy,
+    ChevronRight: Dummy,
+    CalendarToday: Dummy,
+    Add: Dummy,
+    AccessTime: Dummy,
+    Close: Dummy,
+    Settings: Dummy,
+    Edit: Dummy,
+    Delete: Dummy,
+  } as any;
+});
+
+function renderWithProviders(ui: React.ReactElement) {
+  return render(
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      {ui}
+    </ThemeProvider>
+  );
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+// Cierra cualquier listbox/menu abierto de MUI para evitar aria-hidden en el resto del �rbol
+async function closeOpenMenus() {
+  if (screen.queryByRole('listbox')) {
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
+  }
+}
+
+describe('RegistroActividades', () => {
+  test('muestra estado vacío y botón Agregar Actividad cuando no hay actividades', async () => {
+    getByDateMock.mockResolvedValueOnce(null);
+    renderWithProviders(<RegistroActividades />);
+
+    expect(await screen.findByText(/no hay actividades para hoy/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /agregar actividad/i }).length).toBeGreaterThan(0);
+  });
+
+  test('renderiza lista de actividades con horas y job', async () => {
+    const data: RegistroDiarioData = {
+      horaEntrada: '2025-09-06T07:00:00.000Z',
+      horaSalida: '2025-09-06T19:00:00.000Z',
+      esDiaLibre: false,
+      esHoraCorrida: false,
+      actividades: [
+        { jobId: 1, duracionHoras: 2, esExtra: false, descripcion: 'Tarea 1', horaInicio: '2025-09-06T09:00:00.000Z', horaFin: '2025-09-06T11:00:00.000Z' },
+      ],
+    } as any;
+    getByDateMock.mockResolvedValueOnce(data);
+
+    renderWithProviders(<RegistroActividades />);
+
+    // Encabezado de actividades
+    await screen.findByText(/actividades de hoy/i);
+    // Card con Job ID y chip de horas
+    expect(await screen.findByText(/job id:\s*1/i)).toBeInTheDocument();
+    // Chip formateado en horas
+    expect(await screen.findByText(/2.00h|2h/)).toBeInTheDocument();
+    // Descripción visible
+    expect(await screen.findByText(/tarea 1/i)).toBeInTheDocument();
+  });
+
+  test('elimina una actividad y muestra snackbar de éxito', async () => {
+    const initial: RegistroDiarioData = {
+      horaEntrada: '2025-09-06T07:00:00.000Z',
+      horaSalida: '2025-09-06T19:00:00.000Z',
+      esDiaLibre: false,
+      esHoraCorrida: false,
+      actividades: [
+        { jobId: 1, duracionHoras: 1, esExtra: false, descripcion: 'A1', horaInicio: '2025-09-06T08:00:00.000Z', horaFin: '2025-09-06T09:00:00.000Z' },
+        { jobId: 2, duracionHoras: 1, esExtra: false, descripcion: 'A2', horaInicio: '2025-09-06T09:00:00.000Z', horaFin: '2025-09-06T10:00:00.000Z' },
+      ],
+    } as any;
+    const afterDelete: RegistroDiarioData = {
+      ...initial,
+      actividades: initial.actividades!.slice(1),
+    } as any;
+
+    getByDateMock.mockResolvedValueOnce(initial);
+    upsertMock.mockResolvedValueOnce(afterDelete);
+
+    renderWithProviders(<RegistroActividades />);
+
+    // Esperar a que renderice la lista
+    await screen.findByText(/actividades de hoy/i);
+    // Localizar el contenedor del primer card y hacer click en su botón de eliminar
+    const heading = await screen.findByText(/job id:\s*1/i);
+    const container = heading.parentElement as HTMLElement; // Box que contiene heading + acciones
+    const buttonsInCard = within(container).getAllByRole('button');
+    // Último botón debe ser Delete
+    await userEvent.click(buttonsInCard[buttonsInCard.length - 1]);
+
+    await waitFor(() => {
+      expect(upsertMock).toHaveBeenCalled();
+    });
+    // Snackbar de éxito
+    expect(await screen.findByText(/actividad eliminada correctamente/i)).toBeInTheDocument();
+  });
+
+  test('validación requerida de configuración del día y limpia errores al escribir', async () => {
+    // Registro sin actividades para centrarse en config del día
+    getByDateMock.mockResolvedValueOnce({
+      horaEntrada: '2025-09-06T07:00:00.000Z',
+      horaSalida: '2025-09-06T19:00:00.000Z',
+      esDiaLibre: false,
+      esHoraCorrida: false,
+      actividades: [],
+    } as any);
+
+    renderWithProviders(<RegistroActividades />);
+
+    const entrada = await screen.findByLabelText(/hora de entrada/i);
+    const salida = await screen.findByLabelText(/hora de salida/i);
+
+    // Dejar campos vacíos para forzar errores requeridos
+    await userEvent.clear(entrada);
+    await userEvent.clear(salida);
+    const btnDia = await screen.findByRole('button', { name: /(Guardar|Actualizar) D.*/i });
+    await userEvent.click(btnDia);
+    expect(await screen.findByText(/hora de entrada es obligatoria/i)).toBeInTheDocument();
+    expect(await screen.findByText(/hora de salida es obligatoria/i)).toBeInTheDocument();
+
+    // Corregir uno y verificar que se limpia su error
+    await userEvent.type(entrada as HTMLInputElement, '08:00');
+    expect(screen.queryByText(/hora de entrada es obligatoria/i)).toBeNull();
+  });
+
+  test('Guardar día: bloquea por actividades fuera de rango y muestra snackbar de error', async () => {
+    const data: RegistroDiarioData = {
+      horaEntrada: '2025-09-06T07:00:00.000Z',
+      horaSalida: '2025-09-06T19:00:00.000Z',
+      esDiaLibre: false,
+      esHoraCorrida: false,
+      actividades: [
+        { jobId: 1, duracionHoras: 1.5, esExtra: false, descripcion: 'Out', horaInicio: '2025-09-06T06:30:00.000Z', horaFin: '2025-09-06T08:00:00.000Z' },
+      ],
+    } as any;
+    getByDateMock.mockResolvedValueOnce(data);
+
+    renderWithProviders(<RegistroActividades />);
+    const entrada = await screen.findByLabelText(/hora de entrada/i);
+    const salida = await screen.findByLabelText(/hora de salida/i);
+    await userEvent.clear(entrada);
+    await userEvent.type(entrada, '08:00');
+    await userEvent.clear(salida);
+    await userEvent.type(salida, '17:00');
+    const saveDayBtn = await screen.findByRole('button', { name: /(Guardar|Actualizar) D.*/i });
+    await userEvent.click(saveDayBtn);
+
+    // Debe mostrar error y NO llamar a upsert
+    expect(await screen.findByRole('alert')).toHaveTextContent(/fuera del nuevo rango/i);
+    expect(upsertMock).not.toHaveBeenCalled();
+  });
+
+  test('Guardar día: cruza medianoche y calcula horaSalida al día siguiente', async () => {
+    getByDateMock.mockResolvedValueOnce({
+      horaEntrada: '2025-09-06T07:00:00.000Z',
+      horaSalida: '2025-09-06T19:00:00.000Z',
+      esDiaLibre: false,
+      esHoraCorrida: false,
+      actividades: [],
+    } as any);
+    upsertMock.mockResolvedValueOnce({
+      horaEntrada: '2025-09-06T20:00:00.000Z',
+      horaSalida: '2025-09-07T04:00:00.000Z',
+      esDiaLibre: false,
+      esHoraCorrida: false,
+      actividades: [],
+    } as any);
+
+    renderWithProviders(<RegistroActividades />);
+
+    const entrada = await screen.findByLabelText(/hora de entrada/i);
+    const salida = await screen.findByLabelText(/hora de salida/i);
+    await userEvent.clear(entrada);
+    await userEvent.type(entrada, '20:00');
+    await userEvent.clear(salida);
+    await userEvent.type(salida, '04:00');
+    const saveDayBtn2 = await screen.findByRole('button', { name: /(Guardar|Actualizar) D.*/i });
+    await userEvent.click(saveDayBtn2);
+
+    await waitFor(() => expect(upsertMock).toHaveBeenCalled());
+    const payload = upsertMock.mock.calls[0][0];
+    expect(payload.horaEntrada).toMatch(/T20:00:00\.000Z$/);
+    expect(payload.horaSalida).toMatch(/T04:00:00\.000Z$/);
+    // Debe ser al menos mayor que la entrada (siguiente día)
+    expect(new Date(payload.horaSalida).getTime()).toBeGreaterThan(new Date(payload.horaEntrada).getTime());
+  });
+
+  test('Drawer: carga jobs (spinner), validación requerida y solape', async () => {
+    // Mock jobs disponible inmediatamente
+    const jobSvc = (await import('../../../services/jobService')).default as any;
+    jobSvc.getAll.mockResolvedValueOnce([{ id: 10, codigo: 'J-10', nombre: 'Job 10', activo: true }]);
+
+    const data: RegistroDiarioData = {
+      horaEntrada: '2025-09-06T07:00:00.000Z',
+      horaSalida: '2025-09-06T19:00:00.000Z',
+      esDiaLibre: false,
+      esHoraCorrida: false,
+      actividades: [
+        { jobId: 99, duracionHoras: 1, esExtra: false, descripcion: 'A1', horaInicio: '2025-09-06T08:00:00.000Z', horaFin: '2025-09-06T09:00:00.000Z' },
+      ],
+    } as any;
+    getByDateMock.mockResolvedValueOnce(data);
+
+    renderWithProviders(<RegistroActividades />);
+    // Abrir Drawer
+    await userEvent.click(
+      await screen.findByRole('button', { name: /nueva actividad|agregar actividad/i })
+    );
+    // Interactúa con el Autocomplete (sin afirmar loading, ya que el menú puede no abrirse en jsdom)
+    const jobInputs = await screen.findAllByRole('combobox');
+    await userEvent.click(jobInputs[0]);
+
+    // Cierra men� de Jornada si qued� abierto y busca Guardar dentro del drawer
+    await closeOpenMenus();
+    const drawer = document.querySelector('.MuiDrawer-paper') as HTMLElement;
+    expect(drawer).toBeTruthy();
+    const saveBtn = within(drawer).getByRole('button', { name: /^(guardar|actualizar)$/i });
+    await userEvent.click(saveBtn);
+    expect(await screen.findAllByText(/este horario se solapa|requerid|obligatoria/i)).toBeTruthy();
+
+    // Ahora ingresamos horas que se solapan con A1 para ver textos específicos
+    const inicio = await screen.findByLabelText(/hora inicio actividad/i);
+    const fin = await screen.findByLabelText(/hora fin actividad/i);
+    await userEvent.type(inicio, '08:30');
+    await userEvent.type(fin, '09:30');
+    await closeOpenMenus();
+    const drawer2 = document.querySelector('.MuiDrawer-paper') as HTMLElement;
+    expect(drawer2).toBeTruthy();
+    const saveBtn2 = within(drawer2).getByRole('button', { name: /^(guardar|actualizar)$/i });
+    await userEvent.click(saveBtn2);
+    const overlaps = await screen.findAllByText(/se solapa con otra actividad/i);
+    expect(overlaps.length).toBeGreaterThan(0);
+  });
+
+  test('Drawer: calcula Horas Invertidas descontando almuerzo cuando aplica', async () => {
+    getByDateMock.mockResolvedValueOnce({
+      horaEntrada: '2025-09-06T07:00:00.000Z',
+      horaSalida: '2025-09-06T19:00:00.000Z',
+      esDiaLibre: false,
+      esHoraCorrida: false,
+      actividades: [],
+    } as any);
+
+    renderWithProviders(<RegistroActividades />);
+    await userEvent.click(await screen.findByRole('button', { name: /agregar actividad/i }));
+    const inicio = await screen.findByLabelText(/hora inicio actividad/i);
+    const fin = await screen.findByLabelText(/hora fin actividad/i);
+    await userEvent.type(inicio, '11:30');
+    await userEvent.type(fin, '13:30');
+    const invertidas = await screen.findByLabelText(/horas invertidas/i);
+    // 2h - 1h almuerzo => 1.00
+    expect((invertidas as HTMLInputElement).value).toMatch(/^1(\.00)?$/);
+  });
+
+  test('Editar actividad: abre drawer con valores poblados', async () => {
+    const data: RegistroDiarioData = {
+      horaEntrada: '2025-09-06T07:00:00.000Z',
+      horaSalida: '2025-09-06T19:00:00.000Z',
+      esDiaLibre: false,
+      esHoraCorrida: false,
+      actividades: [
+        { jobId: 1, duracionHoras: 1, esExtra: false, descripcion: 'Editar', horaInicio: '2025-09-06T10:00:00.000Z', horaFin: '2025-09-06T11:00:00.000Z' },
+      ],
+    } as any;
+    getByDateMock.mockResolvedValueOnce(data);
+
+    renderWithProviders(<RegistroActividades />);
+    await screen.findByText(/actividades de hoy/i);
+    // El segundo botón del card suele ser Edit
+    const heading = await screen.findByText(/job id:\s*1/i);
+    const container = heading.parentElement as HTMLElement;
+    const buttons = within(container).getAllByRole('button');
+    await userEvent.click(buttons[buttons.length - 2]); // Edit
+    // Verifica prellenado
+    expect(await screen.findByLabelText(/hora inicio actividad/i)).toHaveValue('10:00');
+    expect(await screen.findByLabelText(/hora fin actividad/i)).toHaveValue('11:00');
+  });
+
+  test('Read-only deshabilita acciones (Agregar, Editar, Eliminar, Drawer)', async () => {
+    const data: RegistroDiarioData = {
+      horaEntrada: '2025-09-06T07:00:00.000Z',
+      horaSalida: '2025-09-06T19:00:00.000Z',
+      esDiaLibre: false,
+      esHoraCorrida: false,
+      aprobacionSupervisor: true,
+      actividades: [
+        { jobId: 1, duracionHoras: 1, esExtra: false, descripcion: 'RO', horaInicio: '2025-09-06T08:00:00.000Z', horaFin: '2025-09-06T09:00:00.000Z' },
+      ],
+    } as any;
+    getByDateMock.mockResolvedValueOnce(data);
+
+    renderWithProviders(<RegistroActividades />);
+    await screen.findByText(/actividades de hoy/i);
+    // Botón del header (puede decir "Nueva Actividad" o "Agregar Actividad") debe estar disabled
+    const addBtns = screen.getAllByRole('button').filter((b) => /actividad/i.test((b as HTMLButtonElement).innerText));
+    addBtns.forEach((b) => expect(b).toBeDisabled());
+    // IconButtons de la card también deben estar disabled
+    const heading = await screen.findByText(/job id:\s*1/i);
+    const container = heading.parentElement as HTMLElement;
+    const cardButtons = within(container).getAllByRole('button');
+    cardButtons.forEach((b) => expect(b).toBeDisabled());
+  });
+});

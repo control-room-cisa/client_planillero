@@ -24,3 +24,12 @@ dist-ssr
 *.sw?
 
 .env
+
+
+# Cobertura (Jest / Vitest / Istanbul)
+coverage/
+coverage-*/
+lcov-report/
+coverage-final.json
+.nyc_output/
+

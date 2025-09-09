@@ -198,4 +198,17 @@ Para soporte técnico o preguntas:
 
 ---
 
-**Desarrollado con ❤️ usando React + TypeScript + Material-UI**
+## Pruebas y Comandos
+
+- Instalación: `npm install` (en CI preferir `npm ci`)
+- Desarrollo: `npm run dev`
+- Build producción: `npm run build`
+- Preview del build: `npm run preview`
+- Lint: `npm run lint`
+- Pruebas (una pasada): `npm test`
+- Pruebas en modo watch: `npm run test:watch`
+- Cobertura de pruebas: `npm run test:coverage` (reportes en `coverage/`)
+
+Notas sobre pruebas
+- Framework: Vitest con entorno `jsdom`.
+- Archivos de configuración: `vite.config.ts` (sección `test`) y `src/setupTests.ts`.
