@@ -36,7 +36,7 @@ export function intervalOverlap(
   b1: number,
   b2: number
 ): number {
-  return Math.max(0, Math.min(a2, b2) - Math.max(a1, a2, b1, b2));
+  return Math.max(0, Math.min(a2, b2) - Math.max(a1, b1));
 }
 
 /** Solape del almuerzo fijo 12:00–13:00 contra [dayStart, dayEnd) en minutos */

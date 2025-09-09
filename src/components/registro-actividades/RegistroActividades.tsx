@@ -69,6 +69,9 @@ import {
   isActivityOutsideRange,
 } from "./utils-time";
 
+// CHANGED: helper para forzar solo "D" o "N"
+const sanitizeJornada = (v: unknown): "D" | "N" => (v === "N" ? "N" : "D");
+
 export default function RegistroActividades() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -108,7 +111,7 @@ export default function RegistroActividades() {
   const [dayConfigData, setDayConfigData] = React.useState<DayConfigData>({
     horaEntrada: "",
     horaSalida: "",
-    jornada: "D",
+    jornada: "D", // CHANGED: default solo D/N
     esDiaLibre: false,
     esHoraCorrida: false,
     comentarioEmpleado: "",
@@ -147,7 +150,7 @@ export default function RegistroActividades() {
         setDayConfigData({
           horaEntrada,
           horaSalida,
-          jornada: (registro.jornada as DayConfigData["jornada"]) || "M",
+          jornada: sanitizeJornada(registro.jornada as string), // CHANGED
           esDiaLibre: registro.esDiaLibre || false,
           esHoraCorrida: registro.esHoraCorrida || false,
           comentarioEmpleado: registro.comentarioEmpleado || "",
@@ -157,7 +160,7 @@ export default function RegistroActividades() {
         setDayConfigData({
           horaEntrada: "07:00",
           horaSalida: "17:00",
-          jornada: "M",
+          jornada: "D", // CHANGED: nunca "M"
           esDiaLibre: false,
           esHoraCorrida: false,
           comentarioEmpleado: "",
@@ -197,11 +200,14 @@ export default function RegistroActividades() {
 
       // Auto-config si no hay datos en BD
       if (!datosExistentes && validacion) {
+        const tipo = horarioData.horarioTrabajo.tipoHorario;
         setDayConfigData((prev) => ({
           ...prev,
           horaEntrada: validacion.horaInicio,
           horaSalida: validacion.horaFin,
           esDiaLibre: validacion.esDiaLibre,
+          // Quitar forzado: no marcar Hora Corrida automtico para H2
+          esHoraCorrida: prev.esHoraCorrida,
         }));
       }
     } catch (error) {
@@ -267,7 +273,6 @@ export default function RegistroActividades() {
     currentDate.toDateString() === new Date().toDateString();
 
   // ======== Rango del día / progreso ========
-  // Nota: usamos dayConfigData (o registro) para el rango actual
   const entradaHHMM =
     registroDiario?.horaEntrada?.substring(11, 16) || dayConfigData.horaEntrada;
   const salidaHHMM =
@@ -286,7 +291,7 @@ export default function RegistroActividades() {
       (acc, act) =>
         acc +
         computeHorasActividadForDisplayNum(
-          act as unknown as Activity, // estructura compatible
+          act as unknown as Activity,
           dayConfigData.esHoraCorrida,
           entradaHHMM,
           salidaHHMM
@@ -318,8 +323,8 @@ export default function RegistroActividades() {
     return (
       dayConfigData.horaEntrada !== registroHoraEntrada ||
       dayConfigData.horaSalida !== registroHoraSalida ||
-      dayConfigData.jornada !==
-        (registroDiario.jornada as DayConfigData["jornada"]) ||
+      sanitizeJornada(dayConfigData.jornada) !==
+        sanitizeJornada(registroDiario.jornada as string) || // CHANGED
       dayConfigData.esDiaLibre !== registroDiario.esDiaLibre ||
       dayConfigData.esHoraCorrida !== registroDiario.esHoraCorrida ||
       dayConfigData.comentarioEmpleado !==
@@ -400,7 +405,7 @@ export default function RegistroActividades() {
         fecha: dateString,
         horaEntrada: registroDiario.horaEntrada,
         horaSalida: registroDiario.horaSalida,
-        jornada: registroDiario.jornada,
+        jornada: sanitizeJornada(registroDiario.jornada as string), // CHANGED
         esDiaLibre: registroDiario.esDiaLibre,
         esHoraCorrida: registroDiario.esHoraCorrida,
         comentarioEmpleado: registroDiario.comentarioEmpleado,
@@ -431,9 +436,15 @@ export default function RegistroActividades() {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const { name, value, type, checked } = event.target;
+    // CHANGED: si es jornada, siempre sanear
+    const nextValue =
+      name === "jornada"
+        ? sanitizeJornada(value)
+        : (type === "checkbox" ? (checked as unknown as string) : value);
+
     setDayConfigData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: nextValue as any,
     }));
     if (dayConfigErrors[name]) {
       setDayConfigErrors((prev) => ({ ...prev, [name]: "" }));
@@ -505,7 +516,7 @@ export default function RegistroActividades() {
         fecha: dateString,
         horaEntrada: horaEntradaISO,
         horaSalida: horaSalidaISO,
-        jornada: dayConfigData.jornada,
+        jornada: sanitizeJornada(dayConfigData.jornada), // CHANGED
         esDiaLibre: dayConfigData.esDiaLibre,
         esHoraCorrida: dayConfigData.esHoraCorrida,
         comentarioEmpleado: dayConfigData.comentarioEmpleado,
@@ -749,7 +760,7 @@ export default function RegistroActividades() {
           fecha: dateString,
           horaEntrada: registroDiario.horaEntrada,
           horaSalida: registroDiario.horaSalida,
-          jornada: registroDiario.jornada,
+          jornada: sanitizeJornada(registroDiario.jornada as string), // CHANGED
           esDiaLibre: registroDiario.esDiaLibre,
           esHoraCorrida: registroDiario.esHoraCorrida,
           comentarioEmpleado: registroDiario.comentarioEmpleado,
@@ -774,7 +785,7 @@ export default function RegistroActividades() {
             dayConfigData.horaSalida,
             addDayForEnd
           ),
-          jornada: dayConfigData.jornada,
+          jornada: sanitizeJornada(dayConfigData.jornada), // CHANGED
           esDiaLibre: dayConfigData.esDiaLibre,
           esHoraCorrida: dayConfigData.esHoraCorrida,
           comentarioEmpleado: dayConfigData.comentarioEmpleado,
@@ -915,12 +926,11 @@ export default function RegistroActividades() {
         >
           {horarioValidado?.mostrarJornada && (
             <Chip
+              // CHANGED: jornada saneada para etiqueta
               label={`Jornada: ${
-                registroDiario.jornada === "D"
+                sanitizeJornada(registroDiario.jornada as string) === "D"
                   ? "Dia"
-                  : registroDiario.jornada === "N"
-                  ? "Noche"
-                  : ""
+                  : "Noche"
               }`}
               size="small"
               color="primary"
@@ -1037,7 +1047,7 @@ export default function RegistroActividades() {
                 <Select
                   disabled={readOnly}
                   name="jornada"
-                  value={dayConfigData.jornada}
+                  value={sanitizeJornada(dayConfigData.jornada)} // CHANGED
                   onChange={(e) =>
                     handleDayConfigInputChange(
                       e as unknown as React.ChangeEvent<HTMLInputElement>
@@ -1298,7 +1308,7 @@ export default function RegistroActividades() {
         </Fab>
       )}
 
-      {/* Drawer actividad (completo, con Autocomplete de jobs) */}
+      {/* Drawer actividad */}
       <Drawer
         anchor="right"
         open={drawerOpen}

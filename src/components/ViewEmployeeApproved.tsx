@@ -256,7 +256,6 @@ const ViewEmployeeApprovedReadOnly: React.FC<Props> = ({
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
       <Box sx={{ p: 2, overflowX: "hidden" }}>
-        pl{" "}
         <Typography
           marginLeft={4}
           variant="h5"
@@ -403,6 +402,13 @@ const ViewEmployeeApprovedReadOnly: React.FC<Props> = ({
                                 variant="outlined"
                               />
 
+                              {/* Horario de la actividad (si aplica) */}
+                              <Typography variant="caption" color="text.secondary">
+                                {act.horaInicio && act.horaFin
+                                  ? `${formatTimeCorrectly(act.horaInicio)} - ${formatTimeCorrectly(act.horaFin)}`
+                                  : ""}
+                              </Typography>
+
                               {/* Job y código (cada cosa en su línea si prefieres, aquí van juntos en texto) */}
                               <Typography
                                 variant="caption"
@@ -445,6 +451,7 @@ const ViewEmployeeApprovedReadOnly: React.FC<Props> = ({
                           <TableRow>
                             <TableCell>Descripción</TableCell>
                             <TableCell>Horas</TableCell>
+                            <TableCell>Horario</TableCell>
                             <TableCell>Job</TableCell>
                             <TableCell>Código</TableCell>
                             <TableCell>Tipo</TableCell>
@@ -478,6 +485,11 @@ const ViewEmployeeApprovedReadOnly: React.FC<Props> = ({
                                     )}h`}
                                     size="small"
                                   />
+                                </TableCell>
+                                <TableCell>
+                                  {act.horaInicio && act.horaFin
+                                    ? `${formatTimeCorrectly(act.horaInicio)} - ${formatTimeCorrectly(act.horaFin)}`
+                                    : "-"}
                                 </TableCell>
                                 <TableCell>{act.job?.nombre}</TableCell>
                                 <TableCell>{act.job?.codigo}</TableCell>

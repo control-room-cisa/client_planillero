@@ -35,6 +35,8 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { es } from "date-fns/locale";
 import RegistroDiarioService from "../../services/registroDiarioService";
+import CalculoHorasTrabajoService from "../../services/calculoHorasTrabajoService";
+import type { HorarioTrabajoDto } from "../../dtos/calculoHorasTrabajoDto";
 import type {
   RegistroDiarioData,
   ActividadData,
@@ -84,6 +86,10 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   const [jobs, setJobs] = useState<JobConJerarquia[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobConJerarquia | null>(null);
+  // Mapa fecha -> tipoHorario (H1, H2, ...)
+  const [horariosByFecha, setHorariosByFecha] = useState<Record<string, string>>({});
+  // Mapa fecha -> horas normales esperadas (del backend)
+  const [expectedHoursByFecha, setExpectedHoursByFecha] = useState<Record<string, number>>({});
 
   // Para saber qué registro/actividad se está editando
   const [targetRegistro, setTargetRegistro] =
@@ -116,6 +122,27 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
       const results = await Promise.all(
         days.map((fecha) => RegistroDiarioService.getByDate(fecha, empleado.id))
       );
+
+      // Cargar tipo de horario por fecha para condicionar chips (Hora Corrida solo H2)
+      const horarios: Array<HorarioTrabajoDto | null> = await Promise.all(
+        days.map((fecha) =>
+          CalculoHorasTrabajoService.getHorarioTrabajo(empleado.id, fecha)
+            .then((h) => h)
+            .catch(() => null)
+        )
+      );
+      const byFecha: Record<string, string> = {};
+      const byFechaHours: Record<string, number> = {};
+      for (const h of horarios) {
+        if (h?.fecha) {
+          byFecha[h.fecha] = h.tipoHorario;
+          if (typeof h.cantidadHorasLaborables === "number") {
+            byFechaHours[h.fecha] = h.cantidadHorasLaborables;
+          }
+        }
+      }
+      setHorariosByFecha(byFecha);
+      setExpectedHoursByFecha(byFechaHours);
 
       const filtered = results
         .filter((r): r is RegistroDiarioData => r !== null)
@@ -312,14 +339,16 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     });
   };
 
+  const TZ = "America/Tegucigalpa";
   const formatTimeCorrectly = (dateString: string) => {
+    if (!dateString) return "-";
     const date = new Date(dateString);
-    return date.toLocaleTimeString("es-ES", {
+    return new Intl.DateTimeFormat("es-HN", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
-      timeZone: "UTC",
-    });
+      timeZone: TZ,
+    }).format(date);
   };
 
   const formatDateInSpanish = (ymd: string) => {
@@ -363,6 +392,14 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     registro: RegistroDiarioData
   ): number => {
     if (registro.esDiaLibre) return 0;
+
+    // Si el backend provee horas esperadas, úsalo para tipos distintos de H1
+    const ymd = registro.fecha ?? "";
+    const tipo = horariosByFecha[ymd];
+    const horasBackend = expectedHoursByFecha[ymd];
+    if (tipo !== "H1" && typeof horasBackend === "number" && horasBackend > 0) {
+      return horasBackend;
+    }
 
     const entrada = new Date(registro.horaEntrada);
     const salida = new Date(registro.horaSalida);
@@ -480,10 +517,18 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
 
         <Stack spacing={2}>
           {registros.map((registro, idx) => {
-            const normales =
+            let normales =
               registro.actividades
                 ?.filter((a) => !a.esExtra)
                 .reduce((s, a) => s + a.duracionHoras, 0) ?? 0;
+            // Para H1 con hora corrida, sumar 1h de almuerzo (12:00–13:00)
+            if (
+              horariosByFecha[registro.fecha ?? ""] === "H1" &&
+              registro.esHoraCorrida &&
+              !registro.esDiaLibre
+            ) {
+              normales += 1;
+            }
             const extras =
               registro.actividades
                 ?.filter((a) => a.esExtra)
@@ -497,13 +542,14 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
             const validacionHorasNormales =
               Math.abs(normales - horasNormalesEsperadas) < 0.1;
 
-            const entrada = new Date(registro.horaEntrada);
-            const salida = new Date(registro.horaSalida);
-            const entradaMin =
-              entrada.getUTCHours() * 60 + entrada.getUTCMinutes();
-            const salidaMin =
-              salida.getUTCHours() * 60 + salida.getUTCMinutes();
-            const esTurnoNocturno = entradaMin > salidaMin;
+            // Determinar si cruza medianoche usando hora local (TZ Honduras)
+            const entradaHM = formatTimeCorrectly(registro.horaEntrada); // HH:mm local
+            const salidaHM = formatTimeCorrectly(registro.horaSalida);   // HH:mm local
+            const [eh, em] = entradaHM.split(":").map(Number);
+            const [sh, sm] = salidaHM.split(":").map(Number);
+            const entradaMin = eh * 60 + em;
+            const salidaMin = sh * 60 + sm;
+            const esTurnoNocturno = salidaMin < entradaMin;
 
             return (
               <Grow key={registro.id!} in={!loading} timeout={300 + idx * 100}>
@@ -537,7 +583,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                             size="small"
                           />
                         )}
-                        {registro.esHoraCorrida && (
+                        {horariosByFecha[registro.fecha ?? ""] !== "H2" &&
+                          registro.esHoraCorrida && (
                           <Chip
                             label="Hora Corrida"
                             color="warning"
@@ -572,6 +619,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                           <TableRow>
                             <TableCell>Descripción</TableCell>
                             <TableCell>Horas</TableCell>
+                            <TableCell>Horario</TableCell>
                             <TableCell>Job</TableCell>
                             <TableCell>Código</TableCell>
                             <TableCell>Tipo</TableCell>
@@ -593,6 +641,11 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                     label={`${act.duracionHoras}h`}
                                     size="small"
                                   />
+                                </TableCell>
+                                <TableCell>
+                                  {act.horaInicio && act.horaFin
+                                    ? `${formatTimeCorrectly(act.horaInicio)} - ${formatTimeCorrectly(act.horaFin)}`
+                                    : "-"}
                                 </TableCell>
                                 <TableCell>{act.job?.nombre}</TableCell>
                                 <TableCell>{act.job?.codigo}</TableCell>
@@ -651,6 +704,20 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                   sx={{ fontWeight: 600 }}
                                 >
                                   {act.descripcion}
+                                </Typography>
+                              </Box>
+
+                              <Box>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  Horario
+                                </Typography>
+                                <Typography variant="body2">
+                                  {act.horaInicio && act.horaFin
+                                    ? `${formatTimeCorrectly(act.horaInicio)} - ${formatTimeCorrectly(act.horaFin)}`
+                                    : "-"}
                                 </Typography>
                               </Box>
 
