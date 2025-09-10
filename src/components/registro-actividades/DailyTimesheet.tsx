@@ -79,9 +79,16 @@ const TZ_OFFSET = "-06:00"; // Honduras fijo
 const buildISO = (baseDate: Date, hhmmStr: string, addDays = 0) => {
   // fecha base en TZ local (ya tienes ymdInTZ con America/Tegucigalpa)
   const ymd = ymdInTZ(baseDate); // "YYYY-MM-DD" en TZ local
+  // Permitir 24:00 como fin de día (siguiente día a las 00:00)
+  let effectiveHHMM = hhmmStr;
+  let effectiveAddDays = addDays;
+  if (hhmmStr === "24:00") {
+    effectiveHHMM = "00:00";
+    effectiveAddDays += 1;
+  }
   // construye un ISO con offset local, NO en Zulu
-  const d = new Date(`${ymd}T${hhmmStr}:00${TZ_OFFSET}`);
-  if (addDays > 0) d.setDate(d.getDate() + addDays);
+  const d = new Date(`${ymd}T${effectiveHHMM}:00${TZ_OFFSET}`);
+  if (effectiveAddDays > 0) d.setDate(d.getDate() + effectiveAddDays);
   // la API recibe UTC, pero este UTC ya representa la hora local correcta
   return d.toISOString();
 };
@@ -165,6 +172,7 @@ const DailyTimesheet: React.FC = () => {
 
   // === NUEVO: bandera de horario H2 ===
   const isH2 = horarioValidado?.tipoHorario === "H2";
+  const isH1 = horarioValidado?.tipoHorario === "H1";
 
   // ===== Helpers de tiempo =====
   const timeToMinutes = (time: string): number => {
@@ -172,12 +180,112 @@ const DailyTimesheet: React.FC = () => {
     return h * 60 + m;
   };
 
+  // Función para validar formato de hora (incluyendo 24:00)
+  const isValidTimeFormat = (time: string): boolean => {
+    if (!time) return false;
+    const timeRegex = /^([01]?\d|2[0-4]):([0-5]\d)$/;
+    if (!timeRegex.test(time)) return false;
+
+    const [h, m] = time.split(":").map(Number);
+    // Permitir 24:00 pero no 24:01, 24:15, etc.
+    if (h === 24 && m !== 0) return false;
+    return true;
+  };
+
+  // Función para incrementar/decrementar tiempo con teclas direccionales
+  const adjustTime = (
+    timeStr: string,
+    direction: "up" | "down",
+    isHour: boolean
+  ): string => {
+    if (!timeStr) return timeStr;
+
+    let [h, m] = timeStr.split(":").map(Number);
+
+    if (isHour) {
+      // Ajustar horas
+      if (direction === "up") {
+        if (timeStr === "24:00") {
+          // Desde 24:00 ir a 01:00
+          h = 1;
+          m = 0;
+        } else if (h >= 23) {
+          // Desde 23:xx ir a 00:xx (no permitir más de 24:00 con horas)
+          h = 0;
+        } else {
+          h = h + 1;
+        }
+      } else {
+        if (timeStr === "24:00") {
+          // Desde 24:00 ir a 23:00
+          h = 23;
+          m = 0;
+        } else if (h <= 0) {
+          // Desde 00:xx ir a 23:xx
+          h = 23;
+        } else {
+          h = h - 1;
+        }
+      }
+    } else {
+      // Ajustar minutos en intervalos de 15
+      if (direction === "up") {
+        if (timeStr === "23:45") {
+          // Caso especial: desde 23:45 ir a 24:00 (solo para fin de día)
+          h = 24;
+          m = 0;
+        } else if (timeStr === "24:00") {
+          // Desde 24:00 ir a 00:15
+          h = 0;
+          m = 15;
+        } else {
+          m += 15;
+          if (m >= 60) {
+            m = 0;
+            h = h >= 23 ? 0 : h + 1;
+          }
+        }
+      } else {
+        if (timeStr === "24:00") {
+          // Desde 24:00 ir a 23:45
+          h = 23;
+          m = 45;
+        } else if (timeStr === "00:00") {
+          // Desde 00:00 ir a 23:45
+          h = 23;
+          m = 45;
+        } else {
+          m -= 15;
+          if (m < 0) {
+            m = 45;
+            h = h <= 0 ? 23 : h - 1;
+          }
+        }
+      }
+    }
+
+    // Formatear resultado
+    const result = `${h.toString().padStart(2, "0")}:${m
+      .toString()
+      .padStart(2, "0")}`;
+
+    return result;
+  };
+
   // Función para redondear tiempo a intervalos de 15 minutos
   const roundToQuarterHour = (time: string): string => {
     if (!time) return time;
+
+    // Manejar 24:00 especialmente
+    if (time === "24:00") return time;
+
     const [h, m] = time.split(":").map(Number);
     const totalMinutes = h * 60 + m;
     const roundedMinutes = Math.round(totalMinutes / 15) * 15;
+
+    // Si el redondeo lleva a 24:00 (1440 minutos), mantenerlo
+    if (roundedMinutes >= 1440) return "24:00";
+
     const hours = Math.floor(roundedMinutes / 60);
     const minutes = roundedMinutes % 60;
     return `${hours.toString().padStart(2, "0")}:${minutes
@@ -217,17 +325,31 @@ const DailyTimesheet: React.FC = () => {
   // esta validación no aplica y se omite para evitar mensajes contradictorios.
   const errorOutsideRange = (): string => "";
 
-  // Valida Hora fin: primero rango; luego relación con inicio si el día NO cruza medianoche
+  // Valida Hora fin: primero rango; luego relación con inicio
   const computeHoraFinError = (fin: string, inicio: string): string => {
     const rangoErr = errorOutsideRange();
     if (rangoErr) return rangoErr;
     if (!fin || !inicio) return "";
 
-    const { crossesMidnight } = getDayBoundsMinutes();
     const s = timeToMinutes(inicio);
-    const e = timeToMinutes(fin);
-    if (!crossesMidnight && e <= s)
-      return "La hora final debe ser posterior a la inicial";
+    let e = timeToMinutes(fin);
+
+    // Permitir 24:00 como fin válido (representa siguiente día 00:00)
+    if (fin === "24:00") {
+      e = 1440; // 24:00 = 1440 minutos
+    }
+
+    // Validación estricta: fin debe ser mayor que inicio,
+    // EXCEPTO si fin es exactamente 00:00 (que representa 24:00)
+    if (e <= s) {
+      if (fin === "00:00" && s > 0) {
+        // 00:00 como fin es válido solo si inicio > 00:00 (cruza medianoche)
+        return "";
+      } else {
+        return "La hora final debe ser posterior a la inicial";
+      }
+    }
+
     return "";
   };
 
@@ -238,9 +360,16 @@ const DailyTimesheet: React.FC = () => {
   ): string => {
     if (!inicioHHMM || !finHHMM) return "";
 
-    // Duración base
+    // Duración base - manejar 24:00 como fin de día
     const [h1, m1] = inicioHHMM.split(":").map(Number);
-    const [h2, m2] = finHHMM.split(":").map(Number);
+    let h2, m2;
+    if (finHHMM === "24:00") {
+      h2 = 24;
+      m2 = 0;
+    } else {
+      [h2, m2] = finHHMM.split(":").map(Number);
+    }
+
     let dur = h2 + m2 / 60 - (h1 + m1 / 60);
     if (dur < 0) dur += 24; // cruza medianoche
 
@@ -256,7 +385,7 @@ const DailyTimesheet: React.FC = () => {
         crossesMidnight
       );
       let e = normalizeToDaySpan(
-        timeToMinutes(finHHMM),
+        finHHMM === "24:00" ? 1440 : timeToMinutes(finHHMM),
         dayStart,
         crossesMidnight
       );
@@ -286,7 +415,11 @@ const DailyTimesheet: React.FC = () => {
     const eHM = hhmm(act.horaFin); // HH:mm sin TZ
 
     let s = normalizeToDaySpan(timeToMinutes(sHM), dayStart, crossesMidnight);
-    let e = normalizeToDaySpan(timeToMinutes(eHM), dayStart, crossesMidnight);
+    let e = normalizeToDaySpan(
+      eHM === "24:00" ? 1440 : timeToMinutes(eHM),
+      dayStart,
+      crossesMidnight
+    );
     if (e <= s) e += 1440; // cruza medianoche
 
     // Duración base
@@ -329,7 +462,11 @@ const DailyTimesheet: React.FC = () => {
     const eHM = hhmm(act.horaFin);
 
     let s = normalizeToDaySpan(timeToMinutes(sHM), dayStart, crossesMidnight);
-    let e = normalizeToDaySpan(timeToMinutes(eHM), dayStart, crossesMidnight);
+    let e = normalizeToDaySpan(
+      eHM === "24:00" ? 1440 : timeToMinutes(eHM),
+      dayStart,
+      crossesMidnight
+    );
     if (e <= s) e += 1440;
 
     return s < dayStart || e > dayEnd;
@@ -348,10 +485,10 @@ const DailyTimesheet: React.FC = () => {
       const jobsData = await JobService.getAll();
       const jobsActivos = jobsData.filter((j) => j.activo === true);
 
-      // Filtrar jobs especiales solo para horas normales
+      // Filtrar jobs especiales: solo mostrar cuando Hora Extra NO está marcado
       const jobsFiltrados = formData.horaExtra
         ? jobsActivos.filter((j) => !j.especial) // Solo jobs normales para hora extra
-        : jobsActivos; // Todos los jobs para horas normales
+        : jobsActivos; // Todos los jobs (incluidos especiales) para horas normales
 
       const jobMap = new Map(jobsFiltrados.map((j) => [j.codigo, j]));
 
@@ -617,6 +754,50 @@ const DailyTimesheet: React.FC = () => {
   };
 
   // ===== Config del día =====
+  // Manejador de teclas para campos de tiempo en configuración del día
+  const handleDayConfigTimeKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    const target = event.target as HTMLInputElement;
+    const { name, value } = target;
+
+    if (!["horaEntrada", "horaSalida"].includes(name)) return;
+
+    let currentValue = value;
+    // Si está vacío o inválido, empezar con 08:00
+    if (!currentValue || !isValidTimeFormat(currentValue)) {
+      currentValue = "08:00";
+    }
+
+    let newValue = currentValue;
+    const cursorPos = target.selectionStart || 0;
+    const isHourPart = cursorPos <= 2;
+
+    switch (event.key) {
+      case "ArrowUp":
+        event.preventDefault();
+        newValue = adjustTime(currentValue, "up", isHourPart);
+        break;
+
+      case "ArrowDown":
+        event.preventDefault();
+        newValue = adjustTime(currentValue, "down", isHourPart);
+        break;
+
+      default:
+        return;
+    }
+
+    if (newValue !== value) {
+      setDayConfigData((prev) => ({ ...prev, [name]: newValue }));
+
+      // Mantener posición del cursor
+      setTimeout(() => {
+        target.setSelectionRange(cursorPos, cursorPos);
+      }, 0);
+    }
+  };
+
   const handleDayConfigInputChange = (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -773,6 +954,59 @@ const DailyTimesheet: React.FC = () => {
   };
 
   // ===== Form actividad =====
+  // Manejador de teclas para campos de tiempo
+  const handleTimeKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    const target = event.target as HTMLInputElement;
+    const { name, value } = target;
+
+    if (!["horaInicio", "horaFin"].includes(name)) return;
+
+    let currentValue = value;
+    // Si está vacío, empezar con 08:00
+    if (!currentValue) {
+      currentValue = "08:00";
+    }
+
+    let newValue = currentValue;
+    const cursorPos = target.selectionStart || 0;
+    const isHourPart = cursorPos <= 2;
+
+    switch (event.key) {
+      case "ArrowUp":
+        event.preventDefault();
+        newValue = adjustTime(currentValue, "up", isHourPart);
+        break;
+
+      case "ArrowDown":
+        event.preventDefault();
+        newValue = adjustTime(currentValue, "down", isHourPart);
+        break;
+
+      default:
+        return;
+    }
+
+    if (newValue !== value) {
+      // Para horaFin, si el resultado es 24:00, mostrar 00:00 en el input
+      let displayValue = newValue;
+      if (name === "horaFin" && newValue === "24:00") {
+        displayValue = "00:00";
+      }
+
+      // Simular evento de cambio para activar la lógica de conversión
+      const syntheticEvent = {
+        target: { name, value: displayValue, type: "time" },
+      } as React.ChangeEvent<HTMLInputElement>;
+
+      handleInputChange(syntheticEvent);
+
+      // Mantener posición del cursor
+      setTimeout(() => {
+        target.setSelectionRange(cursorPos, cursorPos);
+      }, 0);
+    }
+  };
+
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = event.target;
 
@@ -785,6 +1019,16 @@ const DailyTimesheet: React.FC = () => {
         (name === "horaInicio" || name === "horaFin")
       ) {
         finalValue = roundToQuarterHour(value);
+
+        // Para horaFin, si el usuario selecciona 00:00, convertir a 24:00 internamente
+        // para representar el final del día
+        if (name === "horaFin" && value === "00:00") {
+          // Solo convertir a 24:00 si la hora de inicio es posterior a 00:00
+          const inicioMinutos = timeToMinutes(prev.horaInicio || "00:00");
+          if (inicioMinutos > 0) {
+            finalValue = "24:00";
+          }
+        }
       }
 
       const next = { ...prev, [name]: finalValue };
@@ -863,9 +1107,17 @@ const DailyTimesheet: React.FC = () => {
     // Validar campos según si es hora extra o no
     if (formData.horaExtra) {
       // Para hora extra, los campos de tiempo son obligatorios
-      if (!horaInicio)
+      if (!horaInicio) {
         errors.horaInicio = "Hora inicio obligatoria para hora extra";
-      if (!horaFin) errors.horaFin = "Hora fin obligatoria para hora extra";
+      } else if (!isValidTimeFormat(horaInicio)) {
+        errors.horaInicio = "Formato inválido. Use HH:MM";
+      }
+
+      if (!horaFin) {
+        errors.horaFin = "Hora fin obligatoria para hora extra";
+      } else if (!isValidTimeFormat(horaFin)) {
+        errors.horaFin = "Formato inválido. Use HH:MM (máximo 24:00)";
+      }
 
       // Para hora extra, las horas invertidas se calculan automáticamente
       // Validar que el cálculo sea válido
@@ -915,7 +1167,7 @@ const DailyTimesheet: React.FC = () => {
       const esTurnoNoche = entradaMin > salidaMin;
 
       const inicioMin = timeToMinutes(horaInicio);
-      let finMin = timeToMinutes(horaFin);
+      let finMin = horaFin === "24:00" ? 1440 : timeToMinutes(horaFin);
 
       // Si fin <= inicio, la actividad cruza medianoche
       if (finMin <= inicioMin) {
@@ -970,7 +1222,9 @@ const DailyTimesheet: React.FC = () => {
           if (!act.horaInicio || !act.horaFin) return false;
 
           const actInicioMin = timeToMinutes(hhmm(act.horaInicio));
-          let actFinMin = timeToMinutes(hhmm(act.horaFin));
+          const actFinHHMM = hhmm(act.horaFin);
+          let actFinMin =
+            actFinHHMM === "24:00" ? 1440 : timeToMinutes(actFinHHMM);
 
           if (actFinMin <= actInicioMin) {
             actFinMin += 1440;
@@ -1007,7 +1261,8 @@ const DailyTimesheet: React.FC = () => {
 
       // Construir ISO para inicio/fin (si el fin es <= inicio, poner fin al DÍA SIGUIENTE)
       const startM = timeToMinutes(formData.horaInicio);
-      const endM = timeToMinutes(formData.horaFin);
+      const endM =
+        formData.horaFin === "24:00" ? 1440 : timeToMinutes(formData.horaFin);
       const addDay = endM <= startM ? 1 : 0;
 
       const actividad: any = {
@@ -1198,6 +1453,11 @@ const DailyTimesheet: React.FC = () => {
   const forceExtra = horasNormales === 0;
   const horasCero = horasNormales === 0;
 
+  // Lógica para H1: controlar checkbox Hora Extra automáticamente según progreso
+  const shouldForceExtraH1 = isH1 && !editingActivity;
+  const isH1ProgressComplete = isH1 && progressPercentage >= 100;
+  const isH1ProgressIncomplete = isH1 && progressPercentage < 100;
+
   // Quitar forzado de esHoraCorrida en UI para H2
 
   React.useEffect(() => {
@@ -1235,6 +1495,56 @@ const DailyTimesheet: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.horaInicio, formData.horaFin]);
+
+  // Efecto para controlar automáticamente el checkbox "Hora Extra" en H1
+  React.useEffect(() => {
+    if (shouldForceExtraH1 && drawerOpen) {
+      setFormData((prev) => {
+        let needsUpdate = false;
+        let newFormData = prev;
+
+        if (isH1ProgressComplete && !prev.horaExtra) {
+          // Progreso completo: marcar Hora Extra y limpiar campos
+          newFormData = {
+            ...prev,
+            horaExtra: true,
+            horasInvertidas: "",
+            horaInicio: "",
+            horaFin: "",
+            job: "", // Limpiar job seleccionado
+          };
+          needsUpdate = true;
+        } else if (isH1ProgressIncomplete && prev.horaExtra) {
+          // Progreso incompleto: desmarcar Hora Extra y limpiar campos
+          newFormData = {
+            ...prev,
+            horaExtra: false,
+            horasInvertidas: "",
+            horaInicio: "",
+            horaFin: "",
+            job: "", // Limpiar job seleccionado
+          };
+          needsUpdate = true;
+        }
+
+        // Si cambió el estado de horaExtra, recargar jobs y limpiar job seleccionado
+        if (needsUpdate && newFormData.horaExtra !== prev.horaExtra) {
+          setSelectedJob(null);
+          // Recargar jobs después de un pequeño delay para que el estado se actualice
+          setTimeout(() => {
+            loadJobs();
+          }, 0);
+        }
+
+        return newFormData;
+      });
+    }
+  }, [
+    shouldForceExtraH1,
+    isH1ProgressComplete,
+    isH1ProgressIncomplete,
+    drawerOpen,
+  ]);
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: "100%" }}>
@@ -1419,6 +1729,7 @@ const DailyTimesheet: React.FC = () => {
               label="Hora de Entrada"
               value={initialLoading ? "" : dayConfigData.horaEntrada}
               onChange={handleDayConfigInputChange}
+              onKeyDown={handleDayConfigTimeKeyDown}
               error={!!dayConfigErrors.horaEntrada}
               helperText={dayConfigErrors.horaEntrada}
               InputLabelProps={{ shrink: true }}
@@ -1443,6 +1754,7 @@ const DailyTimesheet: React.FC = () => {
               label="Hora de Salida"
               value={initialLoading ? "" : dayConfigData.horaSalida}
               onChange={handleDayConfigInputChange}
+              onKeyDown={handleDayConfigTimeKeyDown}
               error={!!dayConfigErrors.horaSalida}
               helperText={dayConfigErrors.horaSalida}
               InputLabelProps={{ shrink: true }}
@@ -1893,6 +2205,7 @@ const DailyTimesheet: React.FC = () => {
                   label="Hora inicio actividad"
                   value={formData.horaInicio}
                   onChange={handleInputChange}
+                  onKeyDown={handleTimeKeyDown}
                   error={!!formErrors.horaInicio}
                   helperText={formErrors.horaInicio}
                   InputLabelProps={{ shrink: true }}
@@ -1907,11 +2220,17 @@ const DailyTimesheet: React.FC = () => {
                   required
                   type="time"
                   name="horaFin"
-                  label="Hora fin actividad"
-                  value={formData.horaFin}
+                  label="Hora fin actividad (00:00 = fin del día)"
+                  value={
+                    formData.horaFin === "24:00" ? "00:00" : formData.horaFin
+                  }
                   onChange={handleInputChange}
+                  onKeyDown={handleTimeKeyDown}
                   error={!!formErrors.horaFin}
-                  helperText={formErrors.horaFin}
+                  helperText={
+                    formErrors.horaFin ||
+                    "00:00 representa el final del día (24:00)"
+                  }
                   InputLabelProps={{ shrink: true }}
                   size="small"
                   inputProps={{
@@ -2067,17 +2386,36 @@ const DailyTimesheet: React.FC = () => {
               control={
                 <Checkbox
                   disabled={
-                    readOnly || (!canAddExtraHours && !forceExtra) || forceExtra
+                    readOnly ||
+                    (!canAddExtraHours && !forceExtra) ||
+                    forceExtra ||
+                    shouldForceExtraH1
                   }
                   name="horaExtra"
-                  checked={forceExtra ? true : formData.horaExtra}
-                  onChange={forceExtra ? undefined : handleInputChange}
+                  checked={
+                    forceExtra
+                      ? true
+                      : shouldForceExtraH1
+                      ? isH1ProgressComplete
+                        ? true
+                        : false
+                      : formData.horaExtra
+                  }
+                  onChange={
+                    forceExtra || shouldForceExtraH1
+                      ? undefined
+                      : handleInputChange
+                  }
                   color="primary"
                 />
               }
               label={`Hora Extra (fuera del horario)${
                 !canAddExtraHours && !forceExtra
                   ? " - Completa primero las horas normales"
+                  : shouldForceExtraH1 && isH1ProgressIncomplete
+                  ? " - Completa primero las horas normales del día"
+                  : shouldForceExtraH1 && isH1ProgressComplete
+                  ? " - Día laboral completo, solo horas extra"
                   : ""
               }`}
               sx={{ mb: 0.5 }}
