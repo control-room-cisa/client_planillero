@@ -60,9 +60,7 @@ const ymdInTZ = (d: Date) =>
   }).format(d);
 
 // === Helpers de hora ===
-// 1) Extraer HH:mm directo del ISO (sin TZ) para cálculos específicos
-const hhmm = (iso?: string | null) => (iso ? iso.slice(11, 16) : "");
-// 2) Formatear hora en zona local para mostrar lo que eligió el empleado
+// Formatear hora en zona local para mostrar lo que eligió el empleado
 const formatTimeLocal = (iso?: string | null) => {
   if (!iso) return "";
   const d = new Date(iso);
@@ -411,8 +409,8 @@ const DailyTimesheet: React.FC = () => {
 
     const { dayStart, crossesMidnight } = getDayBoundsMinutes();
 
-    const sHM = hhmm(act.horaInicio); // HH:mm sin TZ
-    const eHM = hhmm(act.horaFin); // HH:mm sin TZ
+    const sHM = formatTimeLocal(act.horaInicio);
+    const eHM = formatTimeLocal(act.horaFin);
 
     let s = normalizeToDaySpan(timeToMinutes(sHM), dayStart, crossesMidnight);
     let e = normalizeToDaySpan(
@@ -458,8 +456,8 @@ const DailyTimesheet: React.FC = () => {
     crossesMidnight: boolean
   ) => {
     if (!act.horaInicio || !act.horaFin) return false;
-    const sHM = hhmm(act.horaInicio);
-    const eHM = hhmm(act.horaFin);
+    const sHM = formatTimeLocal(act.horaInicio);
+    const eHM = formatTimeLocal(act.horaFin);
 
     let s = normalizeToDaySpan(timeToMinutes(sHM), dayStart, crossesMidnight);
     let e = normalizeToDaySpan(
@@ -672,8 +670,10 @@ const DailyTimesheet: React.FC = () => {
   const handleEditActivity = async (activity: Activity, index: number) => {
     setEditingActivity(activity);
     setEditingIndex(index);
-    const inicio = activity.horaInicio ? hhmm(activity.horaInicio) : "";
-    const fin = activity.horaFin ? hhmm(activity.horaFin) : "";
+    const inicio = activity.horaInicio
+      ? formatTimeLocal(activity.horaInicio)
+      : "";
+    const fin = activity.horaFin ? formatTimeLocal(activity.horaFin) : "";
     setFormData({
       descripcion: activity.descripcion || "",
       horaInicio: inicio,
@@ -839,8 +839,8 @@ const DailyTimesheet: React.FC = () => {
     if (!registroDiario) return false;
 
     // Extraer solo la hora de la fecha ISO sin conversión de zona horaria
-    const registroHoraEntrada = hhmm(registroDiario.horaEntrada);
-    const registroHoraSalida = hhmm(registroDiario.horaSalida);
+    const registroHoraEntrada = formatTimeLocal(registroDiario.horaEntrada);
+    const registroHoraSalida = formatTimeLocal(registroDiario.horaSalida);
 
     return (
       dayConfigData.horaEntrada !== registroHoraEntrada ||
@@ -1221,11 +1221,11 @@ const DailyTimesheet: React.FC = () => {
           if (editingActivity && idx === editingIndex) return false;
           if (!act.horaInicio || !act.horaFin) return false;
 
-          const actInicioMin = timeToMinutes(hhmm(act.horaInicio));
-          const actFinHHMM = hhmm(act.horaFin);
-          let actFinMin =
-            actFinHHMM === "24:00" ? 1440 : timeToMinutes(actFinHHMM);
+          const actInicioMin = timeToMinutes(formatTimeLocal(act.horaInicio));
+          let actFinMin = timeToMinutes(formatTimeLocal(act.horaFin));
 
+          // Si la actividad guardada termina en 00:00 del día siguiente,
+          // su fin será <= inicio; en ese caso sumamos 1440 para comparar correctamente
           if (actFinMin <= actInicioMin) {
             actFinMin += 1440;
           }
@@ -1976,7 +1976,7 @@ const DailyTimesheet: React.FC = () => {
         registroDiario.actividades.length > 0 ? (
         <Stack spacing={2}>
           {(() => {
-            // Ordenar actividades: primero normales, luego extra, ambas por hora
+            // Ordenar actividades: primero normales, luego extra ordenadas por hora de inicio
             const actividadesOrdenadas = [...registroDiario.actividades].sort(
               (a, b) => {
                 // Primero ordenar por tipo: normales antes que extra
@@ -1984,20 +1984,15 @@ const DailyTimesheet: React.FC = () => {
                   return a.esExtra ? 1 : -1; // Normales primero (-1), extra después (1)
                 }
 
-                // Si ambas son del mismo tipo, ordenar por hora
-                if (a.horaInicio && b.horaInicio) {
-                  // Para actividades con hora (extra), ordenar por hora de inicio
-                  return a.horaInicio.localeCompare(b.horaInicio);
-                } else if (a.horaInicio && !b.horaInicio) {
-                  // Actividades con hora van antes que las sin hora
-                  return -1;
-                } else if (!a.horaInicio && b.horaInicio) {
-                  // Actividades sin hora van después que las con hora
-                  return 1;
-                } else {
-                  // Ambas sin hora, mantener orden original
-                  return 0;
+                // Si ambas son actividades extra con hora, ordenar por hora de inicio
+                if (a.esExtra && b.esExtra && a.horaInicio && b.horaInicio) {
+                  const aMin = timeToMinutes(formatTimeLocal(a.horaInicio));
+                  const bMin = timeToMinutes(formatTimeLocal(b.horaInicio));
+                  return aMin - bMin;
                 }
+
+                // Para actividades normales o si no tienen hora, mantener orden original
+                return 0;
               }
             );
 
@@ -2073,6 +2068,21 @@ const DailyTimesheet: React.FC = () => {
                       <strong>Class:</strong> {actividad.className}
                     </Typography>
                   )}
+
+                  {/* Mostrar horario para actividades extra */}
+                  {actividad.esExtra &&
+                    actividad.horaInicio &&
+                    actividad.horaFin && (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        <strong>Horario:</strong>{" "}
+                        {formatTimeLocal(actividad.horaInicio)} -{" "}
+                        {formatTimeLocal(actividad.horaFin)}
+                      </Typography>
+                    )}
 
                   <Typography variant="body1" color="text.primary">
                     {actividad.descripcion}
