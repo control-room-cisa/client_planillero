@@ -64,15 +64,19 @@ export const H1Rules: HorarioRuleEngine = {
       };
     },
     onFieldChange: (fieldName, nextValue, prevFormData) => {
-      if (fieldName !== "esHoraCorrida") return { ...prevFormData, [fieldName]: nextValue };
+      if (fieldName !== "esHoraCorrida")
+        return { ...prevFormData, [fieldName]: nextValue };
       // Solo ajustar en H1 cuando NO es turno nocturno
       const timeToMinutes = (t: string) => {
-        const [h, m] = String(t || "").split(":").map(Number);
+        const [h, m] = String(t || "")
+          .split(":")
+          .map(Number);
         return h * 60 + m;
       };
       const entrada = prevFormData.horaEntrada;
       const salida = prevFormData.horaSalida;
-      if (!entrada || !salida) return { ...prevFormData, [fieldName]: nextValue };
+      if (!entrada || !salida)
+        return { ...prevFormData, [fieldName]: nextValue };
       const s = timeToMinutes(entrada);
       let e = timeToMinutes(salida);
       const esTurnoNoche = s > e;
@@ -81,9 +85,15 @@ export const H1Rules: HorarioRuleEngine = {
       e = typeof nextValue === "boolean" && nextValue ? e - 60 : e + 60;
       if (e < 0) e += 1440;
       if (e >= 1440) e -= 1440;
-      const hours = Math.floor(e / 60).toString().padStart(2, "0");
+      const hours = Math.floor(e / 60)
+        .toString()
+        .padStart(2, "0");
       const mins = (e % 60).toString().padStart(2, "0");
-      return { ...prevFormData, esHoraCorrida: nextValue, horaSalida: `${hours}:${mins}` };
+      return {
+        ...prevFormData,
+        esHoraCorrida: nextValue,
+        horaSalida: `${hours}:${mins}`,
+      };
     },
   },
 };

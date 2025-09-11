@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -27,24 +27,160 @@ import PlanillaDetallePreview from "./PlanillaDetallePreview";
 import type { Empleado } from "../../services/empleadoService";
 import { PlanillaStatuses } from "../rrhh/planillaConstants";
 import type { PlanillaStatus } from "../rrhh/planillaConstants";
+import RegistroDiarioService from "../../services/registroDiarioService";
+import CalculoHorasTrabajoService from "../../services/calculoHorasTrabajoService";
+import { Chip, CircularProgress, InputAdornment } from "@mui/material";
 
 const TimesheetReviewSupervisor: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  // Rango por defecto: última semana
-  const today = new Date();
-  const lastWeek = new Date();
-  lastWeek.setDate(today.getDate() - 7);
+  // Helpers de período (12-26) y (27-11)
+  const clampToMidnight = (d: Date) => {
+    const c = new Date(d);
+    c.setHours(0, 0, 0, 0);
+    return c;
+  };
+
+  const makeDate = (year: number, month: number, day: number) =>
+    clampToMidnight(new Date(year, month, day));
+
+  const getPeriodFromDate = (d: Date) => {
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const day = d.getDate();
+
+    if (day >= 12 && day <= 26) {
+      return {
+        start: makeDate(year, month, 12),
+        end: makeDate(year, month, 26),
+      };
+    }
+    if (day >= 27) {
+      // 27 -> 11 del siguiente mes
+      const nextMonth = month + 1;
+      const nextYear = nextMonth > 11 ? year + 1 : year;
+      const nm = nextMonth % 12;
+      return {
+        start: makeDate(year, month, 27),
+        end: makeDate(nextYear, nm, 11),
+      };
+    }
+    // 1..11 -> 27 del mes anterior al 11 del actual
+    const prevMonth = month - 1;
+    const prevYear = prevMonth < 0 ? year - 1 : year;
+    const pm = (prevMonth + 12) % 12;
+    return {
+      start: makeDate(prevYear, pm, 27),
+      end: makeDate(year, month, 11),
+    };
+  };
+
+  const today = useMemo(() => new Date(), []);
+  const initialPeriod = useMemo(() => getPeriodFromDate(today), [today]);
 
   const [selectedEmployee, setSelectedEmployee] = useState<Empleado | null>(
     null
   );
-  const [startDate, setStartDate] = useState<Date | null>(lastWeek);
-  const [endDate, setEndDate] = useState<Date | null>(today);
+  const [startDate, setStartDate] = useState<Date | null>(initialPeriod.start);
+  const [endDate, setEndDate] = useState<Date | null>(initialPeriod.end);
   const [statusFilter, setStatusFilter] = useState<PlanillaStatus>("Pendiente");
   const { employees, loading: empLoading } = useEmployees();
   const [openFilters, setOpenFilters] = useState(!isMobile);
+
+  // Completo badge state para empleado seleccionado
+  const [completeLoading, setCompleteLoading] = useState(false);
+  const [isComplete, setIsComplete] = useState<boolean | null>(null);
+
+  const buildDaysRange = (s: Date | null, e: Date | null): string[] => {
+    if (!s || !e) return [];
+    const days: string[] = [];
+    const cursor = clampToMidnight(s);
+    const end = clampToMidnight(e);
+    while (cursor.getTime() <= end.getTime()) {
+      const y = cursor.getFullYear();
+      const m = String(cursor.getMonth() + 1).padStart(2, "0");
+      const d2 = String(cursor.getDate()).padStart(2, "0");
+      days.push(`${y}-${m}-${d2}`);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return days;
+  };
+
+  // Calcular si el período está completo (todas las fechas aprobadas)
+  useEffect(() => {
+    const run = async () => {
+      if (!selectedEmployee || !startDate || !endDate) {
+        setIsComplete(null);
+        return;
+      }
+      setCompleteLoading(true);
+      try {
+        const days = buildDaysRange(startDate, endDate);
+        const results = await Promise.all(
+          days.map((fecha) =>
+            RegistroDiarioService.getByDate(fecha, selectedEmployee.id).catch(
+              () => null
+            )
+          )
+        );
+        // Regla de completado:
+        // - Si cantidadHorasLaborables = 0 o esDiaLibre = true → no requiere aprobación
+        // - Si existe registro y contiene horas extra → requiere aprobación true
+        // - En otros casos (registro normal sin extra) requiere aprobación true
+        const daysApproved = await Promise.all(
+          results.map(async (r, idx) => {
+            if (!r) {
+              // No existe: se considera aprobado si el día no debería tener horas
+              const ymd = days[idx];
+              const horario = await CalcularHorasForFecha(
+                selectedEmployee.id,
+                ymd
+              );
+              const expected = horario?.cantidadHorasLaborables ?? 0;
+              const isDiaLibre = horario?.esDiaLibre === true;
+              return expected === 0 || isDiaLibre;
+            }
+            // Si no tiene extras y es día libre o expected 0 → aprobado implícito
+            const ymd = r.fecha ?? days[idx];
+            const horario = await CalcularHorasForFecha(
+              selectedEmployee.id,
+              ymd
+            );
+            const expected = horario?.cantidadHorasLaborables ?? 0;
+            const isDiaLibre =
+              r.esDiaLibre === true || horario?.esDiaLibre === true;
+            const tieneExtras = (r.actividades || []).some(
+              (a: any) => a.esExtra
+            );
+            if ((expected === 0 || isDiaLibre) && !tieneExtras) return true;
+            // Caso general: requiere aprobado por supervisor
+            return r.aprobacionSupervisor === true;
+          })
+        );
+        const allApproved = daysApproved.every(Boolean);
+        setIsComplete(allApproved);
+      } catch (_e) {
+        setIsComplete(null);
+      } finally {
+        setCompleteLoading(false);
+      }
+    };
+    run();
+  }, [selectedEmployee?.id, startDate?.getTime(), endDate?.getTime()]);
+
+  // Helper para obtener horas esperadas/día libre del backend de cálculo
+  const CalcularHorasForFecha = async (empleadoId: number, fecha: string) => {
+    try {
+      const h = await CalculoHorasTrabajoService.getHorarioTrabajo(
+        empleadoId,
+        fecha
+      );
+      return h as any;
+    } catch (_e) {
+      return null;
+    }
+  };
 
   // Ajusta apertura al cambiar a móvil/escritorio
   useEffect(() => {
@@ -70,13 +206,76 @@ const TimesheetReviewSupervisor: React.FC = () => {
         <DatePicker
           label="Fecha inicio"
           value={startDate}
-          onChange={setStartDate}
+          onChange={(val) => {
+            if (!val) {
+              setStartDate(null);
+              setEndDate(null);
+              return;
+            }
+            const d = clampToMidnight(val as Date);
+            const day = d.getDate();
+            let newStart = d;
+            let newEnd = d;
+            if (day === 12) {
+              newStart = makeDate(d.getFullYear(), d.getMonth(), 12);
+              newEnd = makeDate(d.getFullYear(), d.getMonth(), 26);
+            } else if (day === 27) {
+              const nextMonth = (d.getMonth() + 1) % 12;
+              const nextYear =
+                d.getMonth() + 1 > 11 ? d.getFullYear() + 1 : d.getFullYear();
+              newStart = makeDate(d.getFullYear(), d.getMonth(), 27);
+              newEnd = makeDate(nextYear, nextMonth, 11);
+            } else {
+              // Snap al período correspondiente
+              const p = getPeriodFromDate(d);
+              newStart = p.start;
+              newEnd = p.end;
+            }
+            setStartDate(newStart);
+            setEndDate(newEnd);
+          }}
+          shouldDisableDate={(date) => {
+            // Solo permitir 12 y 27
+            const day = (date as Date).getDate();
+            return !(day === 12 || day === 27);
+          }}
           slotProps={{ textField: { size: "small", fullWidth: true } }}
         />
         <DatePicker
           label="Fecha fin"
           value={endDate}
-          onChange={setEndDate}
+          onChange={(val) => {
+            if (!val) {
+              setStartDate(null);
+              setEndDate(null);
+              return;
+            }
+            const d = clampToMidnight(val as Date);
+            const day = d.getDate();
+            let newStart = d;
+            let newEnd = d;
+            if (day === 26) {
+              newStart = makeDate(d.getFullYear(), d.getMonth(), 12);
+              newEnd = makeDate(d.getFullYear(), d.getMonth(), 26);
+            } else if (day === 11) {
+              const prevMonth = (d.getMonth() + 11) % 12;
+              const prevYear =
+                d.getMonth() === 0 ? d.getFullYear() - 1 : d.getFullYear();
+              newStart = makeDate(prevYear, prevMonth, 27);
+              newEnd = makeDate(d.getFullYear(), d.getMonth(), 11);
+            } else {
+              const p = getPeriodFromDate(d);
+              newStart = p.start;
+              newEnd = p.end;
+            }
+            setStartDate(newStart);
+            setEndDate(newEnd);
+          }}
+          shouldDisableDate={(date) => {
+            // Solo permitir 11 y 26
+            const day = (date as Date).getDate();
+            return !(day === 11 || day === 26);
+          }}
           slotProps={{ textField: { size: "small", fullWidth: true } }}
         />
       </LocalizationProvider>
@@ -94,6 +293,15 @@ const TimesheetReviewSupervisor: React.FC = () => {
             InputProps={{
               ...params.InputProps,
               startAdornment: <SearchIcon sx={{ mr: 1 }} />,
+              endAdornment: (
+                <InputAdornment position="end" sx={{ mr: 1 }}>
+                  {completeLoading ? (
+                    <CircularProgress size={16} />
+                  ) : isComplete ? (
+                    <Chip label="Completo" size="small" color="success" />
+                  ) : null}
+                </InputAdornment>
+              ),
             }}
             fullWidth
           />

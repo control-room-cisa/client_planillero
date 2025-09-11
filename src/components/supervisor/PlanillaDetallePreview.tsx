@@ -60,6 +60,7 @@ type JobConJerarquia = {
   descripcion?: string | null;
   activo?: boolean;
   empresa?: { nombre: string };
+  especial?: boolean;
   indentLevel: number;
   parentCodigo?: string | null;
 };
@@ -87,9 +88,13 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobConJerarquia | null>(null);
   // Mapa fecha -> tipoHorario (H1, H2, ...)
-  const [horariosByFecha, setHorariosByFecha] = useState<Record<string, string>>({});
+  const [horariosByFecha, setHorariosByFecha] = useState<
+    Record<string, string>
+  >({});
   // Mapa fecha -> horas normales esperadas (del backend)
-  const [expectedHoursByFecha, setExpectedHoursByFecha] = useState<Record<string, number>>({});
+  const [expectedHoursByFecha, setExpectedHoursByFecha] = useState<
+    Record<string, number>
+  >({});
 
   // Para saber qué registro/actividad se está editando
   const [targetRegistro, setTargetRegistro] =
@@ -144,9 +149,35 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
       setHorariosByFecha(byFecha);
       setExpectedHoursByFecha(byFechaHours);
 
-      const filtered = results
-        .filter((r): r is RegistroDiarioData => r !== null)
+      // Construir lista alineada a todas las fechas del período, insertando placeholders
+      const registrosByFecha = new Map<string, RegistroDiarioData | null>();
+      results.forEach((r, i) => {
+        const key = days[i];
+        registrosByFecha.set(key, r);
+      });
+
+      const aligned: RegistroDiarioData[] = days
+        .map((fecha) => {
+          const r = registrosByFecha.get(fecha);
+          if (r) return r as RegistroDiarioData;
+          // Placeholder sin información
+          return {
+            id: undefined as any,
+            fecha,
+            horaEntrada: "",
+            horaSalida: "",
+            jornada: "D",
+            esDiaLibre: false,
+            esHoraCorrida: false,
+            comentarioEmpleado: "",
+            actividades: [],
+            aprobacionSupervisor: undefined,
+            aprobacionRrhh: undefined,
+          } as any as RegistroDiarioData;
+        })
         .filter((r) => {
+          // Mostrar días vacíos solo cuando el filtro es "Pendiente"
+          if (!r.id) return status === "Pendiente";
           switch (status) {
             case "Pendiente":
               return r.aprobacionSupervisor == null;
@@ -156,7 +187,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
               return r.aprobacionSupervisor === false;
           }
         });
-      setRegistros(filtered);
+      setRegistros(aligned);
     } catch (err) {
       console.error("Error fetching registros:", err);
       setSnackbar({
@@ -171,14 +202,20 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     }
   }, [startDate, endDate, empleado.id, status]);
 
-  const loadJobs = async (): Promise<JobConJerarquia[]> => {
+  const loadJobs = async (
+    includeSpecial: boolean
+  ): Promise<JobConJerarquia[]> => {
     try {
       setLoadingJobs(true);
       const jobsData = await JobService.getAll();
       const jobsActivos = jobsData.filter((j: any) => j.activo === true);
 
-      const jobMap = new Map(jobsActivos.map((j: any) => [j.codigo, j]));
-      const jobsConJerarquia: JobConJerarquia[] = jobsActivos.map((j: any) => {
+      const base = includeSpecial
+        ? jobsActivos
+        : jobsActivos.filter((j: any) => !j.especial);
+
+      const jobMap = new Map(base.map((j: any) => [j.codigo, j]));
+      const jobsConJerarquia: JobConJerarquia[] = base.map((j: any) => {
         const parts = (j.codigo || "").split(".");
         const indentLevel = Math.max(0, parts.length - 1);
         const padreCodigo =
@@ -209,7 +246,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     setTargetRegistro(registro);
     setTargetActividad(actividad);
 
-    const list = await loadJobs();
+    // Solo incluir especiales cuando la actividad NO es extra
+    const list = await loadJobs(!(actividad.esExtra === true));
     const currentJobId =
       (actividad.job && actividad.job.id) ??
       (typeof actividad.jobId === "number" ? actividad.jobId : undefined);
@@ -544,7 +582,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
 
             // Determinar si cruza medianoche usando hora local (TZ Honduras)
             const entradaHM = formatTimeCorrectly(registro.horaEntrada); // HH:mm local
-            const salidaHM = formatTimeCorrectly(registro.horaSalida);   // HH:mm local
+            const salidaHM = formatTimeCorrectly(registro.horaSalida); // HH:mm local
             const [eh, em] = entradaHM.split(":").map(Number);
             const [sh, sm] = salidaHM.split(":").map(Number);
             const entradaMin = eh * 60 + em;
@@ -585,12 +623,12 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                         )}
                         {horariosByFecha[registro.fecha ?? ""] !== "H2" &&
                           registro.esHoraCorrida && (
-                          <Chip
-                            label="Hora Corrida"
-                            color="warning"
-                            size="small"
-                          />
-                        )}
+                            <Chip
+                              label="Hora Corrida"
+                              color="warning"
+                              size="small"
+                            />
+                          )}
                       </>
                     )}
                   </Stack>
@@ -628,36 +666,209 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {registro.actividades
-                            ?.slice()
-                            .sort((a, b) =>
-                              a.esExtra === b.esExtra ? 0 : a.esExtra ? 1 : -1
-                            )
-                            .map((act: ActividadData) => (
-                              <TableRow key={act.id ?? act.jobId}>
-                                <TableCell>{act.descripcion}</TableCell>
-                                <TableCell>
-                                  <Chip
-                                    label={`${act.duracionHoras}h`}
-                                    size="small"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  {act.horaInicio && act.horaFin
-                                    ? `${formatTimeCorrectly(act.horaInicio)} - ${formatTimeCorrectly(act.horaFin)}`
-                                    : "-"}
-                                </TableCell>
-                                <TableCell>{act.job?.nombre}</TableCell>
-                                <TableCell>{act.job?.codigo}</TableCell>
-                                <TableCell>
-                                  <Chip
-                                    label={act.esExtra ? "Extra" : "Normal"}
-                                    size="small"
-                                    color={act.esExtra ? "error" : "default"}
-                                  />
-                                </TableCell>
-                                <TableCell>{act.className || "-"}</TableCell>
-                                <TableCell align="right">
+                          {registro.actividades &&
+                          registro.actividades.length > 0 ? (
+                            registro.actividades
+                              ?.slice()
+                              .sort((a, b) =>
+                                a.esExtra === b.esExtra ? 0 : a.esExtra ? 1 : -1
+                              )
+                              .map((act: ActividadData) => (
+                                <TableRow key={act.id ?? act.jobId}>
+                                  <TableCell>{act.descripcion}</TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      label={`${act.duracionHoras}h`}
+                                      size="small"
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    {act.horaInicio && act.horaFin
+                                      ? `${formatTimeCorrectly(
+                                          act.horaInicio
+                                        )} - ${formatTimeCorrectly(
+                                          act.horaFin
+                                        )}`
+                                      : "-"}
+                                  </TableCell>
+                                  <TableCell>{act.job?.nombre}</TableCell>
+                                  <TableCell>{act.job?.codigo}</TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      label={act.esExtra ? "Extra" : "Normal"}
+                                      size="small"
+                                      color={act.esExtra ? "error" : "default"}
+                                    />
+                                  </TableCell>
+                                  <TableCell>{act.className || "-"}</TableCell>
+                                  <TableCell align="right">
+                                    <Tooltip title="Editar job">
+                                      <span>
+                                        <IconButton
+                                          aria-label="Editar job"
+                                          size="small"
+                                          onClick={() =>
+                                            openJobDialog(registro, act)
+                                          }
+                                          disabled={disabled}
+                                        >
+                                          <EditIcon fontSize="small" />
+                                        </IconButton>
+                                      </span>
+                                    </Tooltip>
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={8}>
+                                <Typography
+                                  variant="body2"
+                                  color="text.secondary"
+                                >
+                                  No hay actividades registradas para este día
+                                </Typography>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  Horas laborables:{" "}
+                                  {Number.isFinite(
+                                    expectedHoursByFecha[registro.fecha ?? ""]
+                                  )
+                                    ? expectedHoursByFecha[
+                                        registro.fecha ?? ""
+                                      ] ?? 0
+                                    : 0}
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  ) : (
+                    <Stack spacing={1.5}>
+                      {registro.actividades &&
+                      registro.actividades.length > 0 ? (
+                        registro.actividades
+                          ?.slice()
+                          .sort((a, b) =>
+                            a.esExtra === b.esExtra ? 0 : a.esExtra ? 1 : -1
+                          )
+                          .map((act: ActividadData) => (
+                            <Paper
+                              key={act.id ?? act.jobId}
+                              variant="outlined"
+                              sx={{ p: 1.5 }}
+                            >
+                              <Stack spacing={1}>
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Descripción
+                                  </Typography>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{ fontWeight: 600 }}
+                                  >
+                                    {act.descripcion}
+                                  </Typography>
+                                </Box>
+
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Horario
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {act.horaInicio && act.horaFin
+                                      ? `${formatTimeCorrectly(
+                                          act.horaInicio
+                                        )} - ${formatTimeCorrectly(
+                                          act.horaFin
+                                        )}`
+                                      : "-"}
+                                  </Typography>
+                                </Box>
+
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Horas
+                                  </Typography>
+                                  <Box>
+                                    <Chip
+                                      label={`${act.duracionHoras}h`}
+                                      size="small"
+                                    />
+                                  </Box>
+                                </Box>
+
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Job
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {act.job?.nombre ?? "-"}
+                                  </Typography>
+                                </Box>
+
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Código
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {act.job?.codigo ?? "-"}
+                                  </Typography>
+                                </Box>
+
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Tipo
+                                  </Typography>
+                                  <Box>
+                                    <Chip
+                                      label={act.esExtra ? "Extra" : "Normal"}
+                                      size="small"
+                                      color={act.esExtra ? "error" : "default"}
+                                    />
+                                  </Box>
+                                </Box>
+
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Clase
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {act.className || "-"}
+                                  </Typography>
+                                </Box>
+
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    justifyContent: "flex-end",
+                                  }}
+                                >
                                   <Tooltip title="Editar job">
                                     <span>
                                       <IconButton
@@ -672,290 +883,177 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                       </IconButton>
                                     </span>
                                   </Tooltip>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  ) : (
-                    <Stack spacing={1.5}>
-                      {registro.actividades
-                        ?.slice()
-                        .sort((a, b) =>
-                          a.esExtra === b.esExtra ? 0 : a.esExtra ? 1 : -1
-                        )
-                        .map((act: ActividadData) => (
-                          <Paper
-                            key={act.id ?? act.jobId}
-                            variant="outlined"
-                            sx={{ p: 1.5 }}
-                          >
-                            <Stack spacing={1}>
-                              <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  Descripción
-                                </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{ fontWeight: 600 }}
-                                >
-                                  {act.descripcion}
-                                </Typography>
-                              </Box>
-
-                              <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  Horario
-                                </Typography>
-                                <Typography variant="body2">
-                                  {act.horaInicio && act.horaFin
-                                    ? `${formatTimeCorrectly(act.horaInicio)} - ${formatTimeCorrectly(act.horaFin)}`
-                                    : "-"}
-                                </Typography>
-                              </Box>
-
-                              <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  Horas
-                                </Typography>
-                                <Box>
-                                  <Chip
-                                    label={`${act.duracionHoras}h`}
-                                    size="small"
-                                  />
                                 </Box>
-                              </Box>
-
-                              <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  Job
-                                </Typography>
-                                <Typography variant="body2">
-                                  {act.job?.nombre ?? "-"}
-                                </Typography>
-                              </Box>
-
-                              <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  Código
-                                </Typography>
-                                <Typography variant="body2">
-                                  {act.job?.codigo ?? "-"}
-                                </Typography>
-                              </Box>
-
-                              <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  Tipo
-                                </Typography>
-                                <Box>
-                                  <Chip
-                                    label={act.esExtra ? "Extra" : "Normal"}
-                                    size="small"
-                                    color={act.esExtra ? "error" : "default"}
-                                  />
-                                </Box>
-                              </Box>
-
-                              <Box>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  Clase
-                                </Typography>
-                                <Typography variant="body2">
-                                  {act.className || "-"}
-                                </Typography>
-                              </Box>
-
-                              <Box
-                                sx={{
-                                  display: "flex",
-                                  justifyContent: "flex-end",
-                                }}
-                              >
-                                <Tooltip title="Editar job">
-                                  <span>
-                                    <IconButton
-                                      aria-label="Editar job"
-                                      size="small"
-                                      onClick={() =>
-                                        openJobDialog(registro, act)
-                                      }
-                                      disabled={disabled}
-                                    >
-                                      <EditIcon fontSize="small" />
-                                    </IconButton>
-                                  </span>
-                                </Tooltip>
-                              </Box>
-                            </Stack>
-                          </Paper>
-                        ))}
+                              </Stack>
+                            </Paper>
+                          ))
+                      ) : (
+                        <Paper variant="outlined" sx={{ p: 1.5 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            No hay actividades registradas para este día
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Horas laborables:{" "}
+                            {Number.isFinite(
+                              expectedHoursByFecha[registro.fecha ?? ""]
+                            )
+                              ? expectedHoursByFecha[registro.fecha ?? ""] ?? 0
+                              : 0}
+                          </Typography>
+                        </Paper>
+                      )}
                     </Stack>
                   )}
 
                   {/* Validaciones */}
-                  {(validacionHorasNormales === false ||
-                    !validacionHorasExtra.valido) && (
-                    <Box sx={{ mt: 2, mb: 2 }}>
-                      <Typography
-                        variant="subtitle2"
-                        color="error.main"
-                        gutterBottom
-                        sx={{ fontWeight: "bold" }}
-                      >
-                        ⚠️ Errores de validación encontrados
-                      </Typography>
-
-                      {!validacionHorasNormales && (
+                  {registro.actividades &&
+                    registro.actividades.length > 0 &&
+                    (validacionHorasNormales === false ||
+                      !validacionHorasExtra.valido) && (
+                      <Box sx={{ mt: 2, mb: 2 }}>
                         <Typography
-                          variant="body2"
+                          variant="subtitle2"
                           color="error.main"
-                          sx={{ mb: 1 }}
+                          gutterBottom
+                          sx={{ fontWeight: "bold" }}
                         >
-                          📊 Horas normales no coinciden: Registradas:{" "}
-                          {normales}h | Esperadas:{" "}
-                          {horasNormalesEsperadas.toFixed(2)}h
+                          ⚠️ Errores de validación encontrados
                         </Typography>
-                      )}
 
-                      {!validacionHorasExtra.valido && (
-                        <>
+                        {!validacionHorasNormales && (
                           <Typography
                             variant="body2"
                             color="error.main"
                             sx={{ mb: 1 }}
                           >
-                            🕐 Problemas con horas extra:
+                            📊 Horas normales no coinciden: Registradas:{" "}
+                            {normales}h | Esperadas:{" "}
+                            {horasNormalesEsperadas.toFixed(2)}h
                           </Typography>
-                          {validacionHorasExtra.errores.map((error, i) => (
+                        )}
+
+                        {!validacionHorasExtra.valido && (
+                          <>
                             <Typography
-                              key={i}
                               variant="body2"
                               color="error.main"
-                              sx={{ ml: 2, mb: 0.5 }}
+                              sx={{ mb: 1 }}
                             >
-                              • {error}
+                              🕐 Problemas con horas extra:
                             </Typography>
-                          ))}
-                        </>
-                      )}
+                            {validacionHorasExtra.errores.map((error, i) => (
+                              <Typography
+                                key={i}
+                                variant="body2"
+                                color="error.main"
+                                sx={{ ml: 2, mb: 0.5 }}
+                              >
+                                • {error}
+                              </Typography>
+                            ))}
+                          </>
+                        )}
+                      </Box>
+                    )}
+
+                  {/* Resumen de horas */}
+                  {registro.actividades && registro.actividades.length > 0 && (
+                    <Box sx={{ mt: 2, mb: 2 }}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        Resumen de horas
+                      </Typography>
+                      <Stack
+                        direction={{ xs: "column", md: "row" }}
+                        spacing={2}
+                        alignItems={{ xs: "flex-start", md: "center" }}
+                        sx={{ flexWrap: "wrap" }}
+                      >
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="body2" color="text.secondary">
+                            Normales:
+                          </Typography>
+                          <Chip
+                            label={`${normales}h`}
+                            size="small"
+                            variant="outlined"
+                            color={
+                              validacionHorasNormales ? "default" : "error"
+                            }
+                          />
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ ml: 1 }}
+                          >
+                            (esperadas: {horasNormalesEsperadas.toFixed(2)}h)
+                          </Typography>
+                        </Stack>
+
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="body2" color="text.secondary">
+                            Extras:
+                          </Typography>
+                          <Chip
+                            label={`${extras}h`}
+                            size="small"
+                            color="error"
+                            variant="outlined"
+                          />
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ ml: 1 }}
+                          >
+                            {!validacionHorasExtra.valido && "(con errores)"}
+                          </Typography>
+                        </Stack>
+
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="body2" color="text.secondary">
+                            Total:
+                          </Typography>
+                          <Chip
+                            label={`${total}h`}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        </Stack>
+                      </Stack>
                     </Box>
                   )}
 
-                  {/* Resumen de horas */}
-                  <Box sx={{ mt: 2, mb: 2 }}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Resumen de horas
-                    </Typography>
-                    <Stack
-                      direction={{ xs: "column", md: "row" }}
-                      spacing={2}
-                      alignItems={{ xs: "flex-start", md: "center" }}
-                      sx={{ flexWrap: "wrap" }}
-                    >
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Typography variant="body2" color="text.secondary">
-                          Normales:
-                        </Typography>
-                        <Chip
-                          label={`${normales}h`}
-                          size="small"
-                          variant="outlined"
-                          color={validacionHorasNormales ? "default" : "error"}
-                        />
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ ml: 1 }}
-                        >
-                          (esperadas: {horasNormalesEsperadas.toFixed(2)}h)
-                        </Typography>
-                      </Stack>
-
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Typography variant="body2" color="text.secondary">
-                          Extras:
-                        </Typography>
-                        <Chip
-                          label={`${extras}h`}
-                          size="small"
-                          color="error"
-                          variant="outlined"
-                        />
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ ml: 1 }}
-                        >
-                          {!validacionHorasExtra.valido && "(con errores)"}
-                        </Typography>
-                      </Stack>
-
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Typography variant="body2" color="text.secondary">
-                          Total:
-                        </Typography>
-                        <Chip
-                          label={`${total}h`}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                        />
-                      </Stack>
-                    </Stack>
-                  </Box>
-
                   {/* Acciones Aprobar/Rechazar */}
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    spacing={2}
-                    justifyContent="flex-end"
-                  >
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      onClick={() => handleRechazar(registro.id!)}
-                      fullWidth={isMobile}
+                  {registro.actividades && registro.actividades.length > 0 && (
+                    <Stack
+                      direction={{ xs: "column", sm: "row" }}
+                      spacing={2}
+                      justifyContent="flex-end"
                     >
-                      Rechazar
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="success"
-                      disabled={
-                        disabled ||
-                        !validacionHorasNormales ||
-                        !validacionHorasExtra.valido ||
-                        registro.aprobacionSupervisor === true
-                      }
-                      onClick={() => handleAprobar(registro.id!)}
-                      fullWidth={isMobile}
-                    >
-                      Aprobar
-                    </Button>
-                  </Stack>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        onClick={() => handleRechazar(registro.id!)}
+                        fullWidth={isMobile}
+                      >
+                        Rechazar
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="success"
+                        disabled={
+                          disabled ||
+                          !validacionHorasNormales ||
+                          !validacionHorasExtra.valido ||
+                          registro.aprobacionSupervisor === true
+                        }
+                        onClick={() => handleAprobar(registro.id!)}
+                        fullWidth={isMobile}
+                      >
+                        Aprobar
+                      </Button>
+                    </Stack>
+                  )}
                 </Paper>
               </Grow>
             );
@@ -1005,7 +1103,11 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
               onChange={(_e, v) => setSelectedJob(v)}
               isOptionEqualToValue={(o, v) => !!v && o.id === v.id}
               getOptionLabel={(o) => `${o.codigo} - ${o.nombre}`}
-              groupBy={(option) => option.empresa?.nombre ?? "Sin empresa"}
+              groupBy={(option) =>
+                option.especial
+                  ? "Jobs Especiales"
+                  : option.empresa?.nombre ?? "Sin empresa"
+              }
               renderInput={(params) => (
                 <TextField
                   {...params}
@@ -1027,7 +1129,11 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
               renderOption={(props, option) => (
                 <Box component="li" {...props}>
                   <Box sx={{ pl: option.indentLevel * 4 }}>
-                    <Typography variant="body2" fontWeight="bold">
+                    <Typography
+                      variant="body2"
+                      fontWeight="bold"
+                      color={option.especial ? "error.main" : undefined}
+                    >
                       {option.codigo} - {option.nombre}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
@@ -1042,7 +1148,10 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                     variant="subtitle2"
                     sx={{
                       fontWeight: 600,
-                      color: "primary.main",
+                      color:
+                        params.group === "Jobs Especiales"
+                          ? "error.main"
+                          : "primary.main",
                       backgroundColor: "background.paper",
                       px: 2,
                       py: 1,

@@ -84,10 +84,9 @@ const buildISO = (baseDate: Date, hhmmStr: string, addDays = 0) => {
     effectiveHHMM = "00:00";
     effectiveAddDays += 1;
   }
-  // construye un ISO con offset local, NO en Zulu
+  // construye un ISO con offset local; toISOString() lo convierte a UTC
   const d = new Date(`${ymd}T${effectiveHHMM}:00${TZ_OFFSET}`);
   if (effectiveAddDays > 0) d.setDate(d.getDate() + effectiveAddDays);
-  // la API recibe UTC, pero este UTC ya representa la hora local correcta
   return d.toISOString();
 };
 
@@ -374,25 +373,26 @@ const DailyTimesheet: React.FC = () => {
     // Determinar hora de almuerzo usando reglas del horario
     const horaAlmuerzo = horarioRules.utils.calculateLunchHours();
 
-    // Solo descontar almuerzo si horaAlmuerzo > 0 (no es hora corrida)
+    // Solo descontar almuerzo si horaAlmuerzo > 0 (no es hora corrida) Y si hay solapamiento real
     if (horaAlmuerzo > 0) {
-      const { dayStart, crossesMidnight } = getDayBoundsMinutes();
-      let s = normalizeToDaySpan(
-        timeToMinutes(inicioHHMM),
-        dayStart,
-        crossesMidnight
-      );
-      let e = normalizeToDaySpan(
-        finHHMM === "24:00" ? 1440 : timeToMinutes(finHHMM),
-        dayStart,
-        crossesMidnight
-      );
-      if (e <= s) e += 1440;
+      const inicioMin = timeToMinutes(inicioHHMM);
+      let finMin = finHHMM === "24:00" ? 1440 : timeToMinutes(finHHMM);
+
+      // Manejar cruce de medianoche
+      if (finMin <= inicioMin) {
+        finMin += 1440;
+      }
 
       const L1 = 720; // 12:00
       const L2 = 780; // 13:00
-      const overlapMin = intervalOverlap(s, e, L1, L2);
-      dur = Math.max(0, dur - overlapMin / 60);
+
+      // Verificar si hay solapamiento real entre la actividad y el período de almuerzo
+      const overlapMin = intervalOverlap(inicioMin, finMin, L1, L2);
+
+      // Solo descontar si hay solapamiento real
+      if (overlapMin > 0) {
+        dur = Math.max(0, dur - overlapMin / 60);
+      }
     }
 
     return dur.toFixed(2);
@@ -407,31 +407,35 @@ const DailyTimesheet: React.FC = () => {
     if (!act.horaInicio || !act.horaFin)
       return Math.max(0, Number(act.duracionHoras || 0));
 
-    const { dayStart, crossesMidnight } = getDayBoundsMinutes();
-
     const sHM = formatTimeLocal(act.horaInicio);
     const eHM = formatTimeLocal(act.horaFin);
 
-    let s = normalizeToDaySpan(timeToMinutes(sHM), dayStart, crossesMidnight);
-    let e = normalizeToDaySpan(
-      eHM === "24:00" ? 1440 : timeToMinutes(eHM),
-      dayStart,
-      crossesMidnight
-    );
-    if (e <= s) e += 1440; // cruza medianoche
+    const inicioMin = timeToMinutes(sHM);
+    let finMin = eHM === "24:00" ? 1440 : timeToMinutes(eHM);
+
+    // Manejar cruce de medianoche
+    if (finMin <= inicioMin) {
+      finMin += 1440;
+    }
 
     // Duración base
-    let hours = (e - s) / 60;
+    let hours = (finMin - inicioMin) / 60;
 
     // Determinar hora de almuerzo usando reglas del horario
     const horaAlmuerzo = horarioRules.utils.calculateLunchHours();
 
-    // Solo descontar almuerzo si horaAlmuerzo > 0 (no es hora corrida)
+    // Solo descontar almuerzo si horaAlmuerzo > 0 (no es hora corrida) Y si hay solapamiento real
     if (horaAlmuerzo > 0) {
       const L1 = 720; // 12:00
       const L2 = 780; // 13:00
-      const overlapMin = intervalOverlap(s, e, L1, L2);
-      hours = Math.max(0, hours - overlapMin / 60);
+
+      // Verificar si hay solapamiento real entre la actividad y el período de almuerzo
+      const overlapMin = intervalOverlap(inicioMin, finMin, L1, L2);
+
+      // Solo descontar si hay solapamiento real
+      if (overlapMin > 0) {
+        hours = Math.max(0, hours - overlapMin / 60);
+      }
     }
 
     return Math.round(hours * 100) / 100;

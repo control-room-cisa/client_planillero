@@ -143,6 +143,10 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
       });
     }
 
+    // Ordenar por fechaInicio (YYYY-MM-DD) descendente
+    intervalos.sort((a: any, b: any) =>
+      a.fechaInicio < b.fechaInicio ? 1 : a.fechaInicio > b.fechaInicio ? -1 : 0
+    );
     return intervalos;
   }, []);
 
@@ -157,6 +161,16 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   // Rango de fechas
   const [fechaInicio, setFechaInicio] = React.useState<string>("");
   const [fechaFin, setFechaFin] = React.useState<string>("");
+
+  // Auto-seleccionar el período más reciente por defecto para disparar la carga
+  React.useEffect(() => {
+    if (!intervaloSeleccionado && intervalosDisponibles.length > 0) {
+      const primero = intervalosDisponibles[0];
+      setIntervaloSeleccionado(primero.valor);
+      setFechaInicio(primero.fechaInicio);
+      setFechaFin(primero.fechaFin);
+    }
+  }, [intervalosDisponibles, intervaloSeleccionado]);
 
   const rangoValido =
     !!fechaInicio && !!fechaFin && new Date(fechaFin) >= new Date(fechaInicio);
