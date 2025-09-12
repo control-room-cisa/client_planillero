@@ -290,22 +290,6 @@ const DailyTimesheet: React.FC = () => {
       .padStart(2, "0")}`;
   };
 
-  const getDayBoundsMinutes = () => {
-    const entradaHHMM = registroDiario?.horaEntrada
-      ? formatTimeLocal(registroDiario.horaEntrada)
-      : dayConfigData.horaEntrada;
-    const salidaHHMM = registroDiario?.horaSalida
-      ? formatTimeLocal(registroDiario.horaSalida)
-      : dayConfigData.horaSalida;
-
-    const dayStart = timeToMinutes(entradaHHMM);
-    let dayEnd = timeToMinutes(salidaHHMM);
-    const crossesMidnight = dayEnd <= dayStart; // ejemplo: 07:00 → 01:00
-
-    if (crossesMidnight) dayEnd += 1440;
-    return { dayStart, dayEnd, entradaHHMM, salidaHHMM, crossesMidnight };
-  };
-
   const normalizeToDaySpan = (
     t: number,
     dayStart: number,
