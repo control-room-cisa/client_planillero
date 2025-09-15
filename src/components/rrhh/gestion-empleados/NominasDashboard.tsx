@@ -735,10 +735,98 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         {/* Error */}
         {error && (
           <Alert severity="error" sx={{ mb: 3 }}>
-            {error.response?.data?.message ||
+            {/* Check if it's a validation error with specific dates */}
+            {error.response?.data?.validationErrors ? (
+              <Box>
+                <Typography variant="h6" gutterBottom>
+                  No se puede procesar la nómina
+                </Typography>
+                {error.response.data.validationErrors.fechasNoAprobadas
+                  ?.length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle1" color="error" gutterBottom>
+                      📋 Fechas no aprobadas por supervisor:
+                    </Typography>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                      {error.response.data.validationErrors.fechasNoAprobadas.map(
+                        (fecha: string) => (
+                          <Typography
+                            key={fecha}
+                            variant="body2"
+                            sx={{
+                              backgroundColor: "error.light",
+                              color: "error.contrastText",
+                              px: 1,
+                              py: 0.5,
+                              borderRadius: 1,
+                              fontSize: "0.875rem",
+                            }}
+                          >
+                            {new Date(fecha + "T00:00:00").toLocaleDateString(
+                              "es-HN",
+                              {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                              }
+                            )}
+                          </Typography>
+                        )
+                      )}
+                    </Box>
+                  </Box>
+                )}
+                {error.response.data.validationErrors.fechasSinRegistro
+                  ?.length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle1" color="error" gutterBottom>
+                      📝 Fechas sin registro diario:
+                    </Typography>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                      {error.response.data.validationErrors.fechasSinRegistro.map(
+                        (fecha: string) => (
+                          <Typography
+                            key={fecha}
+                            variant="body2"
+                            sx={{
+                              backgroundColor: "warning.light",
+                              color: "warning.contrastText",
+                              px: 1,
+                              py: 0.5,
+                              borderRadius: 1,
+                              fontSize: "0.875rem",
+                            }}
+                          >
+                            {new Date(fecha + "T00:00:00").toLocaleDateString(
+                              "es-HN",
+                              {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                              }
+                            )}
+                          </Typography>
+                        )
+                      )}
+                    </Box>
+                  </Box>
+                )}
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mt: 2 }}
+                >
+                  💡 Contacte al supervisor para aprobar los registros
+                  pendientes o complete los registros faltantes.
+                </Typography>
+              </Box>
+            ) : (
+              // Regular error message
+              error.response?.data?.message ||
               (error.response?.status === 404
                 ? "No se pudo conectar con el servidor"
-                : "Error al cargar los datos")}
+                : "Error al cargar los datos")
+            )}
             <Button size="small" onClick={refetch} sx={{ ml: 2 }}>
               Reintentar
             </Button>
