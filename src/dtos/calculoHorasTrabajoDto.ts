@@ -33,12 +33,26 @@ export interface ConteoHorasTrabajadasDto {
     p100: number; // 100% de recargo (doble)
     libre: number; // 0 del valor de la hora normal
     almuerzo: number; // 0 del valor de la hora normal
+    // Variantes por jobs especiales en horas NORMALES
+    incapacidad?: number; // E01
+    vacaciones?: number; // E02
+    permisoConSueldo?: number; // E03
+    permisoSinSueldo?: number; // E04
+    inasistencias?: number; // E05
+    compensatorio?: number; // E06/E07
   };
-  // Campos adicionales que pueden venir del backend
+  // Resumen de días del período (base 15)
+  conteoDias?: {
+    totalPeriodo: number; // siempre 15
+    diasLaborados: number; // 15 - (otras categorías)
+    vacaciones: number; // E02 horas / 8
+    permisoConSueldo: number; // E03 horas / 8
+    permisoSinSueldo: number; // E04 horas / 8
+    inasistencias: number; // E05 horas / 8
+  };
+  // Campos adicionales potenciales (según backend)
   totalHorasTrabajadas?: number;
   totalHorasLaborables?: number;
-  diasLaborados?: number;
-  diasVacaciones?: number;
 }
 
 /**

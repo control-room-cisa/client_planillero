@@ -13,11 +13,15 @@ import type { DesgloseIncidencias } from "../../../services/calculoHorasTrabajoS
 interface DesgloseIncidenciasProps {
   desglose: DesgloseIncidencias | null;
   loading: boolean;
+  extrasMontos?: { p25: number; p50: number; p75: number; p100: number };
+  currencyFormatter?: (n: number) => string;
 }
 
 const DesgloseIncidenciasComponent: React.FC<DesgloseIncidenciasProps> = ({
   desglose,
   loading,
+  extrasMontos,
+  currencyFormatter,
 }) => {
   if (loading) {
     return (
@@ -102,9 +106,24 @@ const DesgloseIncidenciasComponent: React.FC<DesgloseIncidenciasProps> = ({
             <Typography variant="h4" sx={{ mb: 1 }}>
               {item.data.horas}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              horas ({item.data.porcentaje})
-            </Typography>
+            {item.label !== "Normal" && extrasMontos && currencyFormatter ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Monto:{" "}
+                {currencyFormatter(
+                  item.label === "25%"
+                    ? extrasMontos.p25
+                    : item.label === "50%"
+                    ? extrasMontos.p50
+                    : item.label === "75%"
+                    ? extrasMontos.p75
+                    : extrasMontos.p100
+                )}
+              </Typography>
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                horas ({item.data.porcentaje})
+              </Typography>
+            )}
             <Typography
               variant="caption"
               color="text.secondary"

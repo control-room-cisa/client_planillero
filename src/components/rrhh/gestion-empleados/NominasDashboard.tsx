@@ -10,7 +10,6 @@ import {
   Container,
   IconButton,
   FormControl,
-  Grid,
   Button,
   CircularProgress,
   Alert,
@@ -196,6 +195,46 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     fechaFin,
     enabled: !!empleado && rangoValido,
   });
+
+  // Cálculos de salario y montos
+  const { sueldoMensual = 0 } = (empleado as any) || {};
+  const conteoDias = resumenHoras?.conteoHoras?.conteoDias;
+  const periodoNomina = conteoDias?.totalPeriodo ?? 15;
+  const diasLaborados = conteoDias?.diasLaborados ?? 0;
+  const diasVacaciones = conteoDias?.vacaciones ?? 0;
+  const diasPermisoCS = conteoDias?.permisoConSueldo ?? 0; // justificado
+
+  const salarioQuincenal = React.useMemo(
+    () => (sueldoMensual || 0) / 2,
+    [sueldoMensual]
+  );
+  const salarioPorHora = React.useMemo(
+    () => (sueldoMensual || 0) / (30 * 8),
+    [sueldoMensual]
+  );
+  const fMon = React.useMemo(
+    () =>
+      new Intl.NumberFormat("es-HN", { style: "currency", currency: "HNL" }),
+    []
+  );
+
+  const montoDiasLaborados =
+    (diasLaborados / (periodoNomina || 15)) * salarioQuincenal;
+  const montoVacaciones =
+    (diasVacaciones / (periodoNomina || 15)) * salarioQuincenal;
+  const montoCubreEmpresa =
+    (diasPermisoCS / (periodoNomina || 15)) * salarioQuincenal;
+  const subtotalQuincena =
+    (montoDiasLaborados || 0) +
+    (montoVacaciones || 0) +
+    (montoCubreEmpresa || 0);
+
+  // Montos por horas (no incluidos en subtotal)
+  const horas = resumenHoras?.conteoHoras?.cantidadHoras;
+  const montoHoras25 = (horas?.p25 || 0) * salarioPorHora * 1.25;
+  const montoHoras50 = (horas?.p50 || 0) * salarioPorHora * 1.5;
+  const montoHoras75 = (horas?.p75 || 0) * salarioPorHora * 1.75;
+  const montoHoras100 = (horas?.p100 || 0) * salarioPorHora * 2.0;
 
   // Auto-refetch al cambiar empleado si ya hay rango
   React.useEffect(() => {
@@ -431,6 +470,25 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     }
   };
 
+  // Asegurar datos completos del colaborador (contacto/banco/salario)
+  const fullLoadedRef = React.useRef<Set<number>>(new Set());
+  React.useEffect(() => {
+    if (!empleado || !empleado.id) return;
+    const id = empleado.id as number;
+    const needsFull =
+      empleado.sueldoMensual == null ||
+      empleado.banco == null ||
+      empleado.tipoCuenta == null ||
+      empleado.numeroCuenta == null ||
+      empleado.correoElectronico == null ||
+      empleado.telefono == null ||
+      empleado.direccion == null;
+    if (needsFull && !fullLoadedRef.current.has(id)) {
+      cargarEmpleadoCompleto(id);
+      fullLoadedRef.current.add(id);
+    }
+  }, [empleado, cargarEmpleadoCompleto]);
+
   // Guard
   if (!empleado) {
     return (
@@ -567,7 +625,6 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
               </Box>
             </Box>
 
-            {/* Período + Aplicar */}
             <Box
               sx={{
                 flex: 1.5,
@@ -660,7 +717,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                 {idx >= 0
                   ? `${idx + 1} de ${empleadosIndex.length}`
                   : "No encontrado"}{" "}
-                empleados
+                colaboradores
               </Typography>
             </Box>
           )}
@@ -705,9 +762,13 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
               <Box sx={{ mt: 2 }}>
                 <Typography variant="body1" gutterBottom>
                   <strong>Departamento:</strong>{" "}
-                  {(empleado as any).departamento?.nombre ??
-                    (empleado as any).departamento ??
-                    "—"}
+                  {(empleado as any).departamento?.nombre ||
+                  (typeof (empleado as any).departamento === "string"
+                    ? (empleado as any).departamento
+                    : null) ||
+                  (empleado as any).departamentoId
+                    ? `Departamento ${(empleado as any).departamentoId}`
+                    : "—"}
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                   <strong>Tipo de Contrato:</strong>{" "}
@@ -716,6 +777,22 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                 <Typography variant="body1" gutterBottom>
                   <strong>Tipo de Horario:</strong>{" "}
                   {empleado.tipoHorario ?? "—"}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>Sueldo Mensual:</strong>{" "}
+                  {fMon.format(empleado.sueldoMensual ?? 0) ?? "—"}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>Sueldo Quincenal:</strong>{" "}
+                  {empleado?.sueldoMensual != null
+                    ? fMon.format(empleado.sueldoMensual / 2)
+                    : "—"}
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                  <strong>Sueldo por hora:</strong>{" "}
+                  {Number.isFinite(Number(empleado?.sueldoMensual))
+                    ? fMon.format(Number(empleado!.sueldoMensual) / 240)
+                    : "—"}
                 </Typography>
               </Box>
             </CardContent>
@@ -770,7 +847,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         {/* Información de días */}
         <Box sx={{ mt: 4 }}>
           <Typography variant="h5" gutterBottom>
-            Información de Días
+            Registro de Incidencias
           </Typography>
           <Paper sx={{ p: 3, mt: 2 }}>
             {loading ? (
@@ -778,38 +855,166 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                 <CircularProgress />
               </Box>
             ) : resumenHoras ? (
-              <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Días laborados:</strong>{" "}
-                    {resumenHoras.conteoHoras.diasLaborados || 0}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Vacaciones:</strong>{" "}
-                    {resumenHoras.conteoHoras.diasVacaciones || 0}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Total horas trabajadas:</strong>{" "}
-                    {resumenHoras.conteoHoras.totalHorasTrabajadas || 0}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Horas laborables:</strong>{" "}
-                    {resumenHoras.conteoHoras.totalHorasLaborables || 0}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Diferencia:</strong>{" "}
-                    {resumenHoras.desgloseIncidencias.diferencia || 0}
-                  </Typography>
-                </Grid>
-              </Grid>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gap: 3,
+                  mt: 2,
+                }}
+              >
+                {/* Columna 1 */}
+                <Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Días laborados:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {resumenHoras.conteoHoras.conteoDias?.diasLaborados ?? 0}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Vacaciones (días):</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {resumenHoras.conteoHoras.conteoDias?.vacaciones ?? 0}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Total días nómina:</strong>
+                    </Typography>
+                    <Typography variant="body1">{periodoNomina}</Typography>
+                  </Box>
+                </Box>
+
+                {/* Columna 2 */}
+                <Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Monto días laborados:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {fMon.format(montoDiasLaborados || 0)}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Monto vacaciones:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {fMon.format(montoVacaciones || 0)}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Monto cubre empresa:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {fMon.format(montoCubreEmpresa || 0)}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Subtotal:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {fMon.format(subtotalQuincena || 0)}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Columna 3 */}
+                <Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Permisos justificados:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {resumenHoras.conteoHoras.conteoDias?.permisoConSueldo ??
+                        0}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Permisos no justificados:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {resumenHoras.conteoHoras.conteoDias?.permisoSinSueldo ??
+                        0}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Inasistencias:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {resumenHoras.conteoHoras.conteoDias?.inasistencias ?? 0}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
             ) : (
               <Typography variant="body1" color="text.secondary">
                 Selecciona un período de nómina del selector y presiona
@@ -822,11 +1027,18 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         {/* Registro de incidencias */}
         <Box sx={{ mt: 4 }}>
           <Typography variant="h5" gutterBottom>
-            Registro de Incidencias
+            Horas Extras
           </Typography>
           <DesgloseIncidenciasComponent
             desglose={resumenHoras?.desgloseIncidencias || null}
             loading={loading}
+            extrasMontos={{
+              p25: montoHoras25,
+              p50: montoHoras50,
+              p75: montoHoras75,
+              p100: montoHoras100,
+            }}
+            currencyFormatter={(n: number) => fMon.format(n || 0)}
           />
         </Box>
 
