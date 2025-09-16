@@ -589,6 +589,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
             const salidaMin = sh * 60 + sm;
             const esTurnoNocturno = salidaMin < entradaMin;
 
+            const isPlaceholder = !registro.id;
+
             return (
               <Grow key={registro.id!} in={!loading} timeout={300 + idx * 100}>
                 <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 2 }}>
@@ -650,7 +652,11 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                   </Typography>
 
                   {/* Desktop: tabla / Mobile: tarjetas en columna */}
-                  {!isMobile ? (
+                  {isPlaceholder ? (
+                    <Alert severity="error">
+                      No se ha guardado un registro para este día
+                    </Alert>
+                  ) : !isMobile ? (
                     <TableContainer>
                       <Table size="small">
                         <TableHead>
@@ -906,8 +912,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                   )}
 
                   {/* Validaciones */}
-                  {registro.actividades &&
-                    registro.actividades.length > 0 &&
+                  {!isPlaceholder &&
                     (validacionHorasNormales === false ||
                       !validacionHorasExtra.valido) && (
                       <Box sx={{ mt: 2, mb: 2 }}>
@@ -957,7 +962,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                     )}
 
                   {/* Resumen de horas */}
-                  {registro.actividades && registro.actividades.length > 0 && (
+                  {!isPlaceholder && (
                     <Box sx={{ mt: 2, mb: 2 }}>
                       <Typography variant="subtitle2" gutterBottom>
                         Resumen de horas
@@ -1024,7 +1029,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                   )}
 
                   {/* Acciones Aprobar/Rechazar */}
-                  {registro.actividades && registro.actividades.length > 0 && (
+                  {!isPlaceholder && (
                     <Stack
                       direction={{ xs: "column", sm: "row" }}
                       spacing={2}
