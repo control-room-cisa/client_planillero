@@ -1,5 +1,5 @@
 export const API_CONFIG = {
-  BASE_URL: "http://localhost:3000/api",
+  BASE_URL: `${import.meta.env.VITE_API_URL}/api`,
   ENDPOINTS: {
     AUTH: {
       LOGIN: "/auth/login",
@@ -19,5 +19,5 @@ export const API_CONFIG = {
         `/planillas/detalle/${empleadoId}?start=${start}&end=${end}`,
     },
   },
-  TIMEOUT: 10000,
+  TIMEOUT: import.meta.env.VITE_TIMEOUT || 10000,
 } as const;
