@@ -287,6 +287,8 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         const updateData: UpdateEmpleadoDto = {
           id: empleado.id,
           ...updateFields,
+          // Solo incluir contraseña si no está vacía
+          ...(contrasena.trim() ? { contrasena } : {}),
         };
         await EmpleadoService.update(updateData, selectedFiles);
         onSuccess("Colaborador actualizado exitosamente");
@@ -648,19 +650,21 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                 )}
               </FormControl>
 
-              {!isEditing && (
-                <TextField
-                  label="Contraseña *"
-                  name="contrasena"
-                  type="password"
-                  value={formData.contrasena}
-                  onChange={handleInputChange}
-                  fullWidth
-                  required
-                  error={!!fieldErrors.contrasena}
-                  helperText={fieldErrors.contrasena}
-                />
-              )}
+              <TextField
+                label={isEditing ? "Nueva Contraseña" : "Contraseña *"}
+                name="contrasena"
+                type="password"
+                value={formData.contrasena}
+                onChange={handleInputChange}
+                fullWidth
+                required={!isEditing}
+                error={!!fieldErrors.contrasena}
+                helperText={
+                  fieldErrors.contrasena ||
+                  (isEditing ? "Dejar en blanco para mantener la actual" : "")
+                }
+                placeholder={isEditing ? "Dejar en blanco para no cambiar" : ""}
+              />
 
               <Box sx={{ gridColumn: "1 / -1" }}>
                 <FormControlLabel
