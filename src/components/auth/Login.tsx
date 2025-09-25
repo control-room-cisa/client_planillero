@@ -9,7 +9,6 @@ import {
   Paper,
   InputAdornment,
   IconButton,
-  Divider,
 } from "@mui/material";
 import {
   Email,
