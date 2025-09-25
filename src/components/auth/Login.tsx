@@ -183,7 +183,7 @@ export default function Login() {
               {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
 
-              <>
+            {/* <>
                 <Divider sx={{ my: 2 }}>
                   <Typography variant="body2" color="text.secondary">
                     o
@@ -203,7 +203,7 @@ export default function Login() {
                     Crear cuenta nueva
                   </Button>
                 </Box>
-              </>
+              </> */}
           </Box>
         </Paper>
       </Box>
