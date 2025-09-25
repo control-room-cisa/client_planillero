@@ -65,53 +65,6 @@ const AppBar = styled(MuiAppBar, {
   }),
 }));
 
-const Drawer = styled(MuiDrawer, {
-  shouldForwardProp: (prop) => prop !== "open",
-})<{
-  open?: boolean;
-}>(({ theme, open }) => ({
-  width: drawerWidth,
-  flexShrink: 0,
-  whiteSpace: "nowrap",
-  boxSizing: "border-box",
-  ...(open && {
-    width: drawerWidth,
-    transition: theme.transitions.create("width", {
-      easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.enteringScreen,
-    }),
-    overflowX: "hidden",
-    "& .MuiDrawer-paper": {
-      width: drawerWidth,
-      transition: theme.transitions.create("width", {
-        easing: theme.transitions.easing.sharp,
-        duration: theme.transitions.duration.enteringScreen,
-      }),
-      overflowX: "hidden",
-    },
-  }),
-  ...(!open && {
-    transition: theme.transitions.create("width", {
-      easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.leavingScreen,
-    }),
-    overflowX: "hidden",
-    width: `calc(${theme.spacing(7)} + 1px)`,
-    [theme.breakpoints.up("sm")]: { width: `calc(${theme.spacing(8)} + 1px)` },
-    "& .MuiDrawer-paper": {
-      transition: theme.transitions.create("width", {
-        easing: theme.transitions.easing.sharp,
-        duration: theme.transitions.duration.leavingScreen,
-      }),
-      overflowX: "hidden",
-      width: `calc(${theme.spacing(7)} + 1px)`,
-      [theme.breakpoints.up("sm")]: {
-        width: `calc(${theme.spacing(8)} + 1px)`,
-      },
-    },
-  }),
-}));
-
 // 👉 Tipo auxiliar para el índice de empleados usado por NominasDashboard
 export type EmpleadoIndexItem = {
   id: number;
@@ -136,6 +89,7 @@ export default function Layout() {
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(
     null
   );
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 600);
 
   const [selectedEmpleado, _setSelectedEmpleado] =
     React.useState<Empleado | null>(null);
@@ -145,6 +99,21 @@ export default function Layout() {
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  // ===== Detectar cambios de tamaño de pantalla
+  React.useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 600;
+      setIsMobile(mobile);
+      // Cerrar drawer en móviles cuando se redimensiona
+      if (mobile && open) {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [open]);
 
   // ===== Ruta inicial por rol cuando se entra a "/"
   React.useEffect(() => {
@@ -292,7 +261,27 @@ export default function Layout() {
         </Toolbar>
       </AppBar>
 
-      <Drawer variant="permanent" open={open}>
+      <MuiDrawer
+        variant={isMobile ? "temporary" : "permanent"}
+        open={open}
+        onClose={() => setOpen(false)}
+        ModalProps={{
+          keepMounted: true,
+        }}
+        sx={{
+          width: isMobile ? drawerWidth : open ? drawerWidth : 64,
+          flexShrink: 0,
+          "& .MuiDrawer-paper": {
+            width: isMobile ? drawerWidth : open ? drawerWidth : 64,
+            boxSizing: "border-box",
+            transition: theme.transitions.create("width", {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
+            overflowX: "hidden",
+          },
+        }}
+      >
         <DrawerHeader>
           <IconButton onClick={() => setOpen(false)}>
             {theme.direction === "rtl" ? (
@@ -307,7 +296,13 @@ export default function Layout() {
           {navItems.map((item) => (
             <ListItem key={item.id} disablePadding sx={{ display: "block" }}>
               <ListItemButton
-                onClick={() => navigate(item.path)}
+                onClick={() => {
+                  navigate(item.path);
+                  // Cerrar drawer en móviles después de navegar
+                  if (isMobile) {
+                    setOpen(false);
+                  }
+                }}
                 selected={isItemSelected(item.path)}
                 sx={{
                   minHeight: 48,
@@ -332,7 +327,7 @@ export default function Layout() {
             </ListItem>
           ))}
         </List>
-      </Drawer>
+      </MuiDrawer>
 
       <Box component="main" sx={{ flexGrow: 1 }}>
         <DrawerHeader />
