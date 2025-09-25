@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "bash -lc 'git pull --rebase && npm ci && npm run build && (pm2 describe planillero-frontend >/dev/null || pm2 start npm --name planillero-frontend -- run preview -- --host 0.0.0.0 --port 5173) && pm2 restart planillero-frontend && pm2 save'"
+    "deploy": "bash -lc 'git pull --rebase && npm ci && npm run build && (pm2 describe planillero-frontend >/dev/null || pm2 start npm --name planillero-frontend -- run preview -- --host 0.0.0.0 --port 3003) && pm2 restart planillero-frontend && pm2 save'"
   },
   "dependencies": {
     "@date-io/date-fns": "^3.2.1",
