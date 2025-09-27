@@ -74,7 +74,7 @@ const TimesheetReviewRrhh: React.FC = () => {
     fetchEmpresas();
   }, []);
 
-  // Cargar empleados cuando cambia la empresa seleccionada
+  // Cargar empleados solo si hay una empresa seleccionada
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
@@ -83,9 +83,8 @@ const TimesheetReviewRrhh: React.FC = () => {
           const empleados = await EmpleadoService.getAll(selectedEmpresa.id);
           setEmployees(empleados);
         } else {
-          // Si no hay empresa seleccionada, cargar todos los empleados
-          const empleados = await EmpleadoService.getAll();
-          setEmployees(empleados);
+          // Si no hay empresa seleccionada, no cargar empleados
+          setEmployees([]);
         }
       } catch (error) {
         console.error("Error al cargar empleados:", error);
@@ -134,7 +133,7 @@ const TimesheetReviewRrhh: React.FC = () => {
 
       {/* Filtro de empresa */}
       <Autocomplete
-        options={empresas}
+        options={empresas.filter((empresa) => empresa.visible !== false)}
         getOptionLabel={(opt) => opt.nombre || ""}
         loading={loadingEmpresas}
         onChange={(_, value) => {
@@ -176,12 +175,13 @@ const TimesheetReviewRrhh: React.FC = () => {
         loading={loadingEmployees}
         value={selectedEmployee}
         onChange={(_, value) => setSelectedEmployee(value)}
+        noOptionsText="No hay resultados"
         renderInput={(params) => (
           <TextField
             {...params}
             size="small"
-            label="Empleado"
-            placeholder="Buscar empleado"
+            label="Colaborador"
+            placeholder="Buscar colaborador"
             InputProps={{
               ...params.InputProps,
               startAdornment: (
