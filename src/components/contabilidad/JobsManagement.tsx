@@ -135,6 +135,13 @@ const JobsManagement: React.FC = () => {
   };
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
+    // Verificar si el job es especial
+    const job = jobs.find((j) => j.id === id);
+    if (job?.especial) {
+      showSnackbar("No se puede modificar un job especial", "error");
+      return;
+    }
+
     try {
       // Optimistic update: actualizar el estado local inmediatamente
       setJobs((prevJobs) =>
@@ -179,6 +186,12 @@ const JobsManagement: React.FC = () => {
   };
 
   const handleOpenDialog = (job?: Job) => {
+    // Verificar si el job es especial
+    if (job?.especial) {
+      showSnackbar("No se puede editar un job especial", "error");
+      return;
+    }
+
     if (job) {
       setIsEditing(true);
       setCurrentJob(job);
@@ -247,6 +260,13 @@ const JobsManagement: React.FC = () => {
   };
 
   const handleDeleteJob = async (id: number) => {
+    // Verificar si el job es especial
+    const job = jobs.find((j) => j.id === id);
+    if (job?.especial) {
+      showSnackbar("No se puede eliminar un job especial", "error");
+      return;
+    }
+
     if (window.confirm("¿Está seguro que desea eliminar este job?")) {
       try {
         await JobService.delete(id);
@@ -271,13 +291,45 @@ const JobsManagement: React.FC = () => {
       job.codigo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       job.descripcion?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Filtro por empresa seleccionada - solo mostrar jobs si hay una empresa seleccionada
+    // Filtro por empresa seleccionada - usar mostrarEmpresaId como estaba originalmente
     const matchesEmpresa =
       selectedEmpresaId === "" ||
       job.mostrarEmpresaId === Number(selectedEmpresaId);
 
     return matchesSearchTerm && matchesEmpresa;
   });
+
+  // Agrupar jobs por empresa y especiales
+  const groupedJobs = filteredJobs.reduce((acc, job) => {
+    if (job.especial) {
+      // Agrupar jobs especiales
+      if (!acc["especiales"]) {
+        acc["especiales"] = {
+          empresaId: "especiales",
+          empresaNombre: "ESPECIALES",
+          jobs: [],
+        };
+      }
+      acc["especiales"].jobs.push(job);
+    } else {
+      // Agrupar jobs normales por empresa
+      const empresaId = job.empresaId || 0;
+      const empresaNombre = job.empresa?.nombre || "Sin empresa";
+
+      if (!acc[empresaId]) {
+        acc[empresaId] = {
+          empresaId,
+          empresaNombre,
+          jobs: [],
+        };
+      }
+
+      acc[empresaId].jobs.push(job);
+    }
+    return acc;
+  }, {} as Record<string | number, { empresaId: string | number; empresaNombre: string; jobs: Job[] }>);
+
+  const groupedJobsArray = Object.values(groupedJobs);
 
   // Verificar si hay una empresa seleccionada para habilitar el botón de agregar
   const isAddButtonDisabled = selectedEmpresaId === "";
@@ -339,7 +391,7 @@ const JobsManagement: React.FC = () => {
         </Button>
       </Box>
 
-      {/* Tabla de Jobs */}
+      {/* Tabla de Jobs Agrupados por Empresa */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -347,7 +399,6 @@ const JobsManagement: React.FC = () => {
               <TableCell>Código</TableCell>
               <TableCell>Nombre</TableCell>
               <TableCell>Descripción</TableCell>
-              <TableCell>Empresa</TableCell>
               <TableCell align="center">Activo</TableCell>
               <TableCell align="center">Acciones</TableCell>
             </TableRow>
@@ -355,51 +406,87 @@ const JobsManagement: React.FC = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={5} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             ) : selectedEmpresaId === "" ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={5} align="center">
                   Seleccione una empresa para ver los jobs
                 </TableCell>
               </TableRow>
-            ) : filteredJobs.length === 0 ? (
+            ) : groupedJobsArray.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={5} align="center">
                   No hay jobs disponibles para esta empresa
                 </TableCell>
               </TableRow>
             ) : (
-              filteredJobs.map((job) => (
-                <TableRow key={job.id}>
-                  <TableCell>{job.codigo}</TableCell>
-                  <TableCell>{job.nombre}</TableCell>
-                  <TableCell>{job.descripcion}</TableCell>
-                  <TableCell>{job.empresa?.nombre || "-"}</TableCell>
-                  <TableCell align="center">
-                    <Switch
-                      checked={job.activo}
-                      onChange={() => handleToggleActive(job.id, job.activo)}
-                      color="primary"
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      color="primary"
-                      onClick={() => handleOpenDialog(job)}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      color="error"
-                      onClick={() => handleDeleteJob(job.id)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
+              groupedJobsArray.map((grupo) => (
+                <React.Fragment key={grupo.empresaId}>
+                  {/* Fila de encabezado de empresa */}
+                  <TableRow sx={{ backgroundColor: "grey.100" }}>
+                    <TableCell colSpan={5}>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          fontWeight: "bold",
+                          color:
+                            grupo.empresaId === "especiales"
+                              ? "error.main"
+                              : "primary.main",
+                        }}
+                      >
+                        {grupo.empresaNombre}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                  {/* Jobs de la empresa */}
+                  {grupo.jobs.map((job) => (
+                    <TableRow key={job.id}>
+                      <TableCell>{job.codigo}</TableCell>
+                      <TableCell>{job.nombre}</TableCell>
+                      <TableCell>{job.descripcion}</TableCell>
+                      <TableCell align="center">
+                        <Switch
+                          checked={job.activo}
+                          onChange={() =>
+                            handleToggleActive(job.id, job.activo)
+                          }
+                          color="primary"
+                          disabled={job.especial}
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton
+                          color="primary"
+                          onClick={() => handleOpenDialog(job)}
+                          disabled={job.especial}
+                          title={
+                            job.especial
+                              ? "No se puede editar un job especial"
+                              : "Editar"
+                          }
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          color="error"
+                          onClick={() => handleDeleteJob(job.id)}
+                          disabled={job.especial}
+                          title={
+                            job.especial
+                              ? "No se puede eliminar un job especial"
+                              : "Eliminar"
+                          }
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </React.Fragment>
               ))
             )}
           </TableBody>
