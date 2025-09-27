@@ -59,11 +59,13 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
               <MenuItem value="" disabled>
                 Selecciona una empresa
               </MenuItem>
-              {empresas.map((empresa) => (
-                <MenuItem key={empresa.id} value={empresa.id.toString()}>
-                  {empresa.nombre}
-                </MenuItem>
-              ))}
+              {empresas
+                .filter((empresa) => empresa.visible !== false)
+                .map((empresa) => (
+                  <MenuItem key={empresa.id} value={empresa.id.toString()}>
+                    {empresa.nombre}
+                  </MenuItem>
+                ))}
             </Select>
           </FormControl>
         </Box>

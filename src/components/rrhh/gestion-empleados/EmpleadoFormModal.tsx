@@ -602,11 +602,13 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   <MenuItem value={0} disabled>
                     <em>Seleccionar empresa</em>
                   </MenuItem>
-                  {empresas.map((empresa) => (
-                    <MenuItem key={empresa.id} value={empresa.id}>
-                      {empresa.nombre}
-                    </MenuItem>
-                  ))}
+                  {empresas
+                    .filter((empresa) => empresa.visible !== false)
+                    .map((empresa) => (
+                      <MenuItem key={empresa.id} value={empresa.id}>
+                        {empresa.nombre}
+                      </MenuItem>
+                    ))}
                 </Select>
               </FormControl>
 
