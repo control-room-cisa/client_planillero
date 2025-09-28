@@ -60,6 +60,7 @@ const JobsManagement: React.FC = () => {
     mostrarEmpresaId: 0,
     activo: true,
   });
+  const [codigoError, setCodigoError] = useState<string>("");
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -114,13 +115,141 @@ const JobsManagement: React.FC = () => {
     fetchEmpresas();
   }, [fetchJobs, fetchEmpresas]);
 
+  // Función para validar la estructura jerárquica del código
+  const validateCodigoJerarquico = (
+    codigo: string
+  ): { isValid: boolean; error: string } => {
+    if (!codigo.trim()) {
+      return { isValid: false, error: "El código es obligatorio" };
+    }
+
+    // Validar formato: NNNN.NNNN.NNNN (máximo 4 dígitos por número, máximo 2 puntos)
+    const codigoPattern = /^(\d{1,4})(\.\d{1,4})?(\.\d{1,4})?$/;
+    if (!codigoPattern.test(codigo)) {
+      return {
+        isValid: false,
+        error:
+          "El código debe seguir el formato: NNNN.NNNN.NNNN (máximo 4 dígitos por número, máximo 2 puntos)",
+      };
+    }
+
+    // Verificar que no exceda 3 niveles
+    const partes = codigo.split(".");
+    if (partes.length > 3) {
+      return {
+        isValid: false,
+        error: "El código no puede tener más de 3 niveles",
+      };
+    }
+
+    // Obtener la empresaMostrar actual
+    const empresaMostrarId =
+      selectedEmpresaId !== ""
+        ? Number(selectedEmpresaId)
+        : formData.mostrarEmpresaId;
+
+    // Filtrar jobs solo del grupo mostrarEmpresa actual
+    const jobsDelGrupo = jobs.filter(
+      (job) => job.mostrarEmpresaId === empresaMostrarId
+    );
+
+    // Validar que el job antecesor exista en el mismo grupo
+    if (partes.length > 1) {
+      const codigoAntecesor = partes.slice(0, -1).join(".");
+      const jobAntecesor = jobsDelGrupo.find(
+        (job) => job.codigo === codigoAntecesor
+      );
+
+      if (!jobAntecesor) {
+        return {
+          isValid: false,
+          error: `El job antecesor "${codigoAntecesor}" no existe en este grupo`,
+        };
+      }
+    }
+
+    // Validar que no exista un job con el mismo código en el mismo grupo (excepto al editar)
+    const jobExistente = jobsDelGrupo.find((job) => job.codigo === codigo);
+    if (jobExistente && (!isEditing || jobExistente.id !== currentJob?.id)) {
+      return {
+        isValid: false,
+        error: "Ya existe un job con este código en este grupo",
+      };
+    }
+
+    return { isValid: true, error: "" };
+  };
+
   // Funciones para el manejo del formulario
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+
+    // Si es el campo código, solo permitir números y puntos con límites
+    if (name === "codigo") {
+      // Filtrar solo números y puntos
+      let filteredValue = value.replace(/[^0-9.]/g, "");
+
+      // Aplicar límites de formato NNNN.NNNN.NNNN
+      const partes = filteredValue.split(".");
+      if (partes.length > 3) {
+        // Si hay más de 2 puntos, truncar
+        filteredValue = partes.slice(0, 3).join(".");
+      }
+
+      // Limitar cada parte a máximo 4 dígitos
+      const partesLimitadas = partes
+        .slice(0, 3)
+        .map((parte) => (parte.length > 4 ? parte.substring(0, 4) : parte));
+      filteredValue = partesLimitadas.join(".");
+
+      setFormData({
+        ...formData,
+        [name]: filteredValue,
+      });
+
+      // Validar código
+      const validation = validateCodigoJerarquico(filteredValue);
+      setCodigoError(validation.error);
+
+      // Si es un job hijo y existe el antecesor, seleccionar automáticamente la empresa
+      if (
+        filteredValue.includes(".") &&
+        !validation.error.includes("no existe")
+      ) {
+        const partes = filteredValue.split(".");
+        if (partes.length > 1) {
+          const codigoAntecesor = partes.slice(0, -1).join(".");
+
+          // Obtener la empresaMostrar actual para filtrar jobs del grupo
+          const empresaMostrarId =
+            selectedEmpresaId !== ""
+              ? Number(selectedEmpresaId)
+              : formData.mostrarEmpresaId;
+
+          // Buscar solo en jobs del grupo actual
+          const jobsDelGrupo = jobs.filter(
+            (job) => job.mostrarEmpresaId === empresaMostrarId
+          );
+          const jobAntecesor = jobsDelGrupo.find(
+            (job) => job.codigo === codigoAntecesor
+          );
+
+          if (jobAntecesor && jobAntecesor.empresaId) {
+            // Seleccionar automáticamente la empresa del antecesor (solo empresa, no mostrarEmpresa)
+            setFormData((prev) => ({
+              ...prev,
+              empresaId: jobAntecesor.empresaId,
+            }));
+          }
+        }
+      }
+    } else {
+      // Para otros campos, comportamiento normal
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
 
   const handleEmpresaChange = (e: SelectChangeEvent) => {
@@ -183,6 +312,7 @@ const JobsManagement: React.FC = () => {
     });
     setCurrentJob(null);
     setIsEditing(false);
+    setCodigoError("");
   };
 
   const handleOpenDialog = (job?: Job) => {
@@ -216,6 +346,14 @@ const JobsManagement: React.FC = () => {
 
   // Funciones CRUD
   const handleCreateJob = async () => {
+    // Validar código antes de crear (validación básica del frontend)
+    const validation = validateCodigoJerarquico(formData.codigo);
+    if (!validation.isValid) {
+      setCodigoError(validation.error);
+      showSnackbar(validation.error, "error");
+      return;
+    }
+
     try {
       // Asegurarse de que mostrarEmpresaId sea el valor del filtro seleccionado
       const dataToSend = {
@@ -230,14 +368,33 @@ const JobsManagement: React.FC = () => {
       showSnackbar("Job creado exitosamente", "success");
       handleCloseDialog();
       fetchJobs();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error al crear job:", err);
-      showSnackbar("Error al crear el job", "error");
+
+      // Mostrar el mensaje de error del backend si está disponible
+      const errorMessage = err.message || "Error al crear el job";
+      showSnackbar(errorMessage, "error");
+
+      // Si es un error de validación del backend, mostrarlo también en el campo
+      if (
+        (err.message && err.message.includes("antecesor")) ||
+        err.message.includes("código")
+      ) {
+        setCodigoError(err.message);
+      }
     }
   };
 
   const handleUpdateJob = async () => {
     if (!currentJob) return;
+
+    // Validar código antes de actualizar (validación básica del frontend)
+    const validation = validateCodigoJerarquico(formData.codigo);
+    if (!validation.isValid) {
+      setCodigoError(validation.error);
+      showSnackbar(validation.error, "error");
+      return;
+    }
 
     try {
       // Asegurarse de que mostrarEmpresaId sea el valor del filtro seleccionado
@@ -253,9 +410,20 @@ const JobsManagement: React.FC = () => {
       showSnackbar("Job actualizado exitosamente", "success");
       handleCloseDialog();
       fetchJobs();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error al actualizar job:", err);
-      showSnackbar("Error al actualizar el job", "error");
+
+      // Mostrar el mensaje de error del backend si está disponible
+      const errorMessage = err.message || "Error al actualizar el job";
+      showSnackbar(errorMessage, "error");
+
+      // Si es un error de validación del backend, mostrarlo también en el campo
+      if (
+        err.message &&
+        (err.message.includes("antecesor") || err.message.includes("código"))
+      ) {
+        setCodigoError(err.message);
+      }
     }
   };
 
@@ -299,6 +467,40 @@ const JobsManagement: React.FC = () => {
     return matchesSearchTerm && matchesEmpresa;
   });
 
+  // Función para determinar el nivel jerárquico de un job
+  const getJobLevel = (codigo: string): number => {
+    return codigo.split(".").length - 1;
+  };
+
+  // Función para determinar si un job es hijo de otro
+  const isChildOf = (childCodigo: string, parentCodigo: string): boolean => {
+    return childCodigo.startsWith(parentCodigo + ".");
+  };
+
+  // Función para ordenar jobs jerárquicamente
+  const sortJobsHierarchically = (jobs: Job[]): Job[] => {
+    return jobs.sort((a, b) => {
+      const aLevel = getJobLevel(a.codigo);
+      const bLevel = getJobLevel(b.codigo);
+
+      // Si tienen el mismo nivel, ordenar por código
+      if (aLevel === bLevel) {
+        return a.codigo.localeCompare(b.codigo, undefined, { numeric: true });
+      }
+
+      // Si uno es padre del otro, el padre va primero
+      if (isChildOf(b.codigo, a.codigo)) {
+        return -1;
+      }
+      if (isChildOf(a.codigo, b.codigo)) {
+        return 1;
+      }
+
+      // Ordenar por nivel (padres primero)
+      return aLevel - bLevel;
+    });
+  };
+
   // Agrupar jobs por empresa y especiales
   const groupedJobs = filteredJobs.reduce((acc, job) => {
     if (job.especial) {
@@ -329,6 +531,11 @@ const JobsManagement: React.FC = () => {
     return acc;
   }, {} as Record<string | number, { empresaId: string | number; empresaNombre: string; jobs: Job[] }>);
 
+  // Ordenar jobs jerárquicamente en cada grupo
+  Object.values(groupedJobs).forEach((grupo) => {
+    grupo.jobs = sortJobsHierarchically(grupo.jobs);
+  });
+
   const groupedJobsArray = Object.values(groupedJobs);
 
   // Verificar si hay una empresa seleccionada para habilitar el botón de agregar
@@ -339,6 +546,72 @@ const JobsManagement: React.FC = () => {
       <Typography variant="h4" gutterBottom>
         Gestión de Jobs
       </Typography>
+
+      {/* Leyenda de jerarquía */}
+      <Box
+        sx={{
+          mb: 3,
+          p: 2,
+          backgroundColor: "grey.50",
+          borderRadius: 1,
+          border: "1px solid",
+          borderColor: "grey.200",
+        }}
+      >
+        <Typography
+          variant="subtitle2"
+          gutterBottom
+          sx={{ fontWeight: "bold" }}
+        >
+          Jerarquía de Jobs:
+        </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 3,
+            flexWrap: "wrap",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                backgroundColor: "primary.main",
+              }}
+            />
+            <Typography variant="body2">Nivel 1 (Padre)</Typography>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Box
+              sx={{
+                width: 0,
+                height: 0,
+                borderLeft: "4px solid transparent",
+                borderRight: "4px solid transparent",
+                borderTop: "6px solid",
+                borderTopColor: "primary.main",
+              }}
+            />
+            <Typography variant="body2">Nivel 2 (Hijo)</Typography>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Box
+              sx={{
+                width: 0,
+                height: 0,
+                borderLeft: "3px solid transparent",
+                borderRight: "3px solid transparent",
+                borderTop: "5px solid",
+                borderTopColor: "secondary.main",
+              }}
+            />
+            <Typography variant="body2">Nivel 3 (Nieto)</Typography>
+          </Box>
+        </Box>
+      </Box>
 
       {/* Filtro de empresas */}
       <Box sx={{ mb: 3 }}>
@@ -445,49 +718,171 @@ const JobsManagement: React.FC = () => {
                     </TableCell>
                   </TableRow>
                   {/* Jobs de la empresa */}
-                  {grupo.jobs.map((job) => (
-                    <TableRow key={job.id}>
-                      <TableCell>{job.codigo}</TableCell>
-                      <TableCell>{job.nombre}</TableCell>
-                      <TableCell>{job.descripcion}</TableCell>
-                      <TableCell align="center">
-                        <Switch
-                          checked={job.activo}
-                          onChange={() =>
-                            handleToggleActive(job.id, job.activo)
-                          }
-                          color="primary"
-                          disabled={job.especial}
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <IconButton
-                          color="primary"
-                          onClick={() => handleOpenDialog(job)}
-                          disabled={job.especial}
-                          title={
-                            job.especial
-                              ? "No se puede editar un job especial"
-                              : "Editar"
-                          }
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          color="error"
-                          onClick={() => handleDeleteJob(job.id)}
-                          disabled={job.especial}
-                          title={
-                            job.especial
-                              ? "No se puede eliminar un job especial"
-                              : "Eliminar"
-                          }
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {grupo.jobs.map((job) => {
+                    const level = getJobLevel(job.codigo);
+                    const isChild = level > 0;
+
+                    return (
+                      <TableRow
+                        key={job.id}
+                        sx={{
+                          backgroundColor: isChild
+                            ? "rgba(0, 0, 0, 0.02)"
+                            : "inherit",
+                          "&:hover": {
+                            backgroundColor: isChild
+                              ? "rgba(0, 0, 0, 0.04)"
+                              : "rgba(0, 0, 0, 0.04)",
+                          },
+                        }}
+                      >
+                        <TableCell>
+                          <Box sx={{ display: "flex", alignItems: "center" }}>
+                            {/* Indentación visual para mostrar jerarquía */}
+                            <Box
+                              sx={{
+                                width: level * 24,
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                            >
+                              {isChild && (
+                                <Box
+                                  sx={{
+                                    width: 16,
+                                    height: 1,
+                                    backgroundColor: "grey.400",
+                                    mr: 1,
+                                  }}
+                                />
+                              )}
+                            </Box>
+
+                            {/* Icono de jerarquía */}
+                            <Box
+                              sx={{
+                                mr: 1,
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                            >
+                              {level === 0 && (
+                                <Box
+                                  sx={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: "50%",
+                                    backgroundColor: "primary.main",
+                                  }}
+                                />
+                              )}
+                              {level === 1 && (
+                                <Box
+                                  sx={{
+                                    width: 0,
+                                    height: 0,
+                                    borderLeft: "4px solid transparent",
+                                    borderRight: "4px solid transparent",
+                                    borderTop: "6px solid",
+                                    borderTopColor: "primary.main",
+                                  }}
+                                />
+                              )}
+                              {level === 2 && (
+                                <Box
+                                  sx={{
+                                    width: 0,
+                                    height: 0,
+                                    borderLeft: "3px solid transparent",
+                                    borderRight: "3px solid transparent",
+                                    borderTop: "5px solid",
+                                    borderTopColor: "secondary.main",
+                                  }}
+                                />
+                              )}
+                            </Box>
+
+                            {/* Código del job */}
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontWeight: level === 0 ? "bold" : "normal",
+                                color:
+                                  level === 0 ? "primary.main" : "text.primary",
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              {job.codigo}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: level === 0 ? "bold" : "normal",
+                              color:
+                                level === 0 ? "primary.main" : "text.primary",
+                            }}
+                          >
+                            {job.nombre}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: isChild
+                                ? "text.secondary"
+                                : "text.primary",
+                              fontStyle: isChild ? "italic" : "normal",
+                            }}
+                          >
+                            {job.descripcion}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Switch
+                            checked={job.activo}
+                            onChange={() =>
+                              handleToggleActive(job.id, job.activo)
+                            }
+                            color="primary"
+                            disabled={job.especial}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <IconButton
+                            color="primary"
+                            onClick={() => handleOpenDialog(job)}
+                            disabled={job.especial}
+                            title={
+                              job.especial
+                                ? "No se puede editar un job especial"
+                                : "Editar"
+                            }
+                            size="small"
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            color="error"
+                            onClick={() => handleDeleteJob(job.id)}
+                            disabled={job.especial}
+                            title={
+                              job.especial
+                                ? "No se puede eliminar un job especial"
+                                : "Eliminar"
+                            }
+                            size="small"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </React.Fragment>
               ))
             )}
@@ -514,6 +909,12 @@ const JobsManagement: React.FC = () => {
               onChange={handleInputChange}
               fullWidth
               required
+              error={!!codigoError}
+              helperText={
+                codigoError ||
+                "Formato: NNNN.NNNN.NNNN (máximo 4 dígitos por número, máximo 2 puntos)"
+              }
+              placeholder="Ej: 100, 100.1, 100.1.5"
             />
             <TextField
               label="Nombre"
@@ -545,6 +946,7 @@ const JobsManagement: React.FC = () => {
                 onChange={handleEmpresaChange}
                 label="Empresa"
                 required
+                disabled={formData.codigo.includes(".")}
               >
                 <MenuItem value="">Seleccione una empresa</MenuItem>
                 {empresas.map((empresa) => (
@@ -553,6 +955,15 @@ const JobsManagement: React.FC = () => {
                   </MenuItem>
                 ))}
               </Select>
+              {formData.codigo.includes(".") && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mt: 0.5, fontSize: "0.75rem" }}
+                >
+                  La empresa se selecciona automáticamente para jobs jerárquicos
+                </Typography>
+              )}
             </FormControl>
           </Box>
         </DialogContent>
@@ -567,7 +978,8 @@ const JobsManagement: React.FC = () => {
               !formData.codigo ||
               formData.empresaId === 0 ||
               formData.empresaId === null ||
-              formData.empresaId === undefined
+              formData.empresaId === undefined ||
+              !!codigoError
             }
           >
             {isEditing ? "Actualizar" : "Crear"}

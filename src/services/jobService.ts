@@ -79,9 +79,17 @@ class JobService {
     try {
       const response = await api.post<JobResponse>("/jobs", jobData);
       return response.data.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al crear job:", error);
-      throw new Error("Error al crear el job");
+
+      // Extraer el mensaje de error del backend si está disponible
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else if (error.message) {
+        throw new Error(error.message);
+      } else {
+        throw new Error("Error al crear el job");
+      }
     }
   }
 
@@ -89,9 +97,17 @@ class JobService {
     try {
       const response = await api.put<JobResponse>(`/jobs/${id}`, jobData);
       return response.data.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error al actualizar job ${id}:`, error);
-      throw new Error("Error al actualizar el job");
+
+      // Extraer el mensaje de error del backend si está disponible
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else if (error.message) {
+        throw new Error(error.message);
+      } else {
+        throw new Error("Error al actualizar el job");
+      }
     }
   }
 
@@ -100,9 +116,17 @@ class JobService {
   static async delete(id: number): Promise<void> {
     try {
       await api.delete(`/jobs/${id}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error al eliminar job ${id}:`, error);
-      throw new Error("Error al eliminar el job");
+
+      // Extraer el mensaje de error del backend si está disponible
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else if (error.message) {
+        throw new Error(error.message);
+      } else {
+        throw new Error("Error al eliminar el job");
+      }
     }
   }
 }
