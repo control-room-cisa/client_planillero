@@ -17,7 +17,7 @@ export interface Empresa {
   id: number;
   codigo: string;
   nombre: string;
-  visible?: boolean;
+  esConsorcio?: boolean;
   createdAt: string;
   updatedAt: string | null;
   deletedAt: string | null;

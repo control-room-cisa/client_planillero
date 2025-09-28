@@ -133,7 +133,7 @@ const TimesheetReviewRrhh: React.FC = () => {
 
       {/* Filtro de empresa */}
       <Autocomplete
-        options={empresas.filter((empresa) => empresa.visible !== false)}
+        options={empresas.filter((empresa) => empresa.esConsorcio !== false)}
         getOptionLabel={(opt) => opt.nombre || ""}
         loading={loadingEmpresas}
         onChange={(_, value) => {

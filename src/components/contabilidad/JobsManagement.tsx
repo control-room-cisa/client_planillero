@@ -354,11 +354,13 @@ const JobsManagement: React.FC = () => {
                 size="small"
               >
                 <MenuItem value="">Seleccione una empresa</MenuItem>
-                {empresas.map((empresa) => (
-                  <MenuItem key={empresa.id} value={empresa.id.toString()}>
-                    {empresa.nombre}
-                  </MenuItem>
-                ))}
+                {empresas
+                  .filter((empresa) => empresa.esConsorcio === true)
+                  .map((empresa) => (
+                    <MenuItem key={empresa.id} value={empresa.id.toString()}>
+                      {empresa.nombre}
+                    </MenuItem>
+                  ))}
               </Select>
             </FormControl>
           </Box>

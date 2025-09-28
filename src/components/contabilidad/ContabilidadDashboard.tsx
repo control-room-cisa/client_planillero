@@ -12,8 +12,10 @@ import {
   Work as WorkIcon,
   BarChart as BarChartIcon,
   Settings as SettingsIcon,
+  Business as BusinessIcon,
 } from "@mui/icons-material";
 import JobsManagement from "./JobsManagement";
+import EmpresasManagement from "./EmpresasManagement";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -73,16 +75,17 @@ const ContabilidadDashboard: React.FC = () => {
               label="Gestión de Jobs"
               {...a11yProps(0)}
             />
+            <Tab icon={<BusinessIcon />} label="Empresas" {...a11yProps(1)} />
             <Tab
               icon={<BarChartIcon />}
               label="Reportes"
-              {...a11yProps(1)}
+              {...a11yProps(2)}
               disabled
             />
             <Tab
               icon={<SettingsIcon />}
               label="Configuración"
-              {...a11yProps(2)}
+              {...a11yProps(3)}
               disabled
             />
           </Tabs>
@@ -92,13 +95,16 @@ const ContabilidadDashboard: React.FC = () => {
               <JobsManagement />
             </TabPanel>
             <TabPanel value={tabValue} index={1}>
+              <EmpresasManagement />
+            </TabPanel>
+            <TabPanel value={tabValue} index={2}>
               <Box sx={{ p: 3 }}>
                 <Typography variant="h6">
                   Reportes (Funcionalidad en desarrollo)
                 </Typography>
               </Box>
             </TabPanel>
-            <TabPanel value={tabValue} index={2}>
+            <TabPanel value={tabValue} index={3}>
               <Box sx={{ p: 3 }}>
                 <Typography variant="h6">
                   Configuración (Funcionalidad en desarrollo)
@@ -112,4 +118,4 @@ const ContabilidadDashboard: React.FC = () => {
   );
 };
 
-export default ContabilidadDashboard; 
+export default ContabilidadDashboard;

@@ -60,7 +60,7 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
                 Selecciona una empresa
               </MenuItem>
               {empresas
-                .filter((empresa) => empresa.visible !== false)
+                .filter((empresa) => empresa.esConsorcio !== false)
                 .map((empresa) => (
                   <MenuItem key={empresa.id} value={empresa.id.toString()}>
                     {empresa.nombre}

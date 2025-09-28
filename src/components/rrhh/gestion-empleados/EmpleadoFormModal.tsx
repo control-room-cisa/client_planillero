@@ -603,7 +603,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                     <em>Seleccionar empresa</em>
                   </MenuItem>
                   {empresas
-                    .filter((empresa) => empresa.visible !== false)
+                    .filter((empresa) => empresa.esConsorcio !== false)
                     .map((empresa) => (
                       <MenuItem key={empresa.id} value={empresa.id}>
                         {empresa.nombre}

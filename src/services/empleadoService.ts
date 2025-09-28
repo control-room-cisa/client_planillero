@@ -7,7 +7,7 @@ interface Empleado {
   codigo?: string;
   departamento?: string;
   empresaId?: number;
-  empresa?: { nombre: string; visible?: boolean };
+  empresa?: { nombre: string; esConsorcio?: boolean };
   urlFotoPerfil?: string;
   urlCv?: string;
   correoElectronico?: string;
