@@ -582,7 +582,7 @@ const JobsManagement: React.FC = () => {
                 backgroundColor: "primary.main",
               }}
             />
-            <Typography variant="body2">Nivel 1 (Padre)</Typography>
+            <Typography variant="body2">Nivel 1</Typography>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Box
@@ -595,7 +595,7 @@ const JobsManagement: React.FC = () => {
                 borderTopColor: "primary.main",
               }}
             />
-            <Typography variant="body2">Nivel 2 (Hijo)</Typography>
+            <Typography variant="body2">Nivel 2</Typography>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Box
@@ -608,7 +608,7 @@ const JobsManagement: React.FC = () => {
                 borderTopColor: "secondary.main",
               }}
             />
-            <Typography variant="body2">Nivel 3 (Nieto)</Typography>
+            <Typography variant="body2">Nivel 3</Typography>
           </Box>
         </Box>
       </Box>

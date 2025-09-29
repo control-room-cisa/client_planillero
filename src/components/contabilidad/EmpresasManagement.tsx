@@ -127,7 +127,7 @@ const EmpresasManagement: React.FC = () => {
         await empresaService.createEmpresa({
           nombre: formData.nombre.trim(),
           codigo: formData.codigo.trim(),
-          visible: false, // Por defecto visible=false
+          esConsorcio: false, // Por defecto esConsorcio=false
         });
         showSnackbar("Empresa creada exitosamente", "success");
       }
