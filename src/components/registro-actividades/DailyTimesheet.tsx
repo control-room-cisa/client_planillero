@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useParams, useNavigate } from "react-router-dom";
 
 import {
   Box,
@@ -99,7 +100,18 @@ const DailyTimesheet: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { user } = useAuth();
-  const [currentDate, setCurrentDate] = React.useState(new Date());
+  const { fecha } = useParams<{ fecha?: string }>();
+  const navigate = useNavigate();
+
+  // Inicializar currentDate desde la URL o usar la fecha actual
+  const [currentDate, setCurrentDate] = React.useState(() => {
+    if (fecha) {
+      // La fecha en la URL está en formato YYYY-MM-DD
+      const [year, month, day] = fecha.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    }
+    return new Date();
+  });
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [editingActivity, setEditingActivity] = React.useState<Activity | null>(
     null
@@ -457,6 +469,17 @@ const DailyTimesheet: React.FC = () => {
 
     return s < dayStart || e > dayEnd;
   };
+
+  // ===== Sincronizar fecha con URL =====
+  React.useEffect(() => {
+    const fechaUrl = ymdInTZ(currentDate);
+    const currentPath = `/registro-actividades/${fechaUrl}`;
+
+    // Solo navegar si la URL actual es diferente
+    if (window.location.pathname !== currentPath) {
+      navigate(currentPath, { replace: true });
+    }
+  }, [currentDate, navigate]);
 
   // ===== Carga inicial =====
   React.useEffect(() => {
