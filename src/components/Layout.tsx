@@ -16,6 +16,7 @@ import {
   Menu,
   MenuItem,
   Tooltip,
+  Badge,
 } from "@mui/material";
 import MuiDrawer from "@mui/material/Drawer";
 import MuiAppBar from "@mui/material/AppBar";
@@ -32,6 +33,7 @@ import PeopleIcon from "@mui/icons-material/People";
 
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useNotificationCount } from "../hooks/useNotificationCount";
 import type { Empleado } from "../services/empleadoService";
 
 const drawerWidth = 240;
@@ -85,6 +87,7 @@ export type LayoutOutletCtx = {
 export default function Layout() {
   const theme = useTheme();
   const { user, logout } = useAuth();
+  const { count: notificationCount } = useNotificationCount();
   const [open, setOpen] = React.useState(false);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(
     null
@@ -99,6 +102,9 @@ export default function Layout() {
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Helper para obtener fecha actual en formato YYYY-MM-DD
+  const getTodayDateString = () => new Date().toISOString().split("T")[0];
 
   // ===== Detectar cambios de tamaño de pantalla
   React.useEffect(() => {
@@ -121,8 +127,10 @@ export default function Layout() {
     if (user?.rolId === 3)
       return navigate("/rrhh/planillas", { replace: true });
     if (user?.rolId === 4) return navigate("/contabilidad", { replace: true });
-    // rol 1 (colaborador) o supervisor 2
-    return navigate("/registro", { replace: true });
+    // rol 1 (colaborador) o supervisor 2 -> redirigir con fecha actual
+    return navigate(`/registro-actividades/${getTodayDateString()}`, {
+      replace: true,
+    });
   }, [location.pathname, navigate, user?.rolId]);
 
   // ===== Menú por rol → path
@@ -170,7 +178,7 @@ export default function Layout() {
           id: "registro",
           text: "Nuevo Registro Diario",
           icon: <PostAddIcon />,
-          path: "/registro-actividades",
+          path: `/registro-actividades/${getTodayDateString()}`,
         },
         {
           id: "supervision",
@@ -187,16 +195,20 @@ export default function Layout() {
         id: "registro",
         text: "Nuevo Registro Diario",
         icon: <PostAddIcon />,
-        path: "/registro-actividades",
+        path: `/registro-actividades/${getTodayDateString()}`,
       },
       {
         id: "notificaciones",
         text: "Notificaciones",
-        icon: <NotificationsIcon />,
+        icon: (
+          <Badge badgeContent={notificationCount} color="error">
+            <NotificationsIcon />
+          </Badge>
+        ),
         path: "/notificaciones",
       },
     ];
-  }, [user?.rolId]);
+  }, [user?.rolId, notificationCount, getTodayDateString]);
 
   const handleOpenUserMenu = (e: React.MouseEvent<HTMLElement>) =>
     setAnchorElUser(e.currentTarget);

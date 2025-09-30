@@ -28,17 +28,12 @@ const EmpleadosManagement = React.lazy(
 const ContabilidadDashboard = React.lazy(
   () => import("../components/contabilidad/ContabilidadDashboard")
 );
-const TimesheetReviewEmployee = React.lazy(
-  () => import("../components/TimesheetReviewEmployee")
+const NotificationsEmployee = React.lazy(
+  () => import("../components/NotificationsEmployee")
 );
 const NominasRoute = React.lazy(
   () => import("../components/rrhh/NominasRoute")
 );
-
-// Vista "router" para notificaciones según rol (Colaborador = 1)
-const NotificationsRouter: React.FC = () => {
-  return <TimesheetReviewEmployee />;
-};
 
 const AppRoutes: React.FC = () => {
   return (
@@ -125,18 +120,26 @@ const AppRoutes: React.FC = () => {
           }
         />
 
-        {/* Notificaciones (router por rol) */}
+        {/* Notificaciones (solo colaboradores) */}
         <Route
           path="notificaciones"
           element={
             <RoleProtectedRoute allowedRoles={[1]}>
-              <NotificationsRouter />
+              <NotificationsEmployee />
             </RoleProtectedRoute>
           }
         />
 
         {/* Fallback dentro de Layout */}
-        <Route index element={<Navigate to="registro-actividades" replace />} />
+        <Route
+          index
+          element={
+            <Navigate
+              to={`registro-actividades/${new Date().toISOString().split("T")[0]}`}
+              replace
+            />
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
