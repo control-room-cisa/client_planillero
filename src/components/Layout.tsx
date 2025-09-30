@@ -170,7 +170,7 @@ export default function Layout() {
           id: "registro",
           text: "Nuevo Registro Diario",
           icon: <PostAddIcon />,
-          path: "/registro",
+          path: "/registro-actividades",
         },
         {
           id: "supervision",
@@ -187,7 +187,7 @@ export default function Layout() {
         id: "registro",
         text: "Nuevo Registro Diario",
         icon: <PostAddIcon />,
-        path: "/registro",
+        path: "/registro-actividades",
       },
       {
         id: "notificaciones",

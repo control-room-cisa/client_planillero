@@ -470,16 +470,31 @@ const DailyTimesheet: React.FC = () => {
     return s < dayStart || e > dayEnd;
   };
 
-  // ===== Sincronizar fecha con URL =====
-  React.useEffect(() => {
-    const fechaUrl = ymdInTZ(currentDate);
-    const currentPath = `/registro-actividades/${fechaUrl}`;
+  // Usar ref para evitar bucle infinito en el efecto de redirección
+  const hasRedirected = React.useRef(false);
 
-    // Solo navegar si la URL actual es diferente
-    if (window.location.pathname !== currentPath) {
-      navigate(currentPath, { replace: true });
+  // ===== Sincronizar fecha con URL cuando cambie el parámetro =====
+  React.useEffect(() => {
+    if (fecha) {
+      const [year, month, day] = fecha.split("-").map(Number);
+      const dateFromUrl = new Date(year, month - 1, day);
+      const currentDateStr = ymdInTZ(currentDate);
+      const urlDateStr = ymdInTZ(dateFromUrl);
+      
+      // Solo actualizar si la fecha de la URL es diferente a la actual
+      if (currentDateStr !== urlDateStr) {
+        setCurrentDate(dateFromUrl);
+        setInitialLoading(true);
+      }
+      hasRedirected.current = false; // Resetear flag cuando hay fecha
+    } else if (!hasRedirected.current) {
+      // Si no hay fecha en la URL y no hemos redirigido aún, navegar a la fecha actual
+      hasRedirected.current = true;
+      const today = new Date();
+      const fechaString = ymdInTZ(today);
+      navigate(`/registro-actividades/${fechaString}`, { replace: true });
     }
-  }, [currentDate, navigate]);
+  }, [fecha]);
 
   // ===== Carga inicial =====
   React.useEffect(() => {
@@ -1412,10 +1427,17 @@ const DailyTimesheet: React.FC = () => {
     d.setDate(currentDate.getDate() + (direction === "prev" ? -1 : 1));
     setInitialLoading(true); // Activar loading cuando cambie la fecha
     setCurrentDate(d);
+    // Actualizar URL con la nueva fecha
+    const fechaString = ymdInTZ(d);
+    navigate(`/registro-actividades/${fechaString}`);
   };
   const goToToday = () => {
+    const today = new Date();
     setInitialLoading(true); // Activar loading cuando vaya a hoy
-    setCurrentDate(new Date());
+    setCurrentDate(today);
+    // Actualizar URL con la fecha de hoy
+    const fechaString = ymdInTZ(today);
+    navigate(`/registro-actividades/${fechaString}`);
   };
   const isToday = () => ymdInTZ(currentDate) === ymdInTZ(new Date());
 
