@@ -52,7 +52,13 @@ export default function Login() {
 
     try {
       await login(formData);
-      navigate("/");
+      // Redirigir a registro de actividades con fecha de hoy
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, "0");
+      const day = String(today.getDate()).padStart(2, "0");
+      const fechaString = `${year}-${month}-${day}`;
+      navigate(`/registro-actividades/${fechaString}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
     }
