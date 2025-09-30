@@ -158,7 +158,7 @@ export default function Layout() {
       return [
         {
           id: "rrhh-planillas",
-          text: "Revisión Planillas RRHH",
+          text: "Revisión de Actividades Diarias",
           icon: <FindInPageIcon />,
           path: "/rrhh/planillas",
         },
@@ -188,7 +188,7 @@ export default function Layout() {
         },
         {
           id: "supervision",
-          text: "Revisión Planillas Supervisor",
+          text: "Revisión de Actividades Diarias",
           icon: <FindInPageIcon />,
           path: "/supervision/planillas",
         },
