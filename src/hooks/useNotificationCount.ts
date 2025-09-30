@@ -11,17 +11,17 @@ export const useNotificationCount = () => {
     try {
       const today = new Date();
       const dates: string[] = [];
-      
+
       for (let i = 0; i < 20; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() - i);
-        dates.push(ymdInTZ(date));
+        const ymd = ymdInTZ(date);
+        if (ymd) dates.push(ymd);
       }
 
       const registros = await Promise.all(
-        dates.map((fecha) => 
-          RegistroDiarioService.getByDate(fecha)
-            .catch(() => null)
+        dates.map((fecha) =>
+          RegistroDiarioService.getByDate(fecha).catch(() => null)
         )
       );
 
