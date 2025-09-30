@@ -103,8 +103,11 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Helper para obtener fecha actual en formato YYYY-MM-DD
-  const getTodayDateString = () => new Date().toISOString().split("T")[0];
+  // Memorizar la fecha actual para evitar re-renders innecesarios
+  const todayDateString = React.useMemo(
+    () => new Date().toISOString().split("T")[0],
+    []
+  );
 
   // ===== Detectar cambios de tamaño de pantalla
   React.useEffect(() => {
@@ -124,14 +127,17 @@ export default function Layout() {
   // ===== Ruta inicial por rol cuando se entra a "/"
   React.useEffect(() => {
     if (location.pathname !== "/") return;
-    if (user?.rolId === 3)
-      return navigate("/rrhh/planillas", { replace: true });
-    if (user?.rolId === 4) return navigate("/contabilidad", { replace: true });
-    // rol 1 (colaborador) o supervisor 2 -> redirigir con fecha actual
-    return navigate(`/registro-actividades/${getTodayDateString()}`, {
-      replace: true,
-    });
-  }, [location.pathname, navigate, user?.rolId]);
+    if (!user?.rolId) return; // Esperar a que el usuario esté cargado
+
+    if (user.rolId === 3) {
+      navigate("/rrhh/planillas", { replace: true });
+    } else if (user.rolId === 4) {
+      navigate("/contabilidad", { replace: true });
+    } else if (user.rolId === 1 || user.rolId === 2) {
+      // rol 1 (colaborador) o supervisor 2 -> redirigir con fecha actual
+      navigate(`/registro-actividades/${todayDateString}`, { replace: true });
+    }
+  }, [location.pathname, navigate, user?.rolId, todayDateString]);
 
   // ===== Menú por rol → path
   const navItems = React.useMemo(() => {
@@ -178,7 +184,7 @@ export default function Layout() {
           id: "registro",
           text: "Nuevo Registro Diario",
           icon: <PostAddIcon />,
-          path: `/registro-actividades/${getTodayDateString()}`,
+          path: `/registro-actividades/${todayDateString}`,
         },
         {
           id: "supervision",
@@ -195,7 +201,7 @@ export default function Layout() {
         id: "registro",
         text: "Nuevo Registro Diario",
         icon: <PostAddIcon />,
-        path: `/registro-actividades/${getTodayDateString()}`,
+        path: `/registro-actividades/${todayDateString}`,
       },
       {
         id: "notificaciones",
@@ -208,7 +214,7 @@ export default function Layout() {
         path: "/notificaciones",
       },
     ];
-  }, [user?.rolId, notificationCount, getTodayDateString]);
+  }, [user?.rolId, notificationCount, todayDateString]);
 
   const handleOpenUserMenu = (e: React.MouseEvent<HTMLElement>) =>
     setAnchorElUser(e.currentTarget);
