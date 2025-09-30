@@ -306,13 +306,15 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       }
 
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error al guardar empleado:", err);
-      onError(
-        isEditing
+      // Extraer mensaje de error del backend si está disponible
+      const errorMessage =
+        err.message ||
+        (isEditing
           ? "Error al actualizar el colaborador"
-          : "Error al crear el colaborador"
-      );
+          : "Error al crear el colaborador");
+      onError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -322,7 +324,6 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     return (
       formData.nombre &&
       formData.nombreUsuario &&
-      formData.correoElectronico &&
       formData.tipoHorario &&
       formData.tipoContrato &&
       formData.rolId &&
@@ -373,13 +374,12 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
               helperText={fieldErrors.apellido}
             />
             <TextField
-              label="Correo Electrónico *"
+              label="Correo Electrónico"
               name="correoElectronico"
               type="email"
               value={formData.correoElectronico}
               onChange={handleInputChange}
               fullWidth
-              required
               error={!!fieldErrors.correoElectronico}
               helperText={fieldErrors.correoElectronico}
             />
@@ -478,12 +478,14 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   <MenuItem value="" disabled>
                     <em>Seleccionar horario</em>
                   </MenuItem>
-                  <MenuItem value="H1">H1</MenuItem>
-                  <MenuItem value="H2">H2</MenuItem>
-                  <MenuItem value="H3">H3</MenuItem>
-                  <MenuItem value="H4">H4</MenuItem>
-                  <MenuItem value="H5">H5</MenuItem>
-                  <MenuItem value="H6">H6</MenuItem>
+                  <MenuItem value="H1">H1 Lunes a Viernes 9 y 8 horas</MenuItem>
+                  <MenuItem value="H2">H2 7x7 Control room</MenuItem>
+                  <MenuItem value="H3">H3 21x7</MenuItem>
+                  <MenuItem value="H4">
+                    H4 Lunes a viernes Control room
+                  </MenuItem>
+                  <MenuItem value="H5">H5 10h cocina</MenuItem>
+                  <MenuItem value="H6">H6 </MenuItem>
                   <MenuItem value="H7">H7</MenuItem>
                 </Select>
                 {fieldErrors.tipoHorario && (

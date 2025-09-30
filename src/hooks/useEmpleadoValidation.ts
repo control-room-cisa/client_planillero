@@ -22,15 +22,18 @@ export const useEmpleadoValidation = (isEditing: boolean) => {
       case "nombreUsuario":
         if (!value || value.trim().length === 0)
           return "Nombre de usuario es requerido";
+        if (value.length < 3)
+          return "Nombre de usuario debe tener al menos 3 caracteres";
         if (value.length > 15)
           return "Nombre de usuario no puede tener más de 15 caracteres";
         break;
       case "correoElectronico":
-        if (!value || value.trim().length === 0)
-          return "Correo electrónico es requerido";
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(value))
-          return "Formato de correo electrónico inválido";
+        // Correo es opcional ahora
+        if (value && value.trim().length > 0) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(value))
+            return "Formato de correo electrónico inválido";
+        }
         break;
       case "dni":
         if (value && value.length > 45)

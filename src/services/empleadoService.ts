@@ -199,9 +199,17 @@ class EmpleadoService {
         }
       );
       return response.data.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al crear empleado:", error);
-      throw new Error("Error al crear el empleado");
+
+      // Extraer mensaje de error del backend si está disponible
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else if (error.message) {
+        throw new Error(error.message);
+      } else {
+        throw new Error("Error al crear el empleado");
+      }
     }
   }
 
@@ -233,9 +241,17 @@ class EmpleadoService {
         }
       );
       return response.data.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al actualizar empleado:", error);
-      throw new Error("Error al actualizar el empleado");
+
+      // Extraer mensaje de error del backend si está disponible
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else if (error.message) {
+        throw new Error(error.message);
+      } else {
+        throw new Error("Error al actualizar el empleado");
+      }
     }
   }
 
