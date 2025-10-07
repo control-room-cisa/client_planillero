@@ -472,33 +472,61 @@ const JobsManagement: React.FC = () => {
     return codigo.split(".").length - 1;
   };
 
-  // Función para determinar si un job es hijo de otro
-  const isChildOf = (childCodigo: string, parentCodigo: string): boolean => {
-    return childCodigo.startsWith(parentCodigo + ".");
-  };
-
   // Función para ordenar jobs jerárquicamente
   const sortJobsHierarchically = (jobs: Job[]): Job[] => {
-    return jobs.sort((a, b) => {
-      const aLevel = getJobLevel(a.codigo);
-      const bLevel = getJobLevel(b.codigo);
+    // Crear una estructura de árbol y luego aplanarla
+    const result: Job[] = [];
+    const jobsMap = new Map<string, Job>();
 
-      // Si tienen el mismo nivel, ordenar por código
-      if (aLevel === bLevel) {
-        return a.codigo.localeCompare(b.codigo, undefined, { numeric: true });
-      }
-
-      // Si uno es padre del otro, el padre va primero
-      if (isChildOf(b.codigo, a.codigo)) {
-        return -1;
-      }
-      if (isChildOf(a.codigo, b.codigo)) {
-        return 1;
-      }
-
-      // Ordenar por nivel (padres primero)
-      return aLevel - bLevel;
+    // Crear un mapa de todos los jobs por código
+    jobs.forEach((job) => {
+      jobsMap.set(job.codigo, job);
     });
+
+    // Función recursiva para agregar un job y sus hijos
+    const addJobAndChildren = (codigo: string) => {
+      const job = jobsMap.get(codigo);
+      if (!job) return;
+
+      result.push(job);
+
+      // Buscar todos los hijos directos de este job
+      const children: Job[] = [];
+      jobsMap.forEach((childJob) => {
+        const parts = childJob.codigo.split(".");
+        // Es hijo directo si tiene un nivel más y su prefijo coincide
+        if (
+          parts.length === codigo.split(".").length + 1 &&
+          childJob.codigo.startsWith(codigo + ".")
+        ) {
+          children.push(childJob);
+        }
+      });
+
+      // Ordenar hijos por código numérico
+      children.sort((a, b) =>
+        a.codigo.localeCompare(b.codigo, undefined, { numeric: true })
+      );
+
+      // Agregar cada hijo y sus descendientes recursivamente
+      children.forEach((child) => {
+        addJobAndChildren(child.codigo);
+      });
+    };
+
+    // Primero, encontrar todos los jobs de nivel 0 (sin puntos)
+    const rootJobs = jobs
+      .filter((job) => !job.codigo.includes("."))
+      .sort((a, b) =>
+        a.codigo.localeCompare(b.codigo, undefined, { numeric: true })
+      );
+
+    // Agregar cada job raíz y sus descendientes
+    rootJobs.forEach((rootJob) => {
+      addJobAndChildren(rootJob.codigo);
+    });
+
+    return result;
   };
 
   // Agrupar jobs por empresa y especiales
