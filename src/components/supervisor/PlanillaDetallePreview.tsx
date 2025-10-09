@@ -430,15 +430,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     registro: RegistroDiarioData
   ): number => {
     if (registro.esDiaLibre) return 0;
-
-    // Si el backend provee horas esperadas, úsalo para tipos distintos de H1
-    const ymd = registro.fecha ?? "";
-    const tipo = horariosByFecha[ymd];
-    const horasBackend = expectedHoursByFecha[ymd];
-    if (tipo !== "H1" && typeof horasBackend === "number" && horasBackend > 0) {
-      return horasBackend;
-    }
-
+    // Regla: (salida - entrada) - 1h de almuerzo cuando NO es hora corrida
     const entrada = new Date(registro.horaEntrada);
     const salida = new Date(registro.horaSalida);
 
@@ -555,18 +547,10 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
 
         <Stack spacing={2}>
           {registros.map((registro, idx) => {
-            let normales =
+            const normales =
               registro.actividades
                 ?.filter((a) => !a.esExtra)
                 .reduce((s, a) => s + a.duracionHoras, 0) ?? 0;
-            // Para H1 con hora corrida, sumar 1h de almuerzo (12:00–13:00)
-            if (
-              horariosByFecha[registro.fecha ?? ""] === "H1" &&
-              registro.esHoraCorrida &&
-              !registro.esDiaLibre
-            ) {
-              normales += 1;
-            }
             const extras =
               registro.actividades
                 ?.filter((a) => a.esExtra)
