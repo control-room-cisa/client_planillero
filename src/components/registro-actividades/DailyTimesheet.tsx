@@ -480,7 +480,7 @@ const DailyTimesheet: React.FC = () => {
       const dateFromUrl = new Date(year, month - 1, day);
       const currentDateStr = ymdInTZ(currentDate);
       const urlDateStr = ymdInTZ(dateFromUrl);
-      
+
       // Solo actualizar si la fecha de la URL es diferente a la actual
       if (currentDateStr !== urlDateStr) {
         setCurrentDate(dateFromUrl);
@@ -1185,12 +1185,8 @@ const DailyTimesheet: React.FC = () => {
     }
 
     if (horaInicio && horaFin) {
-      // Para hora extra, validar que esté FUERA del horario laboral
       const entradaMin = timeToMinutes(dayConfigData.horaEntrada);
       const salidaMin = timeToMinutes(dayConfigData.horaSalida);
-
-      // Manejar turno nocturno
-      const esTurnoNoche = entradaMin > salidaMin;
 
       const inicioMin = timeToMinutes(horaInicio);
       let finMin = horaFin === "24:00" ? 1440 : timeToMinutes(horaFin);
@@ -1200,34 +1196,44 @@ const DailyTimesheet: React.FC = () => {
         finMin += 1440;
       }
 
-      // Verificar que la actividad esté completamente fuera del horario laboral
-      let estaFuera = false;
+      // Validar "fuera del horario" SOLO si hay horario laboral (>0h)
+      const shouldValidateOutside =
+        formData.horaExtra &&
+        !(dayConfigData.horaEntrada === dayConfigData.horaSalida);
 
-      if (esTurnoNoche) {
-        // Para turno nocturno: intervalos válidos son [00:00, salidaMin] y [entradaMin, 23:59]
-        // Las actividades extra deben estar entre salidaMin y entradaMin
-        const finEnMismoDia = finMin <= 1440 ? finMin : finMin - 1440;
+      if (shouldValidateOutside) {
+        // Manejar turno nocturno
+        const esTurnoNoche = entradaMin > salidaMin;
 
-        // Caso 1: Actividad completamente en el período permitido del mismo día
-        const enPeriodoPermitido =
-          (inicioMin >= salidaMin && finEnMismoDia <= entradaMin) ||
-          (inicioMin >= salidaMin &&
-            inicioMin < 1440 &&
-            finMin > 1440 &&
-            finMin - 1440 <= entradaMin);
+        // Verificar que la actividad esté completamente fuera del horario laboral
+        let estaFuera = false;
 
-        estaFuera = enPeriodoPermitido;
-      } else {
-        // Para turno normal, debe estar antes de entrada o después de salida
-        estaFuera = finMin <= entradaMin || inicioMin >= salidaMin;
-      }
+        if (esTurnoNoche) {
+          // Para turno nocturno: intervalos válidos son [00:00, salidaMin] y [entradaMin, 23:59]
+          // Las actividades extra deben estar entre salidaMin y entradaMin
+          const finEnMismoDia = finMin <= 1440 ? finMin : finMin - 1440;
 
-      if (!estaFuera) {
-        const rangoPermitido = esTurnoNoche
-          ? `entre ${dayConfigData.horaSalida} y ${dayConfigData.horaEntrada}`
-          : `antes de ${dayConfigData.horaEntrada} o después de ${dayConfigData.horaSalida}`;
-        errors.horaInicio = `La hora extra debe estar ${rangoPermitido}`;
-        errors.horaFin = `La hora extra debe estar ${rangoPermitido}`;
+          // Caso 1: Actividad completamente en el período permitido del mismo día
+          const enPeriodoPermitido =
+            (inicioMin >= salidaMin && finEnMismoDia <= entradaMin) ||
+            (inicioMin >= salidaMin &&
+              inicioMin < 1440 &&
+              finMin > 1440 &&
+              finMin - 1440 <= entradaMin);
+
+          estaFuera = enPeriodoPermitido;
+        } else {
+          // Para turno normal, debe estar antes de entrada o después de salida
+          estaFuera = finMin <= entradaMin || inicioMin >= salidaMin;
+        }
+
+        if (!estaFuera) {
+          const rangoPermitido = esTurnoNoche
+            ? `entre ${dayConfigData.horaSalida} y ${dayConfigData.horaEntrada}`
+            : `antes de ${dayConfigData.horaEntrada} o después de ${dayConfigData.horaSalida}`;
+          errors.horaInicio = `La hora extra debe estar ${rangoPermitido}`;
+          errors.horaFin = `La hora extra debe estar ${rangoPermitido}`;
+        }
       }
 
       // Validar relación inicio/fin
@@ -1597,7 +1603,7 @@ const DailyTimesheet: React.FC = () => {
           component="h1"
           sx={{ fontWeight: "bold", minWidth: 0 }}
         >
-          Registro de Actividades
+          Registro de Actividades2
         </Typography>
         <Box
           sx={{

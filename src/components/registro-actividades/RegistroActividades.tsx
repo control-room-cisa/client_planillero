@@ -439,7 +439,9 @@ export default function RegistroActividades() {
     const nextValue =
       name === "jornada"
         ? sanitizeJornada(value)
-        : (type === "checkbox" ? (checked as unknown as string) : value);
+        : type === "checkbox"
+        ? (checked as unknown as string)
+        : value;
 
     setDayConfigData((prev) => ({
       ...prev,
