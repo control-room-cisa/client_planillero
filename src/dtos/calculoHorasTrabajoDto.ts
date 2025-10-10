@@ -90,3 +90,42 @@ export interface LineaTiempoDia {
   empleadoId: string;
   intervalos: IntervaloTiempo[];
 }
+
+// =====================
+// Prorrateo de horas DTOs (espejo del backend)
+// =====================
+
+export interface HorasPorJobDto {
+  jobId: number;
+  codigoJob: string;
+  nombreJob: string;
+  cantidadHoras: number;
+}
+
+export interface ConteoHorasProrrateoDto {
+  fechaInicio: string;
+  fechaFin: string;
+  empleadoId: string;
+  cantidadHoras: {
+    normal: HorasPorJobDto[];
+    p25: HorasPorJobDto[];
+    p50: HorasPorJobDto[];
+    p75: HorasPorJobDto[];
+    p100: HorasPorJobDto[];
+
+    vacacionesHoras: number;
+    permisoConSueldoHoras: number;
+    permisoSinSueldoHoras: number;
+    inasistenciasHoras: number;
+
+    totalHorasLaborables: number;
+
+    deduccionesISR: number;
+    deduccionesRAP: number;
+    deduccionesComida: number;
+    deduccionesIHSS: number;
+    Prestamo: number;
+    Total: number;
+  };
+  validationErrors?: ConteoHorasValidationErrorDto;
+}

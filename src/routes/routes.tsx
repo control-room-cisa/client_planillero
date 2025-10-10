@@ -28,6 +28,12 @@ const EmpleadosManagement = React.lazy(
 const ContabilidadDashboard = React.lazy(
   () => import("../components/contabilidad/ContabilidadDashboard")
 );
+const ProrrateoManagement = React.lazy(
+  () => import("../components/contabilidad/ProrrateoManagement")
+);
+const ProrrateoRoute = React.lazy(
+  () => import("../components/contabilidad/ProrrateoRoute")
+);
 const NotificationsEmployee = React.lazy(
   () => import("../components/NotificationsEmployee")
 );
@@ -70,7 +76,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="supervision/planillas"
           element={
-            <RoleProtectedRoute allowedRoles={[2]}>
+            <RoleProtectedRoute allowedRoles={[2, 4]}>
               <TimesheetReviewSupervisor />
             </RoleProtectedRoute>
           }
@@ -119,6 +125,22 @@ const AppRoutes: React.FC = () => {
             </RoleProtectedRoute>
           }
         />
+        <Route
+          path="contabilidad/prorrateo"
+          element={
+            <RoleProtectedRoute allowedRoles={[4]}>
+              <ProrrateoManagement />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="contabilidad/prorrateo/detalle"
+          element={
+            <RoleProtectedRoute allowedRoles={[4]}>
+              <ProrrateoRoute />
+            </RoleProtectedRoute>
+          }
+        />
 
         {/* Notificaciones (solo colaboradores) */}
         <Route
@@ -135,7 +157,9 @@ const AppRoutes: React.FC = () => {
           index
           element={
             <Navigate
-              to={`registro-actividades/${new Date().toISOString().split("T")[0]}`}
+              to={`registro-actividades/${
+                new Date().toISOString().split("T")[0]
+              }`}
               replace
             />
           }

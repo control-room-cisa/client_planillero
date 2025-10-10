@@ -10,8 +10,6 @@ import {
 } from "@mui/material";
 import {
   Work as WorkIcon,
-  BarChart as BarChartIcon,
-  Settings as SettingsIcon,
   Business as BusinessIcon,
 } from "@mui/icons-material";
 import JobsManagement from "./JobsManagement";
@@ -76,18 +74,7 @@ const ContabilidadDashboard: React.FC = () => {
               {...a11yProps(0)}
             />
             <Tab icon={<BusinessIcon />} label="Empresas" {...a11yProps(1)} />
-            <Tab
-              icon={<BarChartIcon />}
-              label="Reportes"
-              {...a11yProps(2)}
-              disabled
-            />
-            <Tab
-              icon={<SettingsIcon />}
-              label="Configuración"
-              {...a11yProps(3)}
-              disabled
-            />
+            {/* Prorrateo tiene su propia ruta en /contabilidad/prorrateo */}
           </Tabs>
 
           <Box sx={{ p: 0 }}>
@@ -97,20 +84,7 @@ const ContabilidadDashboard: React.FC = () => {
             <TabPanel value={tabValue} index={1}>
               <EmpresasManagement />
             </TabPanel>
-            <TabPanel value={tabValue} index={2}>
-              <Box sx={{ p: 3 }}>
-                <Typography variant="h6">
-                  Reportes (Funcionalidad en desarrollo)
-                </Typography>
-              </Box>
-            </TabPanel>
-            <TabPanel value={tabValue} index={3}>
-              <Box sx={{ p: 3 }}>
-                <Typography variant="h6">
-                  Configuración (Funcionalidad en desarrollo)
-                </Typography>
-              </Box>
-            </TabPanel>
+            {/* Tabs no usados removidos */}
           </Box>
         </Paper>
       </Box>

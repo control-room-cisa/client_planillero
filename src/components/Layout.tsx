@@ -30,6 +30,8 @@ import FindInPageIcon from "@mui/icons-material/FindInPage";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import EventIcon from "@mui/icons-material/Event";
 import PeopleIcon from "@mui/icons-material/People";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -146,9 +148,21 @@ export default function Layout() {
       return [
         {
           id: "contabilidad",
-          text: "Dashboard Contabilidad",
-          icon: <FindInPageIcon />,
+          text: "Panel de Contabilidad",
+          icon: <DashboardIcon />,
           path: "/contabilidad",
+        },
+        {
+          id: "supervision",
+          text: "Vista Supervisor",
+          icon: <FindInPageIcon />,
+          path: "/supervision/planillas",
+        },
+        {
+          id: "prorrateo",
+          text: "Prorrateo",
+          icon: <AccountBalanceIcon />,
+          path: "/contabilidad/prorrateo",
         },
       ];
     }

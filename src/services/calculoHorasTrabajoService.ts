@@ -3,6 +3,7 @@ import type { ApiResponse } from "../dtos/apiResponseDto";
 import type {
   HorarioTrabajoDto,
   ConteoHorasTrabajadasDto,
+  ConteoHorasProrrateoDto,
 } from "../dtos/calculoHorasTrabajoDto";
 import api from "./api";
 
@@ -71,6 +72,26 @@ class CalculoHorasTrabajoService {
       return response.data.data;
     } catch (error) {
       console.error("Error al obtener conteo de horas:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene el prorrateo de horas por job en un período
+   */
+  static async getProrrateo(
+    empleadoId: string | number,
+    fechaInicio: string,
+    fechaFin: string
+  ): Promise<ConteoHorasProrrateoDto> {
+    try {
+      const response = await api.get<ApiResponse<ConteoHorasProrrateoDto>>(
+        `/calculo-horas/${empleadoId}/prorrateo`,
+        { params: { fechaInicio, fechaFin } }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error("Error al obtener prorrateo:", error);
       throw error;
     }
   }
