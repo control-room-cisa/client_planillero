@@ -570,8 +570,8 @@ const JobsManagement: React.FC = () => {
   const isAddButtonDisabled = selectedEmpresaId === "";
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box sx={{ p: 5 }}>
+      <Typography variant="h5" component="h2">
         Gestión de Jobs
       </Typography>
 

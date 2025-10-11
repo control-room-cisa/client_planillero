@@ -60,7 +60,7 @@ const ContabilidadDashboard: React.FC = () => {
           component="h1"
           sx={{ fontWeight: "bold", minWidth: 0 }}
         >
-          Panel de Contabilidad
+          Jobs y Empresas
         </Typography>
         <Divider sx={{ mb: 3 }} />
 

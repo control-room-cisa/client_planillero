@@ -148,7 +148,7 @@ export default function Layout() {
       return [
         {
           id: "contabilidad",
-          text: "Panel de Contabilidad",
+          text: "Jobs y Empresas",
           icon: <DashboardIcon />,
           path: "/contabilidad",
         },
