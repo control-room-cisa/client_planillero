@@ -206,13 +206,22 @@ const EmpleadosManagement: React.FC = () => {
   }, [filteredEmpleados]);
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box
+      sx={{
+        p: 3,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        overflow: "hidden",
+      }}
+    >
+      <Typography variant="h4" gutterBottom sx={{ flexShrink: 0 }}>
         Gestión de Colaboradores
       </Typography>
 
       {/* Filtros */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 3, flexShrink: 0 }}>
         <EmpleadosFilters
           searchTerm={searchTerm}
           selectedEmpresaId={selectedEmpresaId}
@@ -223,15 +232,17 @@ const EmpleadosManagement: React.FC = () => {
         />
       </Box>
 
-      {/* Lista */}
-      <EmpleadosList
-        empleados={filteredEmpleados}
-        loading={loading}
-        onView={handleOpenDetailModal}
-        onEdit={handleOpenEditModal}
-        onDelete={handleDeleteEmpleado}
-        onNominaClick={handleNominaClick}
-      />
+      {/* Lista con scroll interno */}
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+        <EmpleadosList
+          empleados={filteredEmpleados}
+          loading={loading}
+          onView={handleOpenDetailModal}
+          onEdit={handleOpenEditModal}
+          onDelete={handleDeleteEmpleado}
+          onNominaClick={handleNominaClick}
+        />
+      </Box>
 
       {/* Modal Form */}
       <EmpleadoFormModal

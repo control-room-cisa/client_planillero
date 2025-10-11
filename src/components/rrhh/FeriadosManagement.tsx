@@ -221,8 +221,17 @@ const FeriadosManagement: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box
+      sx={{
+        p: 3,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        overflow: "hidden",
+      }}
+    >
+      <Typography variant="h4" gutterBottom sx={{ flexShrink: 0 }}>
         Gestión de Días Festivos
       </Typography>
 
@@ -253,8 +262,8 @@ const FeriadosManagement: React.FC = () => {
         </Button>
       </Box>
 
-      {/* Tabla de Feriados */}
-      <TableContainer component={Paper}>
+      {/* Tabla de Feriados con scroll interno */}
+      <TableContainer component={Paper} sx={{ flex: 1, minHeight: 0 }}>
         <Table>
           <TableHead>
             <TableRow>

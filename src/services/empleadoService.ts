@@ -20,6 +20,11 @@ interface Empleado {
   activo?: boolean;
   rolId?: number;
   departamentoId?: number;
+  registrosUltimos20Dias?: Array<{
+    fecha: string;
+    aprobacionSupervisor?: boolean | null;
+    aprobacionRrhh?: boolean | null;
+  }>;
   // Campos adicionales que pueden venir del backend
   nombreUsuario?: string;
   tipoHorario?: string;

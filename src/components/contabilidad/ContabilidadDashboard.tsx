@@ -53,9 +53,13 @@ const ContabilidadDashboard: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="xl">
+    <Container maxWidth="xl" sx={{ height: "100%", overflowY: "auto" }}>
       <Box sx={{ py: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
+        <Typography
+          variant="h5"
+          component="h1"
+          sx={{ fontWeight: "bold", minWidth: 0 }}
+        >
           Panel de Contabilidad
         </Typography>
         <Divider sx={{ mb: 3 }} />

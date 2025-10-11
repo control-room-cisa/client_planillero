@@ -373,7 +373,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   );
 
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="lg" sx={{ height: "100%", overflowY: "auto" }}>
       <Box sx={{ py: 4 }}>
         <Paper
           elevation={3}

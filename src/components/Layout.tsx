@@ -242,7 +242,7 @@ export default function Layout() {
   const isItemSelected = (path: string) => location.pathname === path;
 
   return (
-    <Box sx={{ display: "flex" }}>
+    <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       <CssBaseline />
       <AppBar position="fixed" open={open}>
         <Toolbar>
@@ -361,21 +361,33 @@ export default function Layout() {
         </List>
       </MuiDrawer>
 
-      <Box component="main" sx={{ flexGrow: 1 }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          overflow: "hidden",
+        }}
+      >
         <DrawerHeader />
         {/* 👉 Outlet con contexto extendido */}
-        <Outlet
-          context={
-            {
-              selectedEmpleado,
-              setSelectedEmpleado: (e: Empleado | null) =>
-                _setSelectedEmpleado(e),
-              empleadosIndex,
-              setEmpleadosIndex: (list: EmpleadoIndexItem[]) =>
-                _setEmpleadosIndex(list),
-            } satisfies LayoutOutletCtx
-          }
-        />
+        <Box sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+          <Outlet
+            context={
+              {
+                selectedEmpleado,
+                setSelectedEmpleado: (e: Empleado | null) =>
+                  _setSelectedEmpleado(e),
+                empleadosIndex,
+                setEmpleadosIndex: (list: EmpleadoIndexItem[]) =>
+                  _setEmpleadosIndex(list),
+              } satisfies LayoutOutletCtx
+            }
+          />
+        </Box>
       </Box>
     </Box>
   );

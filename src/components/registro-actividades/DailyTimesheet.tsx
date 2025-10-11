@@ -1586,7 +1586,14 @@ const DailyTimesheet: React.FC = () => {
   ]);
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: "100%" }}>
+    <Box
+      sx={{
+        p: { xs: 2, md: 3 },
+        maxWidth: "100%",
+        height: "100%",
+        overflowY: "auto",
+      }}
+    >
       {/* Header */}
       <Box
         sx={{
@@ -1603,7 +1610,7 @@ const DailyTimesheet: React.FC = () => {
           component="h1"
           sx={{ fontWeight: "bold", minWidth: 0 }}
         >
-          Registro de Actividades2
+          Registro de Actividades
         </Typography>
         <Box
           sx={{

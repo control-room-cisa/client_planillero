@@ -11,27 +11,78 @@ import {
   useTheme,
   useMediaQuery,
   Drawer,
+  Container,
 } from "@mui/material";
-import Autocomplete from "@mui/material/Autocomplete";
 import {
-  Search as SearchIcon,
   Person as PersonIcon,
   FilterList as FilterIcon,
+  NavigateBefore as NavigateBeforeIcon,
+  NavigateNext as NavigateNextIcon,
+  ArrowBack as ArrowBackIcon,
 } from "@mui/icons-material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { es } from "date-fns/locale";
-import { useEmployees } from "../employeeByDepartament";
 import PlanillaDetallePreview from "./PlanillaDetallePreview";
 import type { Empleado } from "../../services/empleadoService";
 import { PlanillaStatuses } from "../rrhh/planillaConstants";
 import type { PlanillaStatus } from "../rrhh/planillaConstants";
 import RegistroDiarioService from "../../services/registroDiarioService";
-import CalculoHorasTrabajoService from "../../services/calculoHorasTrabajoService";
-import { Chip, CircularProgress, InputAdornment } from "@mui/material";
+import { Chip, CircularProgress } from "@mui/material";
+import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
+import type { EmpleadoIndexItem, LayoutOutletCtx } from "../Layout";
+import EmpleadoService from "../../services/empleadoService";
 
-const TimesheetReviewSupervisor: React.FC = () => {
+interface TimesheetReviewSupervisorProps {
+  empleado?: Empleado;
+  empleadosIndex?: EmpleadoIndexItem[];
+  onPrevious?: () => void;
+  onNext?: () => void;
+  hasPrevious?: boolean;
+  hasNext?: boolean;
+}
+
+const TimesheetReviewSupervisor: React.FC<TimesheetReviewSupervisorProps> = ({
+  empleado: empleadoProp,
+  empleadosIndex: empleadosIndexProp,
+  onPrevious,
+  onNext,
+  hasPrevious = false,
+  hasNext = false,
+}) => {
+  const navigate = useNavigate();
+  const location = useLocation() as any;
+  const { selectedEmpleado, empleadosIndex: empleadosIndexCtx } =
+    useOutletContext<LayoutOutletCtx>();
+
+  const { searchTerm } = location.state ?? {};
+
+  const goBackToList = () => {
+    navigate("/supervision/planillas", {
+      state: {
+        searchTerm,
+      },
+    });
+  };
+
+  const empleadoInicial =
+    empleadoProp ?? selectedEmpleado ?? location?.state?.empleado ?? null;
+
+  const indiceEntrante: EmpleadoIndexItem[] =
+    empleadosIndexProp ??
+    empleadosIndexCtx ??
+    location?.state?.empleadosIndex ??
+    [];
+
+  const [selectedEmployee, setSelectedEmployee] = useState<Empleado | null>(
+    empleadoInicial
+  );
+
+  const empleadosIndex: EmpleadoIndexItem[] = React.useMemo(
+    () => indiceEntrante ?? [],
+    [indiceEntrante]
+  );
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -79,18 +130,49 @@ const TimesheetReviewSupervisor: React.FC = () => {
   const today = useMemo(() => new Date(), []);
   const initialPeriod = useMemo(() => getPeriodFromDate(today), [today]);
 
-  const [selectedEmployee, setSelectedEmployee] = useState<Empleado | null>(
-    null
-  );
   const [startDate, setStartDate] = useState<Date | null>(initialPeriod.start);
   const [endDate, setEndDate] = useState<Date | null>(initialPeriod.end);
   const [statusFilter, setStatusFilter] = useState<PlanillaStatus>("Pendiente");
-  const { employees, loading: empLoading } = useEmployees();
   const [openFilters, setOpenFilters] = useState(!isMobile);
 
-  // Completo badge state para empleado seleccionado
+  // Navegación entre empleados
+  const currentIndex = empleadosIndex.findIndex(
+    (e) => e.id === selectedEmployee?.id
+  );
+  const canGoPrevious =
+    onPrevious !== undefined ? hasPrevious : currentIndex > 0;
+  const canGoNext =
+    onNext !== undefined ? hasNext : currentIndex < empleadosIndex.length - 1;
+
+  const handlePrevious = async () => {
+    if (onPrevious) {
+      onPrevious();
+      return;
+    }
+    if (currentIndex > 0) {
+      const prevId = empleadosIndex[currentIndex - 1].id;
+      const emp = await EmpleadoService.getById(prevId);
+      setSelectedEmployee(emp);
+    }
+  };
+
+  const handleNext = async () => {
+    if (onNext) {
+      onNext();
+      return;
+    }
+    if (currentIndex < empleadosIndex.length - 1) {
+      const nextId = empleadosIndex[currentIndex + 1].id;
+      const emp = await EmpleadoService.getById(nextId);
+      setSelectedEmployee(emp);
+    }
+  };
+
+  // Estado del período para empleado seleccionado
   const [completeLoading, setCompleteLoading] = useState(false);
-  const [isComplete, setIsComplete] = useState<boolean | null>(null);
+  const [periodStatus, setPeriodStatus] = useState<
+    "completo" | "pendiente_aprobacion" | "pendiente_registro" | null
+  >(null);
 
   const buildDaysRange = (s: Date | null, e: Date | null): string[] => {
     if (!s || !e) return [];
@@ -107,11 +189,11 @@ const TimesheetReviewSupervisor: React.FC = () => {
     return days;
   };
 
-  // Calcular si el período está completo (todas las fechas aprobadas)
+  // Calcular el estado del período (completo, pendiente aprobación, pendiente registro)
   useEffect(() => {
     const run = async () => {
       if (!selectedEmployee || !startDate || !endDate) {
-        setIsComplete(null);
+        setPeriodStatus(null);
         return;
       }
       setCompleteLoading(true);
@@ -124,44 +206,52 @@ const TimesheetReviewSupervisor: React.FC = () => {
             )
           )
         );
-        // Regla de completado:
-        // - Si cantidadHorasLaborables = 0 o esDiaLibre = true → no requiere aprobación
-        // - Si existe registro y contiene horas extra → requiere aprobación true
-        // - En otros casos (registro normal sin extra) requiere aprobación true
-        const daysApproved = await Promise.all(
-          results.map(async (r, idx) => {
+
+        // Estados posibles:
+        // 1. "completo" - Todos los días están registrados y aprobados
+        // 2. "pendiente_aprobacion" - Todos los días tienen registro pero faltan aprobaciones
+        // 3. "pendiente_registro" - Faltan registros por guardar
+        //
+        // IMPORTANTE: Los días libres también deben registrarse y aprobarse
+        // porque pueden contener horas extras
+
+        let haySinRegistro = false;
+        let hayConRegistroSinAprobar = false;
+        let todosAprobados = true;
+
+        await Promise.all(
+          results.map(async (_r) => {
+            // TODOS los días del período requieren registro y aprobación
+            // (incluyendo días libres, por posibles horas extras)
+
+            const r = _r;
             if (!r) {
-              // No existe: se considera aprobado si el día no debería tener horas
-              const ymd = days[idx];
-              const horario = await CalcularHorasForFecha(
-                selectedEmployee.id,
-                ymd
-              );
-              const expected = horario?.cantidadHorasLaborables ?? 0;
-              const isDiaLibre = horario?.esDiaLibre === true;
-              return expected === 0 || isDiaLibre;
+              // No hay registro → falta guardar
+              haySinRegistro = true;
+              todosAprobados = false;
+              return;
             }
-            // Si no tiene extras y es día libre o expected 0 → aprobado implícito
-            const ymd = r.fecha ?? days[idx];
-            const horario = await CalcularHorasForFecha(
-              selectedEmployee.id,
-              ymd
-            );
-            const expected = horario?.cantidadHorasLaborables ?? 0;
-            const isDiaLibre =
-              r.esDiaLibre === true || horario?.esDiaLibre === true;
-            const tieneExtras = (r.actividades || []).some(
-              (a: any) => a.esExtra
-            );
-            if ((expected === 0 || isDiaLibre) && !tieneExtras) return true;
-            // Caso general: requiere aprobado por supervisor
-            return r.aprobacionSupervisor === true;
+
+            // Hay registro, verificar aprobación
+            if (r.aprobacionSupervisor !== true) {
+              hayConRegistroSinAprobar = true;
+              todosAprobados = false;
+            }
           })
         );
-        const allApproved = daysApproved.every(Boolean);
-        setIsComplete(allApproved);
+
+        // Determinar estado final
+        if (todosAprobados) {
+          setPeriodStatus("completo");
+        } else if (haySinRegistro) {
+          setPeriodStatus("pendiente_registro");
+        } else if (hayConRegistroSinAprobar) {
+          setPeriodStatus("pendiente_aprobacion");
+        } else {
+          setPeriodStatus(null);
+        }
       } catch (_e) {
-        setIsComplete(null);
+        setPeriodStatus(null);
       } finally {
         setCompleteLoading(false);
       }
@@ -169,18 +259,7 @@ const TimesheetReviewSupervisor: React.FC = () => {
     run();
   }, [selectedEmployee?.id, startDate?.getTime(), endDate?.getTime()]);
 
-  // Helper para obtener horas esperadas/día libre del backend de cálculo
-  const CalcularHorasForFecha = async (empleadoId: number, fecha: string) => {
-    try {
-      const h = await CalculoHorasTrabajoService.getHorarioTrabajo(
-        empleadoId,
-        fecha
-      );
-      return h as any;
-    } catch (_e) {
-      return null;
-    }
-  };
+  // (sin helpers)
 
   // Ajusta apertura al cambiar a móvil/escritorio
   useEffect(() => {
@@ -191,7 +270,9 @@ const TimesheetReviewSupervisor: React.FC = () => {
     <Box
       sx={{
         width: 300,
-        p: 2,
+        pt: 1,
+        px: 2,
+        pb: 2,
         display: "flex",
         flexDirection: "column",
         gap: 2,
@@ -280,33 +361,18 @@ const TimesheetReviewSupervisor: React.FC = () => {
         />
       </LocalizationProvider>
 
-      <Autocomplete
-        options={employees}
-        getOptionLabel={(opt) => `${opt.nombre} ${opt.apellido}`}
-        loading={empLoading}
-        onChange={(_, value) => setSelectedEmployee(value)}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            size="small"
-            placeholder="Buscar colaborador"
-            InputProps={{
-              ...params.InputProps,
-              startAdornment: <SearchIcon sx={{ mr: 1 }} />,
-              endAdornment: (
-                <InputAdornment position="end" sx={{ mr: 1 }}>
-                  {completeLoading ? (
-                    <CircularProgress size={16} />
-                  ) : isComplete ? (
-                    <Chip label="Completo" size="small" color="success" />
-                  ) : null}
-                </InputAdornment>
-              ),
-            }}
-            fullWidth
-          />
-        )}
-      />
+      {/* Badge de estado del período */}
+      <Box sx={{ display: "flex", justifyContent: "center" }}>
+        {completeLoading ? (
+          <CircularProgress size={24} />
+        ) : periodStatus === "completo" ? (
+          <Chip label="Completo" size="small" color="success" />
+        ) : periodStatus === "pendiente_aprobacion" ? (
+          <Chip label="Pendiente de Aprobación" size="small" color="warning" />
+        ) : periodStatus === "pendiente_registro" ? (
+          <Chip label="Registros Pendientes" size="small" color="error" />
+        ) : null}
+      </Box>
 
       <TextField
         select
@@ -332,95 +398,154 @@ const TimesheetReviewSupervisor: React.FC = () => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
-      <Box sx={{ display: "flex", height: "100vh" }}>
-        {/* Filtros: Drawer en móvil, panel fijo en escritorio */}
-        {isMobile ? (
-          <Drawer
-            open={openFilters}
-            onClose={() => setOpenFilters(false)}
-            variant="temporary"
-            ModalProps={{ keepMounted: true }}
-            PaperProps={{
-              sx: {
-                width: 300,
-                position: "fixed",
-                top: "56px",
-                bottom: 0,
-                left: isMobile ? 0 : "240px",
-                overflowY: "auto",
-                overflowX: "hidden",
-              },
-            }}
-          >
-            {filterContent}
-          </Drawer>
-        ) : (
-          <Paper
-            sx={{
-              // width: 300,
-              // position: "fixed",
-              // top: "64px",
-              bottom: 0,
-              left: 0,
-              borderRadius: 0,
-              // borderRight: "1px solid",
-              borderColor: "divider",
-              // display: "flex",
-              // flexDirection: "column",
-              // overflowY: "auto",
-              // overflowX: "hidden",
-            }}
-          >
-            {filterContent}
-          </Paper>
-        )}
-
-        {/* Panel derecho - Contenido */}
-        <Box
+      <Container
+        maxWidth={false}
+        disableGutters
+        sx={{
+          height: "100%",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Header con navegación */}
+        <Paper
+          elevation={2}
           sx={{
-            flex: 1,
-            // ml: isMobile ? 0 : "300px",
             p: 2,
-            position: "relative",
-            overflowY: "auto",
+            mb: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 2,
+            flexShrink: 0,
           }}
         >
-          {/* Botón para abrir filtros en móvil */}
-          {isMobile && (
-            <IconButton
-              onClick={() => setOpenFilters(true)}
-              sx={{ position: "absolute", top: 16, left: 16 }}
-            >
-              <FilterIcon />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <IconButton onClick={goBackToList} color="primary">
+              <ArrowBackIcon />
             </IconButton>
+            <Typography variant="h6">
+              {selectedEmployee
+                ? `${selectedEmployee.nombre} ${selectedEmployee.apellido}`
+                : "Actividades Diarias"}
+            </Typography>
+            {selectedEmployee?.codigo && (
+              <Chip label={selectedEmployee.codigo} size="small" />
+            )}
+          </Box>
+
+          {/* Navegación entre empleados */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <IconButton
+              onClick={handlePrevious}
+              disabled={!canGoPrevious}
+              size="small"
+            >
+              <NavigateBeforeIcon />
+            </IconButton>
+            <Typography variant="body2" color="text.secondary">
+              {currentIndex + 1} / {empleadosIndex.length}
+            </Typography>
+            <IconButton onClick={handleNext} disabled={!canGoNext} size="small">
+              <NavigateNextIcon />
+            </IconButton>
+          </Box>
+        </Paper>
+
+        <Box
+          sx={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}
+        >
+          {/* Filtros: Drawer en móvil, panel fijo en escritorio */}
+          {isMobile ? (
+            <Drawer
+              open={openFilters}
+              onClose={() => setOpenFilters(false)}
+              variant="temporary"
+              ModalProps={{ keepMounted: true }}
+              PaperProps={{
+                sx: {
+                  width: 300,
+                  position: "fixed",
+                  top: "56px",
+                  bottom: 0,
+                  left: isMobile ? 0 : "240px",
+                  overflowY: "auto",
+                  overflowX: "hidden",
+                  borderTop: "1px solid",
+                  borderColor: "divider",
+                },
+              }}
+            >
+              {filterContent}
+            </Drawer>
+          ) : (
+            <Paper
+              sx={{
+                width: 300,
+                flexShrink: 0,
+                height: "100%",
+                borderRadius: 0,
+                borderColor: "divider",
+                overflow: "hidden",
+                borderTop: "1px solid",
+                boxShadow: "inset 0 1px rgba(0,0,0,0.06)",
+              }}
+            >
+              {/* Quitar espacio superior en filtros para pegar al header */}
+              <Box sx={{ pt: 0 }}>{filterContent}</Box>
+            </Paper>
           )}
 
-          {selectedEmployee ? (
-            <PlanillaDetallePreview
-              empleado={selectedEmployee}
-              startDate={startDate}
-              endDate={endDate}
-              status={statusFilter}
-            />
-          ) : (
-            <Box textAlign="center" mt={10}>
-              <Avatar
-                sx={{
-                  width: 80,
-                  height: 80,
-                  mx: "auto",
-                  bgcolor: "primary.main",
-                }}
+          {/* Panel derecho - Contenido */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              px: 2,
+              pt: 2,
+              pb: 2,
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            {/* Botón para abrir filtros en móvil */}
+            {isMobile && (
+              <IconButton
+                onClick={() => setOpenFilters(true)}
+                sx={{ position: "absolute", top: 16, left: 16 }}
               >
-                <PersonIcon sx={{ fontSize: 40 }} />
-              </Avatar>
-              <Typography variant="h6" mt={2}>
-                Selecciona un colaborador
-              </Typography>
-            </Box>
-          )}
+                <FilterIcon />
+              </IconButton>
+            )}
+
+            {selectedEmployee ? (
+              <PlanillaDetallePreview
+                empleado={selectedEmployee}
+                startDate={startDate}
+                endDate={endDate}
+                status={statusFilter}
+              />
+            ) : (
+              <Box textAlign="center" mt={10}>
+                <Avatar
+                  sx={{
+                    width: 80,
+                    height: 80,
+                    mx: "auto",
+                    bgcolor: "primary.main",
+                  }}
+                >
+                  <PersonIcon sx={{ fontSize: 40 }} />
+                </Avatar>
+                <Typography variant="h6" mt={2}>
+                  Selecciona un colaborador
+                </Typography>
+              </Box>
+            )}
+          </Box>
         </Box>
-      </Box>
+      </Container>
     </LocalizationProvider>
   );
 };

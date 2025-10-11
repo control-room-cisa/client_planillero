@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useEffect, useCallback } from "react";
-import { Box, Typography, Snackbar, Alert } from "@mui/material";
+import { Box, Typography, Snackbar, Alert, Divider } from "@mui/material";
 import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
 import EmpleadoService from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
@@ -139,13 +139,28 @@ const ProrrateoManagement: React.FC = () => {
   }, [filteredEmpleados]);
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box
+      sx={{
+        p: 3,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        overflow: "hidden",
+      }}
+    >
+      <Typography
+        variant="h5"
+        component="h1"
+        sx={{ fontWeight: "bold", minWidth: 0 }}
+      >
         Gestión de Prorrateo
       </Typography>
 
+      <Divider sx={{ mb: 3 }} />
+
       {/* Filtros */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 3, flexShrink: 0 }}>
         <EmpleadosFilters
           searchTerm={searchTerm}
           selectedEmpresaId={selectedEmpresaId}
@@ -155,12 +170,14 @@ const ProrrateoManagement: React.FC = () => {
         />
       </Box>
 
-      {/* Lista */}
-      <EmpleadosList
-        empleados={filteredEmpleados}
-        loading={loading}
-        onProrrateoClick={handleProrrateoClick}
-      />
+      {/* Lista con scroll interno */}
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+        <EmpleadosList
+          empleados={filteredEmpleados}
+          loading={loading}
+          onProrrateoClick={handleProrrateoClick}
+        />
+      </Box>
 
       {/* Snackbar */}
       <Snackbar
@@ -182,4 +199,3 @@ const ProrrateoManagement: React.FC = () => {
 };
 
 export default ProrrateoManagement;
-

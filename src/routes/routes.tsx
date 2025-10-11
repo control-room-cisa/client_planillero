@@ -13,8 +13,11 @@ const Register = React.lazy(() => import("../components/auth/Register"));
 const DailyTimesheet = React.lazy(
   () => import("../components/registro-actividades/DailyTimesheet")
 );
-const TimesheetReviewSupervisor = React.lazy(
-  () => import("../components/supervisor/TimesheetReviewSupervisor")
+const SupervisorManagement = React.lazy(
+  () => import("../components/supervisor/SupervisorManagement")
+);
+const SupervisorRoute = React.lazy(
+  () => import("../components/supervisor/SupervisorRoute")
 );
 const TimesheetReviewRrhh = React.lazy(
   () => import("../components/rrhh/TimesheetReviewRrhh")
@@ -77,7 +80,15 @@ const AppRoutes: React.FC = () => {
           path="supervision/planillas"
           element={
             <RoleProtectedRoute allowedRoles={[2, 4]}>
-              <TimesheetReviewSupervisor />
+              <SupervisorManagement />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="supervision/planillas/detalle"
+          element={
+            <RoleProtectedRoute allowedRoles={[2, 4]}>
+              <SupervisorRoute />
             </RoleProtectedRoute>
           }
         />

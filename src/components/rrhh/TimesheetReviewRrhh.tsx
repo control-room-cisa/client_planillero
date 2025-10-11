@@ -228,7 +228,7 @@ const TimesheetReviewRrhh: React.FC = () => {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
-      <Box sx={{ display: "flex", height: "100vh" }}>
+      <Box sx={{ display: "flex", height: "100%" }}>
         {/* Filtros: Drawer en móvil, panel fijo en escritorio */}
         {isMobile ? (
           <Drawer

@@ -492,7 +492,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   // Guard
   if (!empleado) {
     return (
-      <Container maxWidth="md">
+      <Container maxWidth="md" sx={{ height: "100%", overflowY: "auto" }}>
         <Box sx={{ py: 6, textAlign: "center" }}>
           <Typography variant="h5" gutterBottom>
             No hay colaborador seleccionado
@@ -513,7 +513,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   }
 
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="lg" sx={{ height: "100%", overflowY: "auto" }}>
       <Box sx={{ py: 4 }}>
         {/* Encabezado con info + nav */}
         <Paper
