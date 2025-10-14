@@ -100,6 +100,7 @@ export interface HorasPorJobDto {
   codigoJob: string;
   nombreJob: string;
   cantidadHoras: number;
+  comentarios?: string[];
 }
 
 export interface ConteoHorasProrrateoDto {

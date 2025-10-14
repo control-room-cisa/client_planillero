@@ -437,6 +437,9 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     const entradaMin = entrada.getUTCHours() * 60 + entrada.getUTCMinutes();
     let salidaMin = salida.getUTCHours() * 60 + salida.getUTCMinutes();
 
+    // Si entrada === salida, no hay horas normales esperadas
+    if (entradaMin === salidaMin) return 0;
+
     if (entradaMin > salidaMin) {
       salidaMin += 24 * 60; // cruza medianoche
     }
@@ -464,6 +467,9 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     let salidaMin = salida.getUTCHours() * 60 + salida.getUTCMinutes();
     if (entradaMin > salidaMin) salidaMin += 24 * 60;
 
+    // Si entrada === salida, no hay horario laboral, no validar traslape
+    const hayHorarioLaboral = entradaMin !== salidaMin;
+
     for (const act of actividadesExtra) {
       if (!act.horaInicio || !act.horaFin) {
         errores.push(
@@ -478,11 +484,14 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
       let finMin = fin.getUTCHours() * 60 + fin.getUTCMinutes();
       if (finMin <= inicioMin) finMin += 24 * 60;
 
-      const estaFuera = finMin <= entradaMin || inicioMin >= salidaMin;
-      if (!estaFuera) {
-        errores.push(
-          `Actividad extra "${act.descripcion}" se traslapa con el horario laboral`
-        );
+      // Solo validar traslape con horario laboral si existe horario laboral
+      if (hayHorarioLaboral) {
+        const estaFuera = finMin <= entradaMin || inicioMin >= salidaMin;
+        if (!estaFuera) {
+          errores.push(
+            `Actividad extra "${act.descripcion}" se traslapa con el horario laboral`
+          );
+        }
       }
     }
 
@@ -569,8 +578,11 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
               const horasNormalesEsperadas =
                 calcularHorasNormalesEsperadas(registro);
               const validacionHorasExtra = validarHorasExtra(registro);
+              // Si no hay horas normales esperadas, solo validar que no haya horas normales registradas
               const validacionHorasNormales =
-                Math.abs(normales - horasNormalesEsperadas) < 0.1;
+                horasNormalesEsperadas === 0
+                  ? normales === 0
+                  : Math.abs(normales - horasNormalesEsperadas) < 0.1;
 
               // Determinar si cruza medianoche usando hora local (TZ Honduras)
               const entradaHM = formatTimeCorrectly(registro.horaEntrada); // HH:mm local
@@ -935,17 +947,31 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                             ⚠️ Errores de validación encontrados
                           </Typography>
 
-                          {!validacionHorasNormales && (
-                            <Typography
-                              variant="body2"
-                              color="error.main"
-                              sx={{ mb: 1 }}
-                            >
-                              📊 Horas normales no coinciden: Registradas:{" "}
-                              {normales}h | Esperadas:{" "}
-                              {horasNormalesEsperadas.toFixed(2)}h
-                            </Typography>
-                          )}
+                          {!validacionHorasNormales &&
+                            horasNormalesEsperadas > 0 && (
+                              <Typography
+                                variant="body2"
+                                color="error.main"
+                                sx={{ mb: 1 }}
+                              >
+                                📊 Horas normales no coinciden: Registradas:{" "}
+                                {normales}h | Esperadas:{" "}
+                                {horasNormalesEsperadas.toFixed(2)}h
+                              </Typography>
+                            )}
+
+                          {!validacionHorasNormales &&
+                            horasNormalesEsperadas === 0 &&
+                            normales > 0 && (
+                              <Typography
+                                variant="body2"
+                                color="error.main"
+                                sx={{ mb: 1 }}
+                              >
+                                📊 No debería haber horas normales registradas
+                                (horaEntrada = horaSalida)
+                              </Typography>
+                            )}
 
                           {!validacionHorasExtra.valido && (
                             <>
@@ -1004,7 +1030,11 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                               color="text.secondary"
                               sx={{ ml: 1 }}
                             >
-                              (esperadas: {horasNormalesEsperadas.toFixed(2)}h)
+                              {horasNormalesEsperadas === 0
+                                ? "(no aplica: horaEntrada = horaSalida)"
+                                : `(esperadas: ${horasNormalesEsperadas.toFixed(
+                                    2
+                                  )}h)`}
                             </Typography>
                           </Stack>
 

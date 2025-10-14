@@ -20,6 +20,13 @@ import {
   TableCell,
   Tabs,
   Tab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  List,
+  ListItem,
+  ListItemText,
+  TextField,
 } from "@mui/material";
 import {
   NavigateBefore as NavigateBeforeIcon,
@@ -146,6 +153,32 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   const [fechaFin, setFechaFin] = React.useState<string>("");
   const [tab, setTab] = React.useState(0);
 
+  // Modal de comentarios por job
+  const [modalOpen, setModalOpen] = React.useState(false);
+  const [modalJobTitle, setModalJobTitle] = React.useState<string>("");
+  const [modalComments, setModalComments] = React.useState<string[]>([]);
+
+  // Estado editable para deducciones
+  const [deduccionISR, setDeduccionISR] = React.useState<number>(0);
+  const [deduccionRAP, setDeduccionRAP] = React.useState<number>(0);
+  const [deduccionComida, setDeduccionComida] = React.useState<number>(0);
+  const [deduccionIHSS, setDeduccionIHSS] = React.useState<number>(0);
+  const [prestamo, setPrestamo] = React.useState<number>(0);
+
+  const handleOpenComentarios = (jobTitle: string, comments: string[]) => {
+    setModalJobTitle(jobTitle || "Comentarios");
+    setModalComments(comments || []);
+    setModalOpen(true);
+  };
+  const handleCloseComentarios = () => setModalOpen(false);
+
+  // Calcular total de deducciones
+  const totalDeducciones = React.useMemo(() => {
+    return (
+      deduccionISR + deduccionRAP + deduccionComida + deduccionIHSS + prestamo
+    );
+  }, [deduccionISR, deduccionRAP, deduccionComida, deduccionIHSS, prestamo]);
+
   React.useEffect(() => {
     if (!intervaloSeleccionado && intervalosDisponibles.length > 0) {
       const primero = intervalosDisponibles[0];
@@ -178,6 +211,17 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     fechaFin,
     enabled: !!empleado && rangoValido,
   });
+
+  // Sincronizar deducciones con datos del backend
+  React.useEffect(() => {
+    if (prorrateo) {
+      setDeduccionISR(prorrateo.cantidadHoras.deduccionesISR || 0);
+      setDeduccionRAP(prorrateo.cantidadHoras.deduccionesRAP || 0);
+      setDeduccionComida(prorrateo.cantidadHoras.deduccionesComida || 0);
+      setDeduccionIHSS(prorrateo.cantidadHoras.deduccionesIHSS || 0);
+      setPrestamo(prorrateo.cantidadHoras.Prestamo || 0);
+    }
+  }, [prorrateo]);
 
   React.useEffect(() => {
     if (empleado && rangoValido) {
@@ -344,20 +388,38 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
           <TableHead>
             <TableRow>
               <TableCell>Job</TableCell>
-              <TableCell>Código</TableCell>
+              <TableCell>Nombre del Job</TableCell>
               <TableCell align="right">Horas</TableCell>
+              <TableCell align="center">Comentarios</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {items.map((j) => (
               <TableRow key={`${j.jobId}-${j.codigoJob}`}>
-                <TableCell>{j.nombreJob}</TableCell>
                 <TableCell>{j.codigoJob}</TableCell>
+                <TableCell>{j.nombreJob}</TableCell>
                 <TableCell align="right">
                   {Number(
                     j.horas
                       ? j.horas.toFixed(4)
                       : j.cantidadHoras?.toFixed(4) || 0
+                  )}
+                </TableCell>
+                <TableCell align="center">
+                  {Array.isArray(j.comentarios) && j.comentarios.length > 0 ? (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() =>
+                        handleOpenComentarios(j.nombreJob, j.comentarios)
+                      }
+                    >
+                      Ver comentarios ({j.comentarios.length})
+                    </Button>
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">
+                      —
+                    </Typography>
                   )}
                 </TableCell>
               </TableRow>
@@ -373,405 +435,557 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   );
 
   return (
-    <Container maxWidth="lg" sx={{ height: "100%", overflowY: "auto" }}>
-      <Box sx={{ py: 4 }}>
-        <Paper
-          elevation={3}
-          sx={{
-            p: 3,
-            mb: 4,
-            background: "linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)",
-            color: "white",
-            position: "relative",
-          }}
-        >
-          <IconButton
-            onClick={goBackToList}
-            title="Volver a lista de colaboradores"
+    <>
+      <Container maxWidth="lg" sx={{ height: "100%", overflowY: "auto" }}>
+        <Box sx={{ py: 4 }}>
+          <Paper
+            elevation={3}
             sx={{
-              position: "absolute",
-              top: 8,
-              left: 8,
-              width: 30,
-              height: 30,
-              zIndex: 2,
+              p: 3,
+              mb: 4,
+              background: "linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)",
               color: "white",
-              backgroundColor: "rgba(0,0,0,0.2)",
-              "&:hover": { backgroundColor: "rgba(0,0,0,0.32)" },
-              boxShadow: 1,
+              position: "relative",
             }}
           >
-            <ArrowBackIcon sx={{ fontSize: 15 }} />
-          </IconButton>
-
-          <Box sx={{ display: "flex", gap: 3, alignItems: "center" }}>
             <IconButton
-              onClick={goPrev}
-              disabled={!(empleadosIndex?.length ? hayPrev : hasPrevious)}
+              onClick={goBackToList}
+              title="Volver a lista de colaboradores"
               sx={{
+                position: "absolute",
+                top: 8,
+                left: 8,
+                width: 30,
+                height: 30,
+                zIndex: 2,
                 color: "white",
-                opacity: (empleadosIndex?.length ? hayPrev : hasPrevious)
-                  ? 1
-                  : 0.5,
-                width: 20,
-                height: 48,
-                "& .MuiSvgIcon-root": { fontSize: 80 },
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-                "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.2)" },
+                backgroundColor: "rgba(0,0,0,0.2)",
+                "&:hover": { backgroundColor: "rgba(0,0,0,0.32)" },
+                boxShadow: 1,
               }}
             >
-              <NavigateBeforeIcon />
+              <ArrowBackIcon sx={{ fontSize: 15 }} />
             </IconButton>
 
-            <Box
-              sx={{
-                display: "flex",
-                gap: 3,
-                alignItems: "center",
-                flex: 2,
-                minWidth: 0,
-                overflow: "hidden",
-              }}
-            >
-              <Avatar
-                src={empleado.urlFotoPerfil || undefined}
-                alt={`${empleado.nombre} ${empleado.apellido}`}
-                sx={{ width: 100, height: 100, border: "3px solid white" }}
+            <Box sx={{ display: "flex", gap: 3, alignItems: "center" }}>
+              <IconButton
+                onClick={goPrev}
+                disabled={!(empleadosIndex?.length ? hayPrev : hasPrevious)}
+                sx={{
+                  color: "white",
+                  opacity: (empleadosIndex?.length ? hayPrev : hasPrevious)
+                    ? 1
+                    : 0.5,
+                  width: 20,
+                  height: 48,
+                  "& .MuiSvgIcon-root": { fontSize: 80 },
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                  "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.2)" },
+                }}
               >
-                {empleado.nombre?.[0]}
-              </Avatar>
+                <NavigateBeforeIcon />
+              </IconButton>
 
-              <Box sx={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
-                <Typography
-                  variant="h5"
-                  gutterBottom
-                  sx={{
-                    fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2rem" },
-                    lineHeight: 1.2,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 3,
+                  alignItems: "center",
+                  flex: 2,
+                  minWidth: 0,
+                  overflow: "hidden",
+                }}
+              >
+                <Avatar
+                  src={empleado.urlFotoPerfil || undefined}
+                  alt={`${empleado.nombre} ${empleado.apellido}`}
+                  sx={{ width: 100, height: 100, border: "3px solid white" }}
                 >
-                  {empleado.nombre} {empleado.apellido}
-                </Typography>
-                {empleado.cargo && (
+                  {empleado.nombre?.[0]}
+                </Avatar>
+
+                <Box sx={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
                   <Typography
-                    variant="h6"
+                    variant="h5"
+                    gutterBottom
                     sx={{
-                      fontSize: { xs: "1rem", sm: "1.125rem" },
+                      fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2rem" },
                       lineHeight: 1.2,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {empleado.cargo}
+                    {empleado.nombre} {empleado.apellido}
                   </Typography>
-                )}
-                <Typography variant="subtitle1">
-                  {empleado.codigo || "Sin código asignado"}
-                </Typography>
-              </Box>
-            </Box>
-
-            <Box
-              sx={{
-                flex: 1.5,
-                display: "flex",
-                justifyContent: "flex-end",
-                alignItems: "center",
-                gap: 2,
-              }}
-            >
-              <FormControl size="small" sx={{ minWidth: 300 }}>
-                <InputLabel
-                  sx={{
-                    color: "rgba(255,255,255,0.7)",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  Período de Nómina
-                </InputLabel>
-                <Select
-                  value={intervaloSeleccionado}
-                  onChange={handleIntervaloChange}
-                  label="Período de Nómina"
-                  size="small"
-                  sx={{
-                    color: "white",
-                    backgroundColor: "rgba(255, 255, 255, 0.1)",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "rgba(255,255,255,0.3)",
-                    },
-                    "&:hover .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "rgba(255,255,255,0.5)",
-                    },
-                    "& .MuiSelect-icon": { color: "white" },
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: { maxHeight: 300 },
-                    },
-                  }}
-                >
-                  <MenuItem value="">
-                    <em>Selecciona un período</em>
-                  </MenuItem>
-                  {intervalosDisponibles.map((intervalo) => (
-                    <MenuItem key={intervalo.valor} value={intervalo.valor}>
-                      {intervalo.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <Button
-                variant="contained"
-                disabled={!rangoValido || !empleado}
-                onClick={() => refetch()}
-                sx={{ ml: 1 }}
-              >
-                Aplicar
-              </Button>
-            </Box>
-
-            <IconButton
-              onClick={goNext}
-              disabled={!(empleadosIndex?.length ? hayNext : hasNext)}
-              sx={{
-                color: "white",
-                opacity: (empleadosIndex?.length ? hayNext : hasNext) ? 1 : 0.5,
-                width: 20,
-                height: 48,
-                "& .MuiSvgIcon-root": { fontSize: 80 },
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-                "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.2)" },
-              }}
-            >
-              <NavigateNextIcon />
-            </IconButton>
-          </Box>
-
-          {empleadosIndex?.length > 0 && (
-            <Box sx={{ mt: 2, textAlign: "center" }}>
-              <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                Navegación:{" "}
-                {idx >= 0
-                  ? `${idx + 1} de ${empleadosIndex.length}`
-                  : "No encontrado"}{" "}
-                colaboradores
-              </Typography>
-            </Box>
-          )}
-        </Paper>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error.response?.data?.validationErrors ? (
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  No se puede procesar el prorrateo
-                </Typography>
-                {error.response.data.validationErrors.fechasNoAprobadas
-                  ?.length > 0 && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" color="error" gutterBottom>
-                      📋 Fechas no aprobadas por supervisor:
-                    </Typography>
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                      {error.response.data.validationErrors.fechasNoAprobadas.map(
-                        (fecha: string) => (
-                          <Typography
-                            key={fecha}
-                            variant="body2"
-                            sx={{
-                              backgroundColor: "error.light",
-                              color: "error.contrastText",
-                              px: 1,
-                              py: 0.5,
-                              borderRadius: 1,
-                              fontSize: "0.875rem",
-                            }}
-                          >
-                            {new Date(fecha + "T00:00:00").toLocaleDateString(
-                              "es-HN",
-                              {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                              }
-                            )}
-                          </Typography>
-                        )
-                      )}
-                    </Box>
-                  </Box>
-                )}
-                {error.response.data.validationErrors.fechasSinRegistro
-                  ?.length > 0 && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" color="error" gutterBottom>
-                      📝 Fechas sin registro diario:
-                    </Typography>
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                      {error.response.data.validationErrors.fechasSinRegistro.map(
-                        (fecha: string) => (
-                          <Typography
-                            key={fecha}
-                            variant="body2"
-                            sx={{
-                              backgroundColor: "warning.light",
-                              color: "warning.contrastText",
-                              px: 1,
-                              py: 0.5,
-                              borderRadius: 1,
-                              fontSize: "0.875rem",
-                            }}
-                          >
-                            {new Date(fecha + "T00:00:00").toLocaleDateString(
-                              "es-HN",
-                              {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                              }
-                            )}
-                          </Typography>
-                        )
-                      )}
-                    </Box>
-                  </Box>
-                )}
-              </Box>
-            ) : (
-              error.response?.data?.message ||
-              (error.response?.status === 404
-                ? "No se pudo conectar con el servidor"
-                : "Error al cargar los datos")
-            )}
-            <Button size="small" onClick={refetch} sx={{ ml: 2 }}>
-              Reintentar
-            </Button>
-          </Alert>
-        )}
-
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h5" gutterBottom>
-            Prorrateo de Horas por Job
-          </Typography>
-          <Paper sx={{ p: 3, mt: 2 }}>
-            {loading ? (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-                <CircularProgress />
-              </Box>
-            ) : prorrateo ? (
-              <>
-                <Paper sx={{ p: 2 }}>
-                  <Tabs
-                    value={tab}
-                    onChange={(_, v) => setTab(v)}
-                    variant="scrollable"
-                    scrollButtons="auto"
-                  >
-                    <Tab label="Normal" />
-                    <Tab label="25%" />
-                    <Tab label="50%" />
-                    <Tab label="75%" />
-                    <Tab label="100%" />
-                  </Tabs>
-                  <Box sx={{ p: 2 }}>
-                    {tab === 0 &&
-                      renderTabla(
-                        "Horas Normales",
-                        prorrateo.cantidadHoras.normal
-                      )}
-                    {tab === 1 &&
-                      renderTabla("Horas 25%", prorrateo.cantidadHoras.p25)}
-                    {tab === 2 &&
-                      renderTabla("Horas 50%", prorrateo.cantidadHoras.p50)}
-                    {tab === 3 &&
-                      renderTabla("Horas 75%", prorrateo.cantidadHoras.p75)}
-                    {tab === 4 &&
-                      renderTabla("Horas 100%", prorrateo.cantidadHoras.p100)}
-                  </Box>
-                </Paper>
-
-                <Box sx={{ mt: 2 }}>
-                  <Paper sx={{ p: 2 }}>
-                    <Typography variant="subtitle1" gutterBottom>
-                      Resumen
-                    </Typography>
-                    <Box
+                  {empleado.cargo && (
+                    <Typography
+                      variant="h6"
                       sx={{
-                        display: "grid",
-                        gridTemplateColumns: {
-                          xs: "1fr",
-                          md: "repeat(2, 1fr)",
-                        },
-                        gap: 2,
+                        fontSize: { xs: "1rem", sm: "1.125rem" },
+                        lineHeight: 1.2,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      <Box>
-                        <Typography variant="body2">
-                          Horas laborables:{" "}
-                          {prorrateo.cantidadHoras.totalHorasLaborables || 0}
-                        </Typography>
-                        <Typography variant="body2">
-                          Vacaciones (h):{" "}
-                          {prorrateo.cantidadHoras.vacacionesHoras || 0}
-                        </Typography>
-                        <Typography variant="body2">
-                          Permiso c/sueldo (h):{" "}
-                          {prorrateo.cantidadHoras.permisoConSueldoHoras || 0}
-                        </Typography>
-                        <Typography variant="body2">
-                          Permiso s/sueldo (h):{" "}
-                          {prorrateo.cantidadHoras.permisoSinSueldoHoras || 0}
-                        </Typography>
-                        <Typography variant="body2">
-                          Inasistencias (h):{" "}
-                          {prorrateo.cantidadHoras.inasistenciasHoras || 0}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="body2">
-                          Deducción ISR:{" "}
-                          {prorrateo.cantidadHoras.deduccionesISR || 0}
-                        </Typography>
-                        <Typography variant="body2">
-                          Deducción RAP:{" "}
-                          {prorrateo.cantidadHoras.deduccionesRAP || 0}
-                        </Typography>
-                        <Typography variant="body2">
-                          Deducción Comida:{" "}
-                          {prorrateo.cantidadHoras.deduccionesComida || 0}
-                        </Typography>
-                        <Typography variant="body2">
-                          Deducción IHSS:{" "}
-                          {prorrateo.cantidadHoras.deduccionesIHSS || 0}
-                        </Typography>
-                        <Typography variant="body2">
-                          Préstamo: {prorrateo.cantidadHoras.Prestamo || 0}
-                        </Typography>
-                        <Typography variant="body2">
-                          Total: {prorrateo.cantidadHoras.Total || 0}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Paper>
+                      {empleado.cargo}
+                    </Typography>
+                  )}
+                  <Typography variant="subtitle1">
+                    {empleado.codigo || "Sin código asignado"}
+                  </Typography>
                 </Box>
-              </>
-            ) : (
-              <Typography variant="body1" color="text.secondary">
-                Selecciona un período de nómina del selector y presiona
-                "Aplicar" para ver la información.
-              </Typography>
+              </Box>
+
+              <Box
+                sx={{
+                  flex: 1.5,
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: 2,
+                }}
+              >
+                <FormControl size="small" sx={{ minWidth: 300 }}>
+                  <InputLabel
+                    sx={{
+                      color: "rgba(255,255,255,0.7)",
+                      fontSize: "0.875rem",
+                    }}
+                  >
+                    Período de Nómina
+                  </InputLabel>
+                  <Select
+                    value={intervaloSeleccionado}
+                    onChange={handleIntervaloChange}
+                    label="Período de Nómina"
+                    size="small"
+                    sx={{
+                      color: "white",
+                      backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "rgba(255,255,255,0.3)",
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "rgba(255,255,255,0.5)",
+                      },
+                      "& .MuiSelect-icon": { color: "white" },
+                    }}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: { maxHeight: 300 },
+                      },
+                    }}
+                  >
+                    <MenuItem value="">
+                      <em>Selecciona un período</em>
+                    </MenuItem>
+                    {intervalosDisponibles.map((intervalo) => (
+                      <MenuItem key={intervalo.valor} value={intervalo.valor}>
+                        {intervalo.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Button
+                  variant="contained"
+                  disabled={!rangoValido || !empleado}
+                  onClick={() => refetch()}
+                  sx={{ ml: 1 }}
+                >
+                  Aplicar
+                </Button>
+              </Box>
+
+              <IconButton
+                onClick={goNext}
+                disabled={!(empleadosIndex?.length ? hayNext : hasNext)}
+                sx={{
+                  color: "white",
+                  opacity: (empleadosIndex?.length ? hayNext : hasNext)
+                    ? 1
+                    : 0.5,
+                  width: 20,
+                  height: 48,
+                  "& .MuiSvgIcon-root": { fontSize: 80 },
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                  "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.2)" },
+                }}
+              >
+                <NavigateNextIcon />
+              </IconButton>
+            </Box>
+
+            {empleadosIndex?.length > 0 && (
+              <Box sx={{ mt: 2, textAlign: "center" }}>
+                <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                  Navegación:{" "}
+                  {idx >= 0
+                    ? `${idx + 1} de ${empleadosIndex.length}`
+                    : "No encontrado"}{" "}
+                  colaboradores
+                </Typography>
+              </Box>
             )}
           </Paper>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error.response?.data?.validationErrors ? (
+                <Box>
+                  <Typography variant="h6" gutterBottom>
+                    No se puede procesar el prorrateo
+                  </Typography>
+                  {error.response.data.validationErrors.fechasNoAprobadas
+                    ?.length > 0 && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography
+                        variant="subtitle1"
+                        color="error"
+                        gutterBottom
+                      >
+                        📋 Fechas no aprobadas por supervisor:
+                      </Typography>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                        {error.response.data.validationErrors.fechasNoAprobadas.map(
+                          (fecha: string) => (
+                            <Typography
+                              key={fecha}
+                              variant="body2"
+                              sx={{
+                                backgroundColor: "error.light",
+                                color: "error.contrastText",
+                                px: 1,
+                                py: 0.5,
+                                borderRadius: 1,
+                                fontSize: "0.875rem",
+                              }}
+                            >
+                              {new Date(fecha + "T00:00:00").toLocaleDateString(
+                                "es-HN",
+                                {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                }
+                              )}
+                            </Typography>
+                          )
+                        )}
+                      </Box>
+                    </Box>
+                  )}
+                  {error.response.data.validationErrors.fechasSinRegistro
+                    ?.length > 0 && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography
+                        variant="subtitle1"
+                        color="error"
+                        gutterBottom
+                      >
+                        📝 Fechas sin registro diario:
+                      </Typography>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                        {error.response.data.validationErrors.fechasSinRegistro.map(
+                          (fecha: string) => (
+                            <Typography
+                              key={fecha}
+                              variant="body2"
+                              sx={{
+                                backgroundColor: "warning.light",
+                                color: "warning.contrastText",
+                                px: 1,
+                                py: 0.5,
+                                borderRadius: 1,
+                                fontSize: "0.875rem",
+                              }}
+                            >
+                              {new Date(fecha + "T00:00:00").toLocaleDateString(
+                                "es-HN",
+                                {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                }
+                              )}
+                            </Typography>
+                          )
+                        )}
+                      </Box>
+                    </Box>
+                  )}
+                </Box>
+              ) : (
+                error.response?.data?.message ||
+                (error.response?.status === 404
+                  ? "No se pudo conectar con el servidor"
+                  : "Error al cargar los datos")
+              )}
+              <Button size="small" onClick={refetch} sx={{ ml: 2 }}>
+                Reintentar
+              </Button>
+            </Alert>
+          )}
+
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="h5" gutterBottom>
+              Prorrateo de Horas por Job
+            </Typography>
+            <Paper sx={{ p: 3, mt: 2 }}>
+              {loading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+                  <CircularProgress />
+                </Box>
+              ) : prorrateo ? (
+                <>
+                  {/* Resumen primero */}
+                  <Box sx={{ mb: 3 }}>
+                    <Paper sx={{ p: 2 }}>
+                      <Typography variant="subtitle1" gutterBottom>
+                        Resumen
+                      </Typography>
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gridTemplateColumns: {
+                            xs: "1fr",
+                            md: "repeat(2, 1fr)",
+                          },
+                          gap: 2,
+                        }}
+                      >
+                        <Box>
+                          <Table
+                            size="small"
+                            sx={{
+                              width: "auto",
+                              "& .MuiTableCell-root": { py: 0.25, px: 0.75 },
+                            }}
+                          >
+                            <TableBody>
+                              <TableRow>
+                                <TableCell>Horas laborables</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 100 }}>
+                                  {prorrateo.cantidadHoras
+                                    .totalHorasLaborables || 0}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Vacaciones (h)</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 100 }}>
+                                  {prorrateo.cantidadHoras.vacacionesHoras || 0}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Permiso c/sueldo (h)</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 100 }}>
+                                  {prorrateo.cantidadHoras
+                                    .permisoConSueldoHoras || 0}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Permiso s/sueldo (h)</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 100 }}>
+                                  {prorrateo.cantidadHoras
+                                    .permisoSinSueldoHoras || 0}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Inasistencias (h)</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 100 }}>
+                                  {prorrateo.cantidadHoras.inasistenciasHoras ||
+                                    0}
+                                </TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </Box>
+                        <Box>
+                          <Table
+                            size="small"
+                            sx={{
+                              width: "auto",
+                              "& .MuiTableCell-root": { py: 0.25, px: 0.75 },
+                            }}
+                          >
+                            <TableBody>
+                              <TableRow>
+                                <TableCell>Deducción ISR</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  <TextField
+                                    type="number"
+                                    size="small"
+                                    value={deduccionISR}
+                                    onChange={(e) =>
+                                      setDeduccionISR(
+                                        Number(e.target.value) || 0
+                                      )
+                                    }
+                                    sx={{ width: 100 }}
+                                    inputProps={{
+                                      style: { textAlign: "right" },
+                                    }}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Deducción RAP</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  <TextField
+                                    type="number"
+                                    size="small"
+                                    value={deduccionRAP}
+                                    onChange={(e) =>
+                                      setDeduccionRAP(
+                                        Number(e.target.value) || 0
+                                      )
+                                    }
+                                    sx={{ width: 100 }}
+                                    inputProps={{
+                                      style: { textAlign: "right" },
+                                    }}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Deducción Comida</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  <TextField
+                                    type="number"
+                                    size="small"
+                                    value={deduccionComida}
+                                    onChange={(e) =>
+                                      setDeduccionComida(
+                                        Number(e.target.value) || 0
+                                      )
+                                    }
+                                    sx={{ width: 100 }}
+                                    inputProps={{
+                                      style: { textAlign: "right" },
+                                    }}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Deducción IHSS</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  <TextField
+                                    type="number"
+                                    size="small"
+                                    value={deduccionIHSS}
+                                    onChange={(e) =>
+                                      setDeduccionIHSS(
+                                        Number(e.target.value) || 0
+                                      )
+                                    }
+                                    sx={{ width: 100 }}
+                                    inputProps={{
+                                      style: { textAlign: "right" },
+                                    }}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Préstamo</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  <TextField
+                                    type="number"
+                                    size="small"
+                                    value={prestamo}
+                                    onChange={(e) =>
+                                      setPrestamo(Number(e.target.value) || 0)
+                                    }
+                                    sx={{ width: 100 }}
+                                    inputProps={{
+                                      style: { textAlign: "right" },
+                                    }}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>
+                                  <strong>Total deducciones</strong>
+                                </TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  <strong>{totalDeducciones}</strong>
+                                </TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </Box>
+                      </Box>
+                    </Paper>
+                  </Box>
+
+                  {/* Tabs de conteo por horas */}
+                  <Paper sx={{ p: 2 }}>
+                    <Tabs
+                      value={tab}
+                      onChange={(_, v) => setTab(v)}
+                      variant="scrollable"
+                      scrollButtons="auto"
+                    >
+                      <Tab label="Normal" />
+                      <Tab label="25%" />
+                      <Tab label="50%" />
+                      <Tab label="75%" />
+                      <Tab label="100%" />
+                    </Tabs>
+                    <Box sx={{ p: 2 }}>
+                      {tab === 0 &&
+                        renderTabla(
+                          "Horas Normales",
+                          prorrateo.cantidadHoras.normal
+                        )}
+                      {tab === 1 &&
+                        renderTabla("Horas 25%", prorrateo.cantidadHoras.p25)}
+                      {tab === 2 &&
+                        renderTabla("Horas 50%", prorrateo.cantidadHoras.p50)}
+                      {tab === 3 &&
+                        renderTabla("Horas 75%", prorrateo.cantidadHoras.p75)}
+                      {tab === 4 &&
+                        renderTabla("Horas 100%", prorrateo.cantidadHoras.p100)}
+                    </Box>
+                  </Paper>
+                </>
+              ) : (
+                <Typography variant="body1" color="text.secondary">
+                  Selecciona un período de nómina del selector y presiona
+                  "Aplicar" para ver la información.
+                </Typography>
+              )}
+            </Paper>
+          </Box>
         </Box>
-      </Box>
-    </Container>
+      </Container>
+
+      {/* Modal de comentarios */}
+      <Dialog
+        open={modalOpen}
+        onClose={handleCloseComentarios}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>{modalJobTitle}</DialogTitle>
+        <DialogContent dividers>
+          {modalComments.length ? (
+            <List dense>
+              {modalComments.map((c, idx) => (
+                <ListItem key={idx} alignItems="flex-start">
+                  <ListItemText primary={c} />
+                </ListItem>
+              ))}
+            </List>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No hay comentarios registrados para este job.
+            </Typography>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
