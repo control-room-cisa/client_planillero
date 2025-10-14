@@ -1030,11 +1030,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                               color="text.secondary"
                               sx={{ ml: 1 }}
                             >
-                              {horasNormalesEsperadas === 0
-                                ? "(no aplica: horaEntrada = horaSalida)"
-                                : `(esperadas: ${horasNormalesEsperadas.toFixed(
-                                    2
-                                  )}h)`}
+                              {`(esperadas: ${horasNormalesEsperadas.toFixed(2)}
+                              h)`}
                             </Typography>
                           </Stack>
 
