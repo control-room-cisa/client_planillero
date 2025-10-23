@@ -347,9 +347,11 @@ const DailyTimesheet: React.FC = () => {
   };
 
   // Calcula HH con o sin descuento de almuerzo (12:00–13:00) según reglas del horario
+  // Para horas extra, NUNCA se descuenta almuerzo
   const computeHorasInvertidas = (
     inicioHHMM: string,
-    finHHMM: string
+    finHHMM: string,
+    isExtraHour = false
   ): string => {
     if (!inicioHHMM || !finHHMM) return "";
 
@@ -365,6 +367,11 @@ const DailyTimesheet: React.FC = () => {
 
     let dur = h2 + m2 / 60 - (h1 + m1 / 60);
     if (dur < 0) dur += 24; // cruza medianoche
+
+    // Para horas extra, NO descontar almuerzo bajo ninguna circunstancia
+    if (isExtraHour) {
+      return dur.toFixed(2);
+    }
 
     // Determinar hora de almuerzo usando reglas del horario
     const horaAlmuerzo = horarioRules.utils.calculateLunchHours();
@@ -416,6 +423,11 @@ const DailyTimesheet: React.FC = () => {
 
     // Duración base
     let hours = (finMin - inicioMin) / 60;
+
+    // Para horas extra, NO descontar almuerzo bajo ninguna circunstancia
+    if (act.esExtra) {
+      return Math.round(hours * 100) / 100;
+    }
 
     // Determinar hora de almuerzo usando reglas del horario
     const horaAlmuerzo = horarioRules.utils.calculateLunchHours();
@@ -913,6 +925,7 @@ const DailyTimesheet: React.FC = () => {
 
         const acts = registroDiario?.actividades || [];
         const outOfRange = acts
+          .filter((act) => !act.esExtra)
           .map((act, idx) => ({
             idx,
             act,
@@ -1064,7 +1077,11 @@ const DailyTimesheet: React.FC = () => {
         if (checked) {
           // Al activar hora extra: calcular automáticamente las horas invertidas
           if (next.horaInicio && next.horaFin) {
-            const v = computeHorasInvertidas(next.horaInicio, next.horaFin);
+            const v = computeHorasInvertidas(
+              next.horaInicio,
+              next.horaFin,
+              true
+            );
             next.horasInvertidas = v;
           }
           // Limpiar job si es especial al activar hora extra
@@ -1084,7 +1101,7 @@ const DailyTimesheet: React.FC = () => {
       // SOLO si es hora extra (para mantener consistencia)
       if ((name === "horaInicio" || name === "horaFin") && next.horaExtra) {
         if (next.horaInicio && next.horaFin) {
-          const v = computeHorasInvertidas(next.horaInicio, next.horaFin);
+          const v = computeHorasInvertidas(next.horaInicio, next.horaFin, true);
           next.horasInvertidas = v;
         }
       }
@@ -1148,7 +1165,7 @@ const DailyTimesheet: React.FC = () => {
       // Para hora extra, las horas invertidas se calculan automáticamente
       // Validar que el cálculo sea válido
       if (horaInicio && horaFin) {
-        const horasCalc = computeHorasInvertidas(horaInicio, horaFin);
+        const horasCalc = computeHorasInvertidas(horaInicio, horaFin, true);
         if (!horasCalc || parseFloat(horasCalc) <= 0) {
           errors.horasInvertidas = "Las horas calculadas no son válidas";
         }
@@ -1249,8 +1266,19 @@ const DailyTimesheet: React.FC = () => {
         registroDiario?.actividades &&
         registroDiario.actividades.length > 0
       ) {
-        const overlaps = registroDiario.actividades.some((act, idx) => {
-          if (editingActivity && idx === editingIndex) return false;
+        const overlaps = registroDiario.actividades.some((act) => {
+          // Excluir la actividad que se está editando (comparar por ID si existe)
+          if (editingActivity) {
+            // Si ambas tienen ID, comparar por ID (más confiable)
+            if (editingActivity.id && act.id && editingActivity.id === act.id) {
+              return false;
+            }
+            // Si no tienen ID, comparar por referencia (para actividades nuevas aún no guardadas)
+            if (editingActivity === act) {
+              return false;
+            }
+          }
+
           if (!act.horaInicio || !act.horaFin) return false;
 
           const actInicioMin = timeToMinutes(formatTimeLocal(act.horaInicio));
@@ -1307,7 +1335,7 @@ const DailyTimesheet: React.FC = () => {
       // Solo agregar datos de tiempo si es hora extra
       if (formData.horaExtra) {
         actividad.duracionHoras = parseFloat(
-          computeHorasInvertidas(formData.horaInicio, formData.horaFin)
+          computeHorasInvertidas(formData.horaInicio, formData.horaFin, true)
         );
         actividad.horaInicio = buildISO(currentDate, formData.horaInicio, 0);
         actividad.horaFin = buildISO(currentDate, formData.horaFin, addDay);
@@ -1342,15 +1370,23 @@ const DailyTimesheet: React.FC = () => {
           actividadesActualizadas = [...actividadesExistentes, actividad];
         }
 
+        // Construir ISO para entrada/salida usando valores actuales de dayConfigData
+        const entradaM = timeToMinutes(dayConfigData.horaEntrada);
+        const salidaM = timeToMinutes(dayConfigData.horaSalida);
+        const addDayForEnd = salidaM <= entradaM ? 1 : 0;
+
         const params = {
           fecha: dateString,
-          horaEntrada: registroDiario.horaEntrada,
-          horaSalida: registroDiario.horaSalida,
-          jornada: registroDiario.jornada,
-          esDiaLibre: registroDiario.esDiaLibre,
-          // Quitar forzado de hora corrida en H2; mantener lo existente
-          esHoraCorrida: registroDiario.esHoraCorrida,
-          comentarioEmpleado: registroDiario.comentarioEmpleado,
+          horaEntrada: buildISO(currentDate, dayConfigData.horaEntrada, 0),
+          horaSalida: buildISO(
+            currentDate,
+            dayConfigData.horaSalida,
+            addDayForEnd
+          ),
+          jornada: dayConfigData.jornada,
+          esDiaLibre: dayConfigData.esDiaLibre,
+          esHoraCorrida: isH2 ? true : dayConfigData.esHoraCorrida,
+          comentarioEmpleado: dayConfigData.comentarioEmpleado,
           actividades: actividadesActualizadas,
         };
 
@@ -1513,7 +1549,11 @@ const DailyTimesheet: React.FC = () => {
   React.useEffect(() => {
     setFormData((prev) => {
       if (!prev.horaInicio || !prev.horaFin) return prev;
-      const v = computeHorasInvertidas(prev.horaInicio, prev.horaFin);
+      const v = computeHorasInvertidas(
+        prev.horaInicio,
+        prev.horaFin,
+        prev.horaExtra
+      );
       return v === prev.horasInvertidas
         ? prev
         : { ...prev, horasInvertidas: v };
@@ -1527,9 +1567,9 @@ const DailyTimesheet: React.FC = () => {
 
   // Recalcular horasInvertidas cuando cambian los campos de tiempo del formulario
   React.useEffect(() => {
-    const { horaInicio, horaFin } = formData;
+    const { horaInicio, horaFin, horaExtra } = formData;
     if (horaInicio && horaFin) {
-      const v = computeHorasInvertidas(horaInicio, horaFin);
+      const v = computeHorasInvertidas(horaInicio, horaFin, horaExtra);
       setFormData((prev) => ({ ...prev, horasInvertidas: v }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

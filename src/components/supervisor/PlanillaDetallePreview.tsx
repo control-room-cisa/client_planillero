@@ -483,6 +483,15 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
       const inicioMin = inicio.getUTCHours() * 60 + inicio.getUTCMinutes();
       let finMin = fin.getUTCHours() * 60 + fin.getUTCMinutes();
       if (finMin <= inicioMin) finMin += 24 * 60;
+      // Validar que la duración coincide con diferencia de tiempos
+      const duracionCalculada = (finMin - inicioMin) / 60;
+      if (Math.abs(act.duracionHoras - duracionCalculada) > 0.01) {
+        errores.push(
+          `Actividad extra "${
+            act.descripcion
+          }" debe durar ${duracionCalculada.toFixed(2)}h (fin - inicio)`
+        );
+      }
 
       // Solo validar traslape con horario laboral si existe horario laboral
       if (hayHorarioLaboral) {
