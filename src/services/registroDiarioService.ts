@@ -149,13 +149,14 @@ class RegistroDiarioService {
   }
 
   /**
-   * Método específico para que supervisores actualicen jobs de actividades
+   * Método específico para que supervisores actualicen jobs y descripción de actividades
    * de otros empleados. Solo disponible para supervisores (rolId = 2).
    */
   static async updateJobBySupervisor(
     empleadoId: number,
     actividadId: number,
-    nuevoJobId: number
+    nuevoJobId: number,
+    descripcion?: string
   ): Promise<RegistroDiarioData> {
     const response = await api.patch<ApiResponse<RegistroDiarioData>>(
       "/registrodiario/update-job-supervisor",
@@ -163,6 +164,7 @@ class RegistroDiarioService {
         empleadoId,
         actividadId,
         nuevoJobId,
+        descripcion,
       }
     );
     return response.data.data;

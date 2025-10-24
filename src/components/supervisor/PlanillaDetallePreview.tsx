@@ -82,11 +82,12 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     severity: "success" | "error";
   }>({ open: false, message: "", severity: "success" });
 
-  // Estados para el modal de cambio de job
+  // Estados para el modal de edición de actividad
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
   const [jobs, setJobs] = useState<JobConJerarquia[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobConJerarquia | null>(null);
+  const [editedDescripcion, setEditedDescripcion] = useState("");
   // Mapa fecha -> tipoHorario (H1, H2, ...)
   const [horariosByFecha, setHorariosByFecha] = useState<
     Record<string, string>
@@ -245,6 +246,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   ) => {
     setTargetRegistro(registro);
     setTargetActividad(actividad);
+    setEditedDescripcion(actividad.descripcion || "");
 
     // Solo incluir especiales cuando la actividad NO es extra
     const list = await loadJobs(!(actividad.esExtra === true));
@@ -262,6 +264,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   const closeJobDialog = () => {
     setJobDialogOpen(false);
     setSelectedJob(null);
+    setEditedDescripcion("");
     setTargetActividad(null);
     setTargetRegistro(null);
   };
@@ -290,12 +293,13 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
       await RegistroDiarioService.updateJobBySupervisor(
         empleado.id,
         targetActividad.id,
-        selectedJob.id
+        selectedJob.id,
+        editedDescripcion
       );
 
       setSnackbar({
         open: true,
-        message: "Job actualizado correctamente",
+        message: "Actividad actualizada correctamente",
         severity: "success",
       });
       closeJobDialog();
@@ -1147,7 +1151,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
         </Snackbar>
       </Box>
 
-      {/* Diálogo de cambio de Job: fullScreen en móvil */}
+      {/* Diálogo de edición de actividad: fullScreen en móvil */}
       <Dialog
         open={jobDialogOpen}
         onClose={closeJobDialog}
@@ -1155,12 +1159,18 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
         maxWidth="sm"
         fullScreen={isMobile}
       >
-        <DialogTitle>Cambiar Job de la actividad</DialogTitle>
+        <DialogTitle>Editar actividad</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2}>
-            <Typography variant="body2" color="text.secondary">
-              {targetActividad?.descripcion ?? ""}
-            </Typography>
+            <TextField
+              label="Descripción / Comentario"
+              value={editedDescripcion}
+              onChange={(e) => setEditedDescripcion(e.target.value)}
+              multiline
+              rows={3}
+              fullWidth
+              placeholder="Ingresa una descripción para esta actividad"
+            />
 
             <Autocomplete
               options={jobs}
