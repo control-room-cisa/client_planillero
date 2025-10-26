@@ -25,7 +25,7 @@ export const H1Rules: HorarioRuleEngine = {
         defaultValue: "D",
       },
       esDiaLibre: {
-        visible: false,
+        visible: true,
         enabled: false,
         required: false,
         defaultValue: false,
@@ -60,7 +60,9 @@ export const H1Rules: HorarioRuleEngine = {
         horaEntrada: apiData?.horarioTrabajo?.inicio || prev.horaEntrada || "",
         horaSalida: apiData?.horarioTrabajo?.fin || prev.horaSalida || "",
         jornada: hasExisting ? prev.jornada : "D",
-        esDiaLibre: hasExisting ? prev.esDiaLibre : false,
+        esDiaLibre: hasExisting
+          ? prev.esDiaLibre
+          : apiData?.esDiaLibre || false,
       };
     },
     onFieldChange: (fieldName, nextValue, prevFormData) => {

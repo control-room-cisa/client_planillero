@@ -651,12 +651,17 @@ const DailyTimesheet: React.FC = () => {
             horarioData,
             datosExistentes
           );
+
           // Para H1: siempre usar horas del horario de la API (no editables)
           // Para H2: conservar horas del registro guardado (editables)
           if (datosExistentes && registro) {
             if (horarioData.tipoHorario === "H1") {
               // H1: usar horas de la API, ignorar las del registro
-              return base;
+              // PERO conservar esDiaLibre si viene del horario de la API
+              return {
+                ...base,
+                esDiaLibre: horarioData.esDiaLibre || base.esDiaLibre,
+              };
             } else {
               // H2 u otros: conservar horas del registro guardado
               return {
@@ -667,7 +672,12 @@ const DailyTimesheet: React.FC = () => {
               };
             }
           }
-          return base;
+
+          // Si no hay registro existente, aplicar el esDiaLibre desde el horario de la API
+          return {
+            ...base,
+            esDiaLibre: horarioData.esDiaLibre || base.esDiaLibre,
+          };
         });
       }
     } catch (error) {
@@ -952,7 +962,14 @@ const DailyTimesheet: React.FC = () => {
         }
       }
 
-      const esDiaLibreFinal = horasCero ? false : dayConfigData.esDiaLibre;
+      // Si es H1 y el horario indica que es día libre, respetar ese valor aunque esté deshabilitado
+      // Para H1, el día libre viene del API y se marca automáticamente (domingos, feriados, etc.)
+      const esDiaLibreFinal = isH1
+        ? dayConfigData.esDiaLibre // Para H1, siempre usar el valor de dayConfigData (viene del API)
+        : horasCero
+        ? false
+        : dayConfigData.esDiaLibre;
+
       // Si es H2, enviar esHoraCorrida=true al backend
       const esHoraCorridaFinal = isH2
         ? true
