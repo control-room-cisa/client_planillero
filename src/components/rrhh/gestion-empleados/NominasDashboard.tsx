@@ -102,6 +102,12 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   const generarIntervalosFechas = React.useCallback(() => {
     const intervalos = [];
     const hoy = new Date();
+    // Normalizar la fecha de hoy a medianoche para comparación
+    const hoyNormalizado = new Date(
+      hoy.getFullYear(),
+      hoy.getMonth(),
+      hoy.getDate()
+    );
 
     for (let i = 0; i < 30; i++) {
       const fechaBase = new Date(hoy);
@@ -123,23 +129,29 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         return `${dia}/${mes}/${año}`;
       };
 
-      intervalos.push({
-        label: `${formatearFecha(inicio1)} - ${formatearFecha(fin1)}`,
-        fechaInicio: inicio1.toISOString().split("T")[0],
-        fechaFin: fin1.toISOString().split("T")[0],
-        valor: `${inicio1.toISOString().split("T")[0]}_${
-          fin1.toISOString().split("T")[0]
-        }`,
-      });
+      // Solo agregar período 1 si su fecha de inicio no es futura
+      if (inicio1 <= hoyNormalizado) {
+        intervalos.push({
+          label: `${formatearFecha(inicio1)} - ${formatearFecha(fin1)}`,
+          fechaInicio: inicio1.toISOString().split("T")[0],
+          fechaFin: fin1.toISOString().split("T")[0],
+          valor: `${inicio1.toISOString().split("T")[0]}_${
+            fin1.toISOString().split("T")[0]
+          }`,
+        });
+      }
 
-      intervalos.push({
-        label: `${formatearFecha(inicio2)} - ${formatearFecha(fin2)}`,
-        fechaInicio: inicio2.toISOString().split("T")[0],
-        fechaFin: fin2.toISOString().split("T")[0],
-        valor: `${inicio2.toISOString().split("T")[0]}_${
-          fin2.toISOString().split("T")[0]
-        }`,
-      });
+      // Solo agregar período 2 si su fecha de inicio no es futura
+      if (inicio2 <= hoyNormalizado) {
+        intervalos.push({
+          label: `${formatearFecha(inicio2)} - ${formatearFecha(fin2)}`,
+          fechaInicio: inicio2.toISOString().split("T")[0],
+          fechaFin: fin2.toISOString().split("T")[0],
+          valor: `${inicio2.toISOString().split("T")[0]}_${
+            fin2.toISOString().split("T")[0]
+          }`,
+        });
+      }
     }
 
     // Ordenar por fechaInicio (YYYY-MM-DD) descendente
@@ -229,8 +241,12 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     (montoVacaciones || 0) +
     (montoCubreEmpresa || 0);
 
+  // Cálculo de horas normales: días laborados × 8 horas
+  const horasNormales = diasLaborados * 8;
+
   // Montos por horas (no incluidos en subtotal)
   const horas = resumenHoras?.conteoHoras?.cantidadHoras;
+  const montoHorasNormales = horasNormales * salarioPorHora;
   const montoHoras25 = (horas?.p25 || 0) * salarioPorHora * 1.25;
   const montoHoras50 = (horas?.p50 || 0) * salarioPorHora * 1.5;
   const montoHoras75 = (horas?.p75 || 0) * salarioPorHora * 1.75;
@@ -1121,12 +1137,14 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
             desglose={resumenHoras?.desgloseIncidencias || null}
             loading={loading}
             extrasMontos={{
+              normal: montoHorasNormales,
               p25: montoHoras25,
               p50: montoHoras50,
               p75: montoHoras75,
               p100: montoHoras100,
             }}
             currencyFormatter={(n: number) => fMon.format(n || 0)}
+            horasNormales={horasNormales}
           />
         </Box>
 
