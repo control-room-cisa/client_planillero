@@ -172,8 +172,24 @@ const FeriadosManagement: React.FC = () => {
     if (!currentFeriado) return;
 
     try {
-      await FeriadoService.upsert(currentFeriado.fecha, formData);
-      showSnackbar("Feriado actualizado exitosamente", "success");
+      // Si la fecha cambió, necesitamos eliminar el registro viejo y crear uno nuevo
+      const fechaCambio = currentFeriado.fecha !== formData.fecha;
+
+      if (fechaCambio) {
+        // Primero eliminar el registro viejo
+        await FeriadoService.delete(currentFeriado.id);
+        // Luego crear uno nuevo con la nueva fecha
+        await FeriadoService.create(formData);
+        showSnackbar(
+          "Feriado actualizado exitosamente (fecha modificada)",
+          "success"
+        );
+      } else {
+        // Si la fecha no cambió, hacer upsert normal
+        await FeriadoService.upsert(currentFeriado.fecha, formData);
+        showSnackbar("Feriado actualizado exitosamente", "success");
+      }
+
       handleCloseDialog();
       fetchFeriados();
     } catch (err) {
