@@ -569,30 +569,7 @@ const DailyTimesheet: React.FC = () => {
 
       setRegistroDiario(registro);
 
-      // Configurar datos base desde el registro existente (si existe)
-      if (registro) {
-        setDayConfigData({
-          // Mostrar horas en TZ local para coincidir con lo que eligió el empleado
-          horaEntrada: formatTimeLocal(registro.horaEntrada),
-          horaSalida: formatTimeLocal(registro.horaSalida),
-          jornada: registro.jornada || "D",
-          esDiaLibre: registro.esDiaLibre || false,
-          esHoraCorrida: registro.esHoraCorrida || false,
-          comentarioEmpleado: registro.comentarioEmpleado || "",
-        });
-      } else {
-        // Resetear el formulario si no hay datos - se configurará automáticamente en loadHorarioValidations
-        setDayConfigData({
-          horaEntrada: "",
-          horaSalida: "",
-          jornada: "D", // Por defecto Día
-          esDiaLibre: false,
-          esHoraCorrida: false,
-          comentarioEmpleado: "",
-        });
-      }
-
-      // Cargar validaciones de horario desde la API (siempre al final para aplicar las horas)
+      // Cargar validaciones de horario desde la API primero para obtener los valores correctos
       await loadHorarioValidations(dateString, registro);
     } catch (e) {
       console.error("Error al cargar registro diario:", e);
@@ -620,6 +597,9 @@ const DailyTimesheet: React.FC = () => {
         user.id,
         fecha
       );
+
+      console.log("[DEBUG] horarioData desde API:", horarioData);
+      console.log("[DEBUG] horarioData.esDiaLibre:", horarioData.esDiaLibre);
 
       // Determinar si hay datos existentes de la API
       const datosExistentes = Boolean(registro);
@@ -652,6 +632,10 @@ const DailyTimesheet: React.FC = () => {
             datosExistentes
           );
 
+          console.log("[DEBUG] base from processApiDefaults:", base);
+          console.log("[DEBUG] prev esDiaLibre:", prev.esDiaLibre);
+          console.log("[DEBUG] base esDiaLibre:", base.esDiaLibre);
+
           // Para H1: siempre usar horas del horario de la API (no editables)
           // Para H2: conservar horas del registro guardado (editables)
           if (datosExistentes && registro) {
@@ -660,7 +644,9 @@ const DailyTimesheet: React.FC = () => {
               // PERO conservar esDiaLibre si viene del horario de la API
               return {
                 ...base,
-                esDiaLibre: horarioData.esDiaLibre || base.esDiaLibre,
+                esDiaLibre: Boolean(horarioData.esDiaLibre),
+                comentarioEmpleado:
+                  registro.comentarioEmpleado || base.comentarioEmpleado || "",
               };
             } else {
               // H2 u otros: conservar horas del registro guardado
@@ -669,15 +655,23 @@ const DailyTimesheet: React.FC = () => {
                 // Mostrar horas en TZ local
                 horaEntrada: formatTimeLocal(registro.horaEntrada),
                 horaSalida: formatTimeLocal(registro.horaSalida),
+                esDiaLibre: Boolean(horarioData.esDiaLibre),
+                comentarioEmpleado:
+                  registro.comentarioEmpleado || base.comentarioEmpleado || "",
               };
             }
           }
 
           // Si no hay registro existente, aplicar el esDiaLibre desde el horario de la API
-          return {
+          const result = {
             ...base,
-            esDiaLibre: horarioData.esDiaLibre || base.esDiaLibre,
+            esDiaLibre: Boolean(horarioData.esDiaLibre),
           };
+
+          console.log("[DEBUG] Final result esDiaLibre:", result.esDiaLibre);
+          console.log("[DEBUG] Final result:", result);
+
+          return result;
         });
       }
     } catch (error) {
@@ -1562,8 +1556,9 @@ const DailyTimesheet: React.FC = () => {
   React.useEffect(() => {
     if (horasCero) {
       setDayConfigData((prev) => {
-        if (!prev.esDiaLibre && !prev.esHoraCorrida) return prev;
-        return { ...prev, esDiaLibre: false, esHoraCorrida: false };
+        // Respetar esDiaLibre proveniente del horario (API) y solo forzar esHoraCorrida=false
+        if (!prev.esHoraCorrida) return prev;
+        return { ...prev, esHoraCorrida: false };
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1924,9 +1919,7 @@ const DailyTimesheet: React.FC = () => {
                         !horarioRules.utils.isFieldEnabled("esDiaLibre")
                       }
                       name="esDiaLibre"
-                      checked={
-                        initialLoading ? false : dayConfigData.esDiaLibre
-                      }
+                      checked={dayConfigData.esDiaLibre}
                       onChange={handleDayConfigInputChange}
                       color="primary"
                     />
