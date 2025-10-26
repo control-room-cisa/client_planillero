@@ -651,14 +651,21 @@ const DailyTimesheet: React.FC = () => {
             horarioData,
             datosExistentes
           );
-          // SI YA HAY REGISTRO, CONSERVAR LAS HORAS que vienen del backend
+          // Para H1: siempre usar horas del horario de la API (no editables)
+          // Para H2: conservar horas del registro guardado (editables)
           if (datosExistentes && registro) {
-            return {
-              ...base,
-              // Mostrar horas en TZ local (H1 y H2)
-              horaEntrada: formatTimeLocal(registro.horaEntrada),
-              horaSalida: formatTimeLocal(registro.horaSalida),
-            };
+            if (horarioData.tipoHorario === "H1") {
+              // H1: usar horas de la API, ignorar las del registro
+              return base;
+            } else {
+              // H2 u otros: conservar horas del registro guardado
+              return {
+                ...base,
+                // Mostrar horas en TZ local
+                horaEntrada: formatTimeLocal(registro.horaEntrada),
+                horaSalida: formatTimeLocal(registro.horaSalida),
+              };
+            }
           }
           return base;
         });
