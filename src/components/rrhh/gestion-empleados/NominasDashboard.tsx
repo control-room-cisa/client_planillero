@@ -13,6 +13,8 @@ import {
   Button,
   CircularProgress,
   Alert,
+  TextField,
+  Snackbar,
   Select,
   MenuItem,
   InputLabel,
@@ -28,6 +30,9 @@ import type { EmpleadoIndexItem, LayoutOutletCtx } from "../../Layout";
 import { useHorasTrabajo } from "../../../hooks/useHorasTrabajo";
 import DesgloseIncidenciasComponent from "./DesgloseIncidencias";
 import EmpleadoService from "../../../services/empleadoService";
+import NominaService, {
+  type CrearNominaDto,
+} from "../../../services/nominaService";
 
 interface NominasDashboardProps {
   empleado?: Empleado;
@@ -39,6 +44,45 @@ interface NominasDashboardProps {
 }
 
 const DEBUG = true;
+
+// Utilidad de redondeo a 2 decimales
+const roundTo2Decimals = (num: number): number => {
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+};
+
+// Sanitiza entrada mientras el usuario escribe: solo permite números y punto decimal
+const sanitizeDecimalInput = (value: string): string => {
+  if (!value) return "";
+
+  // Eliminar todo excepto números y punto
+  let cleaned = value.replace(/[^0-9.]/g, "");
+
+  // Permitir solo un punto decimal
+  const parts = cleaned.split(".");
+  if (parts.length > 2) {
+    cleaned = parts[0] + "." + parts.slice(1).join("");
+  }
+
+  // Limitar decimales a 2 dígitos (pero permitir escribir el punto)
+  if (parts.length === 2 && parts[1] && parts[1].length > 2) {
+    cleaned = parts[0] + "." + parts[1].substring(0, 2);
+  }
+
+  // Eliminar ceros a la izquierda excepto "0." o "0" o si está vacío
+  if (cleaned.length > 1 && cleaned[0] === "0" && cleaned[1] !== ".") {
+    cleaned = cleaned.replace(/^0+/, "") || "0";
+  }
+
+  return cleaned;
+};
+
+// Convierte string a número para guardar en estado
+const parseDecimalValue = (value: string): number => {
+  if (!value || value === "." || value === "") return 0;
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 0) return 0;
+  return roundTo2Decimals(num);
+};
 
 const NominasDashboard: React.FC<NominasDashboardProps> = ({
   empleado: empleadoProp,
@@ -226,7 +270,12 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   );
   const fMon = React.useMemo(
     () =>
-      new Intl.NumberFormat("es-HN", { style: "currency", currency: "HNL" }),
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "HNL",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
     []
   );
 
@@ -236,10 +285,14 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     (diasVacaciones / (periodoNomina || 15)) * salarioQuincenal;
   const montoCubreEmpresa =
     (diasPermisoCS / (periodoNomina || 15)) * salarioQuincenal;
+  // Estado editable para incapacidad cubierta por empresa (inicial por cálculo)
+  const [montoIncapacidadCubreEmpresa, setMontoIncapacidadCubreEmpresa] =
+    React.useState<number>(montoCubreEmpresa || 0);
+
   const subtotalQuincena =
     (montoDiasLaborados || 0) +
     (montoVacaciones || 0) +
-    (montoCubreEmpresa || 0);
+    (montoIncapacidadCubreEmpresa || 0);
 
   // Cálculo de horas normales: días laborados × 8 horas
   const horasNormales = diasLaborados * 8;
@@ -251,6 +304,323 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   const montoHoras50 = (horas?.p50 || 0) * salarioPorHora * 1.5;
   const montoHoras75 = (horas?.p75 || 0) * salarioPorHora * 1.75;
   const montoHoras100 = (horas?.p100 || 0) * salarioPorHora * 2.0;
+
+  // Constantes y estados de deducciones/ajustes
+  const TECHO_IHSS = 11903; // techo IHSS
+  const DEDUCCION_IHSS_FIJA = 595.16; // IHSS fijo segunda quincena
+  const [ajuste, setAjuste] = React.useState<number>(0);
+  const [montoExcedenteIHSS, setMontoExcedenteIHSS] = React.useState<number>(0);
+  const [deduccionIHSS, setDeduccionIHSS] = React.useState<number>(0);
+  const [deduccionRAP, setDeduccionRAP] = React.useState<number>(0);
+  const [deduccionISR, setDeduccionISR] = React.useState<number>(0);
+  const [deduccionAlimentacion, setDeduccionAlimentacion] =
+    React.useState<number>(0);
+  const [cobroPrestamo, setCobroPrestamo] = React.useState<number>(0);
+  const [impuestoVecinal, setImpuestoVecinal] = React.useState<number>(0);
+  const [otros, setOtros] = React.useState<number>(0);
+
+  // Estados string para UI (permiten estados intermedios como "0." o "15.")
+  const [inputMontoIncapacidadEmpresa, setInputMontoIncapacidadEmpresa] =
+    React.useState<string>("");
+  const [inputAjuste, setInputAjuste] = React.useState<string>("");
+  const [inputDeduccionIHSS, setInputDeduccionIHSS] =
+    React.useState<string>("");
+  const [inputDeduccionISR, setInputDeduccionISR] = React.useState<string>("");
+  const [inputDeduccionRAP, setInputDeduccionRAP] = React.useState<string>("");
+  const [inputDeduccionAlimentacion, setInputDeduccionAlimentacion] =
+    React.useState<string>("");
+  const [inputCobroPrestamo, setInputCobroPrestamo] =
+    React.useState<string>("");
+  const [inputImpuestoVecinal, setInputImpuestoVecinal] =
+    React.useState<string>("");
+  const [inputOtros, setInputOtros] = React.useState<string>("");
+  const [inputMontoExcedenteIHSS, setInputMontoExcedenteIHSS] =
+    React.useState<string>("");
+
+  // Cálculos de totales según indicaciones
+  const totalPercepciones =
+    (subtotalQuincena || 0) +
+    (montoExcedenteIHSS || 0) +
+    (montoHoras25 || 0) +
+    (montoHoras50 || 0) +
+    (montoHoras75 || 0) +
+    (montoHoras100 || 0) +
+    (ajuste || 0);
+
+  // Determinar si es primera quincena para reglas de deducciones
+  const isPrimeraQuincena = React.useMemo(() => {
+    if (!fechaInicio || !fechaFin) return false;
+    const toDate = (s: string) =>
+      new Date(s + (s.length === 10 ? "T00:00:00" : ""));
+    const ini = toDate(fechaInicio);
+    const fin = toDate(fechaFin);
+    const diaFin = fin.getDate();
+    const diaIni = ini.getDate();
+    if (diaFin === 11) return true;
+    if (diaFin === 26) return false;
+    if (diaIni === 27) return true;
+    if (diaIni === 12) return false;
+    return false;
+  }, [fechaInicio, fechaFin]);
+
+  // Asunción: 1.5% (0.015) del excedente sobre techo IHSS
+  const deduccionRAPBase =
+    Math.max(0, (sueldoMensual || 0) - TECHO_IHSS) * 0.015;
+
+  // Defaults dependientes de quincena (editables por el usuario)
+  // Se ejecutan cuando cambian las fechas para calcular IHSS y RAP automáticamente
+  React.useEffect(() => {
+    if (!fechaInicio || !fechaFin) return;
+
+    const valorIHSS = isPrimeraQuincena ? 0 : DEDUCCION_IHSS_FIJA;
+    const redondeado = roundTo2Decimals(valorIHSS);
+    setDeduccionIHSS(redondeado);
+    setInputDeduccionIHSS(redondeado > 0 ? String(redondeado) : "");
+  }, [isPrimeraQuincena, fechaInicio, fechaFin]);
+
+  React.useEffect(() => {
+    if (!fechaInicio || !fechaFin) return;
+
+    const valorRAP = isPrimeraQuincena ? 0 : deduccionRAPBase;
+    const redondeado = roundTo2Decimals(valorRAP);
+    setDeduccionRAP(redondeado);
+    setInputDeduccionRAP(redondeado > 0 ? String(redondeado) : "");
+  }, [isPrimeraQuincena, deduccionRAPBase, fechaInicio, fechaFin]);
+
+  // Sincronizar montoIncapacidadCubreEmpresa con su input string
+  React.useEffect(() => {
+    setInputMontoIncapacidadEmpresa(
+      montoIncapacidadCubreEmpresa > 0
+        ? String(montoIncapacidadCubreEmpresa)
+        : ""
+    );
+  }, [montoIncapacidadCubreEmpresa]);
+
+  const totalDeducciones =
+    (deduccionIHSS || 0) +
+    (deduccionISR || 0) +
+    (deduccionRAP || 0) +
+    (deduccionAlimentacion || 0) +
+    (cobroPrestamo || 0) +
+    (impuestoVecinal || 0) +
+    (otros || 0);
+
+  const totalNetoPagar = (totalPercepciones || 0) - (totalDeducciones || 0);
+
+  // Toast (MUI Snackbar)
+  const [toastOpen, setToastOpen] = React.useState(false);
+  const [toastMessage, setToastMessage] = React.useState("");
+  const [toastSeverity, setToastSeverity] = React.useState<
+    "success" | "error" | "info" | "warning"
+  >("info");
+  const showToast = React.useCallback(
+    (
+      message: string,
+      severity: "success" | "error" | "info" | "warning" = "info"
+    ) => {
+      setToastMessage(message);
+      setToastSeverity(severity);
+      setToastOpen(true);
+    },
+    []
+  );
+  const handleToastClose = React.useCallback(() => setToastOpen(false), []);
+
+  // Generar nombre de nómina segun período seleccionado
+  const getNombrePeriodoNomina = React.useCallback(
+    (iniISO: string, finISO: string) => {
+      const meses = [
+        "Enero",
+        "Febrero",
+        "Marzo",
+        "Abril",
+        "Mayo",
+        "Junio",
+        "Julio",
+        "Agosto",
+        "Septiembre",
+        "Octubre",
+        "Noviembre",
+        "Diciembre",
+      ];
+      const ini = new Date(iniISO + (iniISO.length === 10 ? "T00:00:00" : ""));
+      const fin = new Date(finISO + (finISO.length === 10 ? "T00:00:00" : ""));
+      // Reglas:
+      // - Intervalo 27..11 → "Primera quincena de <mes fin> de <año fin>"
+      // - Intervalo 12..26 → "Segunda quincena de <mes fin> de <año fin>"
+      const diaFin = fin.getDate();
+      const mesFin = meses[fin.getMonth()];
+      const añoFin = fin.getFullYear();
+      if (diaFin === 11) return `Primera quincena de ${mesFin} de ${añoFin}`;
+      if (diaFin === 26) return `Segunda quincena de ${mesFin} de ${añoFin}`;
+      // fallback: deducir por día inicio
+      const diaIni = ini.getDate();
+      if (diaIni === 27) return `Primera quincena de ${mesFin} de ${añoFin}`;
+      if (diaIni === 12) return `Segunda quincena de ${mesFin} de ${añoFin}`;
+      // si no coincide, usar mes/año de fin
+      return `Quincena de ${mesFin} de ${añoFin}`;
+    },
+    []
+  );
+
+  const nombrePeriodoNomina = React.useMemo(
+    () =>
+      fechaInicio && fechaFin
+        ? getNombrePeriodoNomina(fechaInicio, fechaFin)
+        : "",
+    [fechaInicio, fechaFin, getNombrePeriodoNomina]
+  );
+
+  // Resetear inputs al cambiar período (excepto IHSS y RAP que se manejan por separado)
+  React.useEffect(() => {
+    setAjuste(0);
+    setMontoIncapacidadCubreEmpresa(0);
+    setMontoExcedenteIHSS(0);
+    setDeduccionISR(0);
+    setDeduccionAlimentacion(0);
+    setCobroPrestamo(0);
+    setImpuestoVecinal(0);
+    setOtros(0);
+    // Resetear también los inputs string (excepto IHSS y RAP)
+    setInputAjuste("");
+    setInputMontoIncapacidadEmpresa("");
+    setInputMontoExcedenteIHSS("");
+    setInputDeduccionISR("");
+    setInputDeduccionAlimentacion("");
+    setInputCobroPrestamo("");
+    setInputImpuestoVecinal("");
+    setInputOtros("");
+  }, [fechaInicio, fechaFin]);
+
+  React.useEffect(() => {
+    if (isPrimeraQuincena) {
+      setDeduccionISR(0);
+      setDeduccionAlimentacion(0);
+      setCobroPrestamo(0);
+      setImpuestoVecinal(0);
+      setOtros(0);
+    }
+  }, [isPrimeraQuincena]);
+
+  // Crear nómina
+  // Bloqueo por errores de validación (no se puede procesar la nómina)
+  const bloqueaPorValidacion = Boolean(
+    (error as any)?.response?.data?.validationErrors
+  );
+
+  const crearNominaDisabled =
+    !empleado ||
+    !rangoValido ||
+    loading ||
+    !resumenHoras ||
+    bloqueaPorValidacion;
+
+  const handleGenerarNomina = React.useCallback(async () => {
+    try {
+      if (!empleado?.id) {
+        showToast("No hay empleado seleccionado", "warning");
+        return;
+      }
+      if (!rangoValido) {
+        showToast("Selecciona un período de nómina válido", "warning");
+        return;
+      }
+      if (bloqueaPorValidacion) {
+        showToast(
+          "No se puede procesar la nómina. Corrige las incidencias.",
+          "error"
+        );
+        return;
+      }
+
+      // Validar traslape/duplicado: consultar nóminas existentes del empleado
+      const existentes = await NominaService.list({
+        empleadoId: Number(empleado.id),
+      });
+      const toDate = (s: string) =>
+        new Date(s + (s.length === 10 ? "T00:00:00" : ""));
+      const startNew = toDate(fechaInicio);
+      const endNew = toDate(fechaFin);
+      const overlapped = existentes.some((n) => {
+        const s = toDate(n.fechaInicio as any);
+        const e = toDate(n.fechaFin as any);
+        return s <= endNew && startNew <= e;
+      });
+      if (overlapped) {
+        showToast(
+          "Ya existe una nómina que traslapa con el período seleccionado",
+          "error"
+        );
+        return;
+      }
+
+      const payload: CrearNominaDto = {
+        empleadoId: Number(empleado.id),
+        nombrePeriodoNomina: getNombrePeriodoNomina(fechaInicio, fechaFin),
+        fechaInicio,
+        fechaFin,
+        sueldoMensual: Number(empleado.sueldoMensual || 0),
+
+        diasLaborados: diasLaborados || 0,
+        diasVacaciones: diasVacaciones || 0,
+        // Se reemplaza díasIncapacidad por montos detallados
+        diasIncapacidad: 0,
+
+        subtotalQuincena: subtotalQuincena || 0,
+        montoVacaciones: montoVacaciones || 0,
+        montoDiasLaborados: montoDiasLaborados || 0,
+        montoExcedenteIHSS: montoExcedenteIHSS || 0,
+        montoIncapacidadCubreEmpresa:
+          montoIncapacidadCubreEmpresa || montoCubreEmpresa || 0,
+        // Enviar incapacidad IHSS como parte de deducciones u otros si aplica en el futuro
+
+        // Horas extra (montos)
+        // Normal no se guarda como campo separado en backend; se refleja en montos de días
+        montoHoras25: montoHoras25 || 0,
+        montoHoras50: montoHoras50 || 0,
+        montoHoras75: montoHoras75 || 0,
+        montoHoras100: montoHoras100 || 0,
+
+        // Ajustes y totales
+        ajuste: ajuste || 0,
+        totalPercepciones: totalPercepciones || 0,
+        deduccionIHSS: deduccionIHSS || 0,
+        deduccionISR: deduccionISR || 0,
+        deduccionRAP: deduccionRAP || 0,
+        deduccionAlimentacion: deduccionAlimentacion || 0,
+        cobroPrestamo: cobroPrestamo || 0,
+        impuestoVecinal: impuestoVecinal || 0,
+        otros: otros || 0,
+        totalDeducciones: totalDeducciones || 0,
+        totalNetoPagar: totalNetoPagar || 0,
+      };
+
+      const creada = await NominaService.create(payload);
+      showToast(`Nómina creada (ID ${creada.id})`, "success");
+    } catch (err: any) {
+      console.error("Error al crear nómina:", err);
+      const apiMsg = err?.response?.data?.message;
+      showToast(apiMsg || err?.message || "Error al crear nómina", "error");
+    }
+  }, [
+    empleado?.id,
+    empleado?.sueldoMensual,
+    rangoValido,
+    fechaInicio,
+    fechaFin,
+    diasLaborados,
+    diasVacaciones,
+    subtotalQuincena,
+    montoVacaciones,
+    montoDiasLaborados,
+    montoCubreEmpresa,
+    montoHoras25,
+    montoHoras50,
+    montoHoras75,
+    montoHoras100,
+    showToast,
+    bloqueaPorValidacion,
+  ]);
 
   // Auto-refetch al cambiar empleado si ya hay rango
   React.useEffect(() => {
@@ -531,6 +901,20 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   return (
     <Container maxWidth="lg" sx={{ height: "100%", overflowY: "auto" }}>
       <Box sx={{ py: 4 }}>
+        <Snackbar
+          open={toastOpen}
+          autoHideDuration={4000}
+          onClose={handleToastClose}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        >
+          <Alert
+            onClose={handleToastClose}
+            severity={toastSeverity}
+            sx={{ width: "100%" }}
+          >
+            {toastMessage}
+          </Alert>
+        </Snackbar>
         {/* Encabezado con info + nav */}
         <Paper
           elevation={3}
@@ -1151,9 +1535,207 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         {/* Deducciones (placeholder) */}
         <Box sx={{ mt: 4 }}>
           <Typography variant="h5" gutterBottom>
-            Deducciones
+            Ajuste y Deducciones
           </Typography>
-          <Paper sx={{ p: 3, mt: 2 }}>{/* ... */}</Paper>
+          <Paper sx={{ p: 3, mt: 2 }}>
+            {nombrePeriodoNomina && (
+              <Typography
+                variant="h6"
+                color="primary"
+                sx={{ mb: 2, fontWeight: 700 }}
+              >
+                {nombrePeriodoNomina}
+              </Typography>
+            )}
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
+                gap: 2,
+              }}
+            >
+              {/* COLUMNA IZQUIERDA: 3 PERCEPCIONES + IHSS + RAP */}
+              <TextField
+                label="(+) Monto Incapacidad (Empresa)"
+                type="text"
+                inputMode="decimal"
+                size="small"
+                placeholder="0"
+                value={inputMontoIncapacidadEmpresa}
+                onChange={(e) => {
+                  const sanitized = sanitizeDecimalInput(e.target.value);
+                  setInputMontoIncapacidadEmpresa(sanitized);
+                  setMontoIncapacidadCubreEmpresa(parseDecimalValue(sanitized));
+                }}
+              />
+              {/* COLUMNA DERECHA: DEDUCCIONES RESTANTES */}
+              <TextField
+                label="(-) Deducción ISR"
+                type="text"
+                inputMode="decimal"
+                size="small"
+                placeholder="0"
+                value={inputDeduccionISR}
+                onChange={(e) => {
+                  const sanitized = sanitizeDecimalInput(e.target.value);
+                  setInputDeduccionISR(sanitized);
+                  setDeduccionISR(parseDecimalValue(sanitized));
+                }}
+              />
+              <TextField
+                label="(+) Monto Incapacidad (IHSS)"
+                type="text"
+                inputMode="decimal"
+                size="small"
+                placeholder="0"
+                value={inputMontoExcedenteIHSS}
+                onChange={(e) => {
+                  const sanitized = sanitizeDecimalInput(e.target.value);
+                  setInputMontoExcedenteIHSS(sanitized);
+                  setMontoExcedenteIHSS(parseDecimalValue(sanitized));
+                }}
+              />
+              <TextField
+                label="(-) Deducción Alimentación"
+                type="text"
+                inputMode="decimal"
+                size="small"
+                placeholder="0"
+                value={inputDeduccionAlimentacion}
+                onChange={(e) => {
+                  const sanitized = sanitizeDecimalInput(e.target.value);
+                  setInputDeduccionAlimentacion(sanitized);
+                  setDeduccionAlimentacion(parseDecimalValue(sanitized));
+                }}
+              />
+              <TextField
+                label="(+) Ajuste"
+                type="text"
+                inputMode="decimal"
+                size="small"
+                placeholder="0"
+                value={inputAjuste}
+                onChange={(e) => {
+                  const sanitized = sanitizeDecimalInput(e.target.value);
+                  setInputAjuste(sanitized);
+                  setAjuste(parseDecimalValue(sanitized));
+                }}
+              />
+              <TextField
+                label="(-) Cobro Préstamo"
+                type="text"
+                inputMode="decimal"
+                size="small"
+                placeholder="0"
+                value={inputCobroPrestamo}
+                onChange={(e) => {
+                  const sanitized = sanitizeDecimalInput(e.target.value);
+                  setInputCobroPrestamo(sanitized);
+                  setCobroPrestamo(parseDecimalValue(sanitized));
+                }}
+              />
+              <TextField
+                label="(-) Deducción IHSS"
+                type="text"
+                inputMode="decimal"
+                size="small"
+                placeholder="0"
+                value={inputDeduccionIHSS}
+                onChange={(e) => {
+                  const sanitized = sanitizeDecimalInput(e.target.value);
+                  setInputDeduccionIHSS(sanitized);
+                  setDeduccionIHSS(parseDecimalValue(sanitized));
+                }}
+              />
+              <TextField
+                label="(-) Impuesto Vecinal"
+                type="text"
+                inputMode="decimal"
+                size="small"
+                placeholder="0"
+                value={inputImpuestoVecinal}
+                onChange={(e) => {
+                  const sanitized = sanitizeDecimalInput(e.target.value);
+                  setInputImpuestoVecinal(sanitized);
+                  setImpuestoVecinal(parseDecimalValue(sanitized));
+                }}
+              />
+              <TextField
+                label={`(-) Deducción RAP (1.5% excedente sobre ${fMon.format(
+                  TECHO_IHSS
+                )})`}
+                type="text"
+                inputMode="decimal"
+                size="small"
+                placeholder="0"
+                value={inputDeduccionRAP}
+                onChange={(e) => {
+                  const sanitized = sanitizeDecimalInput(e.target.value);
+                  setInputDeduccionRAP(sanitized);
+                  setDeduccionRAP(parseDecimalValue(sanitized));
+                }}
+              />
+              <TextField
+                label="(-) Otros"
+                type="text"
+                inputMode="decimal"
+                size="small"
+                placeholder="0"
+                value={inputOtros}
+                onChange={(e) => {
+                  const sanitized = sanitizeDecimalInput(e.target.value);
+                  setInputOtros(sanitized);
+                  setOtros(parseDecimalValue(sanitized));
+                }}
+              />
+            </Box>
+            <Divider sx={{ my: 2 }} />
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
+                gap: 2,
+              }}
+            >
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body1">
+                  <strong>Total Percepciones:</strong>
+                </Typography>
+                <Typography variant="body1">
+                  {fMon.format(totalPercepciones)}
+                </Typography>
+              </Box>
+              <Box
+                sx={{ display: "flex", justifyContent: "space-between" }}
+              ></Box>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body1">
+                  <strong>Total Deducciones:</strong>
+                </Typography>
+                <Typography variant="body1">
+                  {fMon.format(totalDeducciones)}
+                </Typography>
+              </Box>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body1">
+                  <strong>Total Neto a Pagar:</strong>
+                </Typography>
+                <Typography variant="body1">
+                  {fMon.format(totalNetoPagar)}
+                </Typography>
+              </Box>
+            </Box>
+            <Box sx={{ mt: 2, textAlign: "right" }}>
+              <Button
+                variant="contained"
+                color="primary"
+                disabled={crearNominaDisabled}
+                onClick={handleGenerarNomina}
+              >
+                Generar Nómina
+              </Button>
+            </Box>
+          </Paper>
         </Box>
       </Box>
     </Container>
