@@ -96,59 +96,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     [indiceEntrante]
   );
 
-  const generarIntervalosFechas = React.useCallback(() => {
-    const intervalos = [];
-    const hoy = new Date();
-
-    for (let i = 0; i < 30; i++) {
-      const fechaBase = new Date(hoy);
-      fechaBase.setMonth(hoy.getMonth() - i);
-
-      const año = fechaBase.getFullYear();
-      const mes = fechaBase.getMonth();
-
-      const inicio1 = new Date(año, mes, 12);
-      const fin1 = new Date(año, mes, 26);
-
-      const inicio2 = new Date(año, mes, 27);
-      const fin2 = new Date(año, mes + 1, 11);
-
-      const formatearFecha = (fecha: Date) => {
-        const dia = fecha.getDate().toString().padStart(2, "0");
-        const mes = (fecha.getMonth() + 1).toString().padStart(2, "0");
-        const año = fecha.getFullYear();
-        return `${dia}/${mes}/${año}`;
-      };
-
-      intervalos.push({
-        label: `${formatearFecha(inicio1)} - ${formatearFecha(fin1)}`,
-        fechaInicio: inicio1.toISOString().split("T")[0],
-        fechaFin: fin1.toISOString().split("T")[0],
-        valor: `${inicio1.toISOString().split("T")[0]}_${
-          fin1.toISOString().split("T")[0]
-        }`,
-      });
-
-      intervalos.push({
-        label: `${formatearFecha(inicio2)} - ${formatearFecha(fin2)}`,
-        fechaInicio: inicio2.toISOString().split("T")[0],
-        fechaFin: fin2.toISOString().split("T")[0],
-        valor: `${inicio2.toISOString().split("T")[0]}_${
-          fin2.toISOString().split("T")[0]
-        }`,
-      });
-    }
-
-    intervalos.sort((a: any, b: any) =>
-      a.fechaInicio < b.fechaInicio ? 1 : a.fechaInicio > b.fechaInicio ? -1 : 0
-    );
-    return intervalos;
-  }, []);
-
-  const intervalosDisponibles = React.useMemo(
-    () => generarIntervalosFechas(),
-    [generarIntervalosFechas]
-  );
+  // intervalos locales eliminados: ahora todo se carga desde backend
 
   const [intervaloSeleccionado, setIntervaloSeleccionado] =
     React.useState<string>("");
@@ -274,11 +222,6 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   });
 
   // Ya no sincronizamos deducciones editables; vienen de nómina seleccionada
-
-  const formatL = React.useCallback(
-    (v?: number | null) => `${Number(v ?? 0)} L`,
-    []
-  );
 
   React.useEffect(() => {
     if (empleado && rangoValido) {
