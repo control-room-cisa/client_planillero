@@ -1231,6 +1231,30 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                     </Box>
                   </Box>
                 )}
+                {/* Otros errores de validación generales (empleadoId, etc.) */}
+                {Object.entries(error.response.data.validationErrors)
+                  .filter(
+                    ([k]) =>
+                      !["fechasNoAprobadas", "fechasSinRegistro"].includes(
+                        k as string
+                      )
+                  )
+                  .map(([campo, mensajes]: any) => (
+                    <Box key={campo} sx={{ mt: 1 }}>
+                      <Typography variant="subtitle2" color="error">
+                        {campo}
+                      </Typography>
+                      {Array.isArray(mensajes) && mensajes.length > 0 && (
+                        <Box sx={{ pl: 2 }}>
+                          {mensajes.map((m: string, i: number) => (
+                            <Typography key={i} variant="body2" color="error">
+                              • {m}
+                            </Typography>
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  ))}
                 <Typography
                   variant="body2"
                   color="text.secondary"

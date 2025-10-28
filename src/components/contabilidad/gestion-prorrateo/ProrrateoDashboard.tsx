@@ -26,7 +26,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  TextField,
 } from "@mui/material";
 import {
   NavigateBefore as NavigateBeforeIcon,
@@ -37,6 +36,11 @@ import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
 import type { Empleado } from "../../../services/empleadoService";
 import type { EmpleadoIndexItem, LayoutOutletCtx } from "../../Layout";
 import { useProrrateo } from "../../../hooks/useProrrateo";
+import {
+  listarNominasResumenPorEmpleado,
+  type NominaResumen,
+} from "../../../services/nominaService";
+import NominaService, { type NominaDto } from "../../../services/nominaService";
 import EmpleadoService from "../../../services/empleadoService";
 
 interface ProrrateoDashboardProps {
@@ -148,9 +152,14 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
 
   const [intervaloSeleccionado, setIntervaloSeleccionado] =
     React.useState<string>("");
+  const [nominasResumen, setNominasResumen] = React.useState<NominaResumen[]>(
+    []
+  );
 
   const [fechaInicio, setFechaInicio] = React.useState<string>("");
   const [fechaFin, setFechaFin] = React.useState<string>("");
+  const [nominaSeleccionada, setNominaSeleccionada] =
+    React.useState<NominaDto | null>(null);
   const [tab, setTab] = React.useState(0);
 
   // Modal de comentarios por job
@@ -158,12 +167,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   const [modalJobTitle, setModalJobTitle] = React.useState<string>("");
   const [modalComments, setModalComments] = React.useState<string[]>([]);
 
-  // Estado editable para deducciones
-  const [deduccionISR, setDeduccionISR] = React.useState<number>(0);
-  const [deduccionRAP, setDeduccionRAP] = React.useState<number>(0);
-  const [deduccionComida, setDeduccionComida] = React.useState<number>(0);
-  const [deduccionIHSS, setDeduccionIHSS] = React.useState<number>(0);
-  const [prestamo, setPrestamo] = React.useState<number>(0);
+  // Deducciones provistas por nómina seleccionada (solo lectura)
 
   const handleOpenComentarios = (jobTitle: string, comments: string[]) => {
     setModalJobTitle(jobTitle || "Comentarios");
@@ -172,21 +176,59 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   };
   const handleCloseComentarios = () => setModalOpen(false);
 
-  // Calcular total de deducciones
+  // Calcular total de deducciones (desde nomina seleccionada)
   const totalDeducciones = React.useMemo(() => {
+    if (nominaSeleccionada?.totalDeducciones != null) {
+      return nominaSeleccionada.totalDeducciones;
+    }
+    const dIHSS = nominaSeleccionada?.deduccionIHSS || 0;
+    const dISR = nominaSeleccionada?.deduccionISR || 0;
+    const dRAP = nominaSeleccionada?.deduccionRAP || 0;
+    const dComida = nominaSeleccionada?.deduccionAlimentacion || 0;
+    const dPrestamo = nominaSeleccionada?.cobroPrestamo || 0;
+    const dOtros = nominaSeleccionada?.otros || 0;
+    const dImpuestoVecinal = nominaSeleccionada?.impuestoVecinal || 0;
     return (
-      deduccionISR + deduccionRAP + deduccionComida + deduccionIHSS + prestamo
+      dIHSS + dISR + dRAP + dComida + dPrestamo + dOtros + dImpuestoVecinal
     );
-  }, [deduccionISR, deduccionRAP, deduccionComida, deduccionIHSS, prestamo]);
+  }, [nominaSeleccionada]);
+
+  const fetchNominaPorPeriodo = React.useCallback(
+    async (ini: string, fin: string) => {
+      try {
+        const match = nominasResumen.find(
+          (n) =>
+            (n.fechaInicio || "").slice(0, 10) === ini &&
+            (n.fechaFin || "").slice(0, 10) === fin
+        );
+        if (!match) {
+          setNominaSeleccionada(null);
+          return;
+        }
+        const nomina = await NominaService.getById(match.id);
+        setNominaSeleccionada(nomina || null);
+      } catch (e) {
+        console.error(
+          "[ProrrateoDashboard] Error obteniendo nómina por ID:",
+          e
+        );
+        setNominaSeleccionada(null);
+      }
+    },
+    [nominasResumen]
+  );
 
   React.useEffect(() => {
-    if (!intervaloSeleccionado && intervalosDisponibles.length > 0) {
-      const primero = intervalosDisponibles[0];
-      setIntervaloSeleccionado(primero.valor);
-      setFechaInicio(primero.fechaInicio);
-      setFechaFin(primero.fechaFin);
+    if (!intervaloSeleccionado && nominasResumen.length > 0) {
+      const primero = nominasResumen[0];
+      const ini = (primero.fechaInicio || "").slice(0, 10);
+      const fin = (primero.fechaFin || "").slice(0, 10);
+      setIntervaloSeleccionado(`${ini}_${fin}`);
+      setFechaInicio(ini);
+      setFechaFin(fin);
+      fetchNominaPorPeriodo(ini, fin);
     }
-  }, [intervalosDisponibles, intervaloSeleccionado]);
+  }, [nominasResumen, intervaloSeleccionado, fetchNominaPorPeriodo]);
 
   const rangoValido =
     !!fechaInicio && !!fechaFin && new Date(fechaFin) >= new Date(fechaInicio);
@@ -197,13 +239,32 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
 
     if (valor) {
       const [inicio, fin] = valor.split("_");
-      setFechaInicio(inicio);
-      setFechaFin(fin);
+      setFechaInicio((inicio || "").slice(0, 10));
+      setFechaFin((fin || "").slice(0, 10));
+      const ini = (inicio || "").slice(0, 10);
+      const fn = (fin || "").slice(0, 10);
+      fetchNominaPorPeriodo(ini, fn);
     } else {
       setFechaInicio("");
       setFechaFin("");
+      setNominaSeleccionada(null);
     }
   };
+
+  React.useEffect(() => {
+    (async () => {
+      if (!empleado?.id) return;
+      try {
+        const lista = await listarNominasResumenPorEmpleado(
+          Number(empleado.id)
+        );
+        setNominasResumen(lista || []);
+      } catch (e) {
+        console.error("[ProrrateoDashboard] Error listando nóminas:", e);
+        setNominasResumen([]);
+      }
+    })();
+  }, [empleado?.id]);
 
   const { prorrateo, loading, error, refetch } = useProrrateo({
     empleadoId: empleado?.id || "",
@@ -212,16 +273,12 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     enabled: !!empleado && rangoValido,
   });
 
-  // Sincronizar deducciones con datos del backend
-  React.useEffect(() => {
-    if (prorrateo) {
-      setDeduccionISR(prorrateo.cantidadHoras.deduccionesISR || 0);
-      setDeduccionRAP(prorrateo.cantidadHoras.deduccionesRAP || 0);
-      setDeduccionComida(prorrateo.cantidadHoras.deduccionesComida || 0);
-      setDeduccionIHSS(prorrateo.cantidadHoras.deduccionesIHSS || 0);
-      setPrestamo(prorrateo.cantidadHoras.Prestamo || 0);
-    }
-  }, [prorrateo]);
+  // Ya no sincronizamos deducciones editables; vienen de nómina seleccionada
+
+  const formatL = React.useCallback(
+    (v?: number | null) => `${Number(v ?? 0)} L`,
+    []
+  );
 
   React.useEffect(() => {
     if (empleado && rangoValido) {
@@ -581,9 +638,12 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                     <MenuItem value="">
                       <em>Selecciona un período</em>
                     </MenuItem>
-                    {intervalosDisponibles.map((intervalo) => (
-                      <MenuItem key={intervalo.valor} value={intervalo.valor}>
-                        {intervalo.label}
+                    {nominasResumen.map((n) => (
+                      <MenuItem
+                        key={n.id}
+                        value={`${n.fechaInicio}_${n.fechaFin}`}
+                      >
+                        {n.nombrePeriodoNomina}
                       </MenuItem>
                     ))}
                   </Select>
@@ -751,7 +811,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                           display: "grid",
                           gridTemplateColumns: {
                             xs: "1fr",
-                            md: "repeat(2, 1fr)",
+                            md: "repeat(3, 1fr)",
                           },
                           gap: 2,
                         }}
@@ -761,7 +821,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                             size="small"
                             sx={{
                               width: "auto",
-                              "& .MuiTableCell-root": { py: 0.25, px: 0.75 },
+                              "& .MuiTableCell-root": { py: 0.75, px: 0.75 },
                             }}
                           >
                             <TableBody>
@@ -799,6 +859,101 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                     0}
                                 </TableCell>
                               </TableRow>
+                              <TableRow>
+                                <TableCell>Días laborados</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 100 }}>
+                                  {nominaSeleccionada?.diasLaborados ?? 0}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Días vacaciones</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 100 }}>
+                                  {nominaSeleccionada?.diasVacaciones ?? 0}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Días incapacidad</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 100 }}>
+                                  {nominaSeleccionada?.diasIncapacidad ?? 0}
+                                </TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </Box>
+                        <Box>
+                          <Table
+                            size="small"
+                            sx={{
+                              width: "auto",
+                              "& .MuiTableCell-root": { py: 0.75, px: 0.75 },
+                            }}
+                          >
+                            <TableBody>
+                              <TableRow>
+                                <TableCell>Empresa</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {nominaSeleccionada?.empresaId ?? "—"}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Deducción IHSS</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${
+                                    nominaSeleccionada?.deduccionIHSS ?? 0
+                                  } L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Deducción ISR</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${nominaSeleccionada?.deduccionISR ?? 0} L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Deducción RAP</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${nominaSeleccionada?.deduccionRAP ?? 0} L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Deducción Comida</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${
+                                    nominaSeleccionada?.deduccionAlimentacion ??
+                                    0
+                                  } L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Impuesto Vecinal</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${
+                                    nominaSeleccionada?.impuestoVecinal ?? 0
+                                  } L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Otros</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${nominaSeleccionada?.otros ?? 0} L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Préstamo</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${
+                                    nominaSeleccionada?.cobroPrestamo ?? 0
+                                  } L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>
+                                  <strong>Total deducciones</strong>
+                                </TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  <strong>{`${totalDeducciones} L`}</strong>
+                                </TableCell>
+                              </TableRow>
                             </TableBody>
                           </Table>
                         </Box>
@@ -812,104 +967,99 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                           >
                             <TableBody>
                               <TableRow>
-                                <TableCell>Deducción ISR</TableCell>
+                                <TableCell>Sueldo mensual</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  <TextField
-                                    type="number"
-                                    size="small"
-                                    value={deduccionISR}
-                                    onChange={(e) =>
-                                      setDeduccionISR(
-                                        Number(e.target.value) || 0
-                                      )
-                                    }
-                                    sx={{ width: 100 }}
-                                    inputProps={{
-                                      style: { textAlign: "right" },
-                                    }}
-                                  />
+                                  {`${
+                                    nominaSeleccionada?.sueldoMensual ?? 0
+                                  } L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
-                                <TableCell>Deducción RAP</TableCell>
+                                <TableCell>Monto días laborados</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  <TextField
-                                    type="number"
-                                    size="small"
-                                    value={deduccionRAP}
-                                    onChange={(e) =>
-                                      setDeduccionRAP(
-                                        Number(e.target.value) || 0
-                                      )
-                                    }
-                                    sx={{ width: 100 }}
-                                    inputProps={{
-                                      style: { textAlign: "right" },
-                                    }}
-                                  />
+                                  {`${
+                                    nominaSeleccionada?.montoDiasLaborados ?? 0
+                                  } L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
-                                <TableCell>Deducción Comida</TableCell>
+                                <TableCell>Monto vacaciones</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  <TextField
-                                    type="number"
-                                    size="small"
-                                    value={deduccionComida}
-                                    onChange={(e) =>
-                                      setDeduccionComida(
-                                        Number(e.target.value) || 0
-                                      )
-                                    }
-                                    sx={{ width: 100 }}
-                                    inputProps={{
-                                      style: { textAlign: "right" },
-                                    }}
-                                  />
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell>Deducción IHSS</TableCell>
-                                <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  <TextField
-                                    type="number"
-                                    size="small"
-                                    value={deduccionIHSS}
-                                    onChange={(e) =>
-                                      setDeduccionIHSS(
-                                        Number(e.target.value) || 0
-                                      )
-                                    }
-                                    sx={{ width: 100 }}
-                                    inputProps={{
-                                      style: { textAlign: "right" },
-                                    }}
-                                  />
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell>Préstamo</TableCell>
-                                <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  <TextField
-                                    type="number"
-                                    size="small"
-                                    value={prestamo}
-                                    onChange={(e) =>
-                                      setPrestamo(Number(e.target.value) || 0)
-                                    }
-                                    sx={{ width: 100 }}
-                                    inputProps={{
-                                      style: { textAlign: "right" },
-                                    }}
-                                  />
+                                  {`${
+                                    nominaSeleccionada?.montoVacaciones ?? 0
+                                  } L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>
-                                  <strong>Total deducciones</strong>
+                                  Monto incapacidad (empresa)
                                 </TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  <strong>{totalDeducciones}</strong>
+                                  {`${
+                                    nominaSeleccionada?.montoIncapacidadCubreEmpresa ??
+                                    0
+                                  } L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>
+                                  Monto permisos justificados
+                                </TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${
+                                    nominaSeleccionada?.montoPermisosJustificados ??
+                                    0
+                                  } L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Horas extra 25% (monto)</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${nominaSeleccionada?.montoHoras25 ?? 0} L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Horas extra 50% (monto)</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${nominaSeleccionada?.montoHoras50 ?? 0} L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Horas extra 75% (monto)</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${nominaSeleccionada?.montoHoras75 ?? 0} L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Horas extra 100% (monto)</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${
+                                    nominaSeleccionada?.montoHoras100 ?? 0
+                                  } L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Ajuste</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${nominaSeleccionada?.ajuste ?? 0} L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Subtotal quincena</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${
+                                    nominaSeleccionada?.subtotalQuincena ?? 0
+                                  } L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>
+                                  <strong>Total percepciones</strong>
+                                </TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  <strong>{`${
+                                    nominaSeleccionada?.totalPercepciones ?? 0
+                                  } L`}</strong>
                                 </TableCell>
                               </TableRow>
                             </TableBody>
