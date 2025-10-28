@@ -17,6 +17,7 @@ export interface NominaDto {
   montoDiasLaborados?: number | null;
   montoExcedenteIHSS?: number | null;
   montoIncapacidadCubreEmpresa?: number | null;
+  montoPermisosJustificados?: number | null;
 
   montoHoras25?: number | null;
   montoHoras50?: number | null;
@@ -58,6 +59,7 @@ export interface CrearNominaDto {
   montoDiasLaborados?: number | null;
   montoExcedenteIHSS?: number | null;
   montoIncapacidadCubreEmpresa?: number | null;
+  montoPermisosJustificados?: number | null;
 
   montoHoras25?: number | null;
   montoHoras50?: number | null;

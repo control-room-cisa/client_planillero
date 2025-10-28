@@ -285,6 +285,11 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     (diasVacaciones / (periodoNomina || 15)) * salarioQuincenal;
   const montoCubreEmpresa =
     (diasPermisoCS / (periodoNomina || 15)) * salarioQuincenal;
+
+  // Horas de permisos justificados (convertir días a horas)
+  const horasPermisosJustificados = diasPermisoCS * 8;
+  const montoPermisosJustificados = horasPermisosJustificados * salarioPorHora;
+
   // Estado editable para incapacidad cubierta por empresa (inicial por cálculo)
   const [montoIncapacidadCubreEmpresa, setMontoIncapacidadCubreEmpresa] =
     React.useState<number>(montoCubreEmpresa || 0);
@@ -292,7 +297,8 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   const subtotalQuincena =
     (montoDiasLaborados || 0) +
     (montoVacaciones || 0) +
-    (montoIncapacidadCubreEmpresa || 0);
+    (montoIncapacidadCubreEmpresa || 0) +
+    (montoPermisosJustificados || 0);
 
   // Cálculo de horas normales: días laborados × 8 horas
   const horasNormales = diasLaborados * 8;
@@ -574,6 +580,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         montoExcedenteIHSS: montoExcedenteIHSS || 0,
         montoIncapacidadCubreEmpresa:
           montoIncapacidadCubreEmpresa || montoCubreEmpresa || 0,
+        montoPermisosJustificados: montoPermisosJustificados || 0,
         // Enviar incapacidad IHSS como parte de deducciones u otros si aplica en el futuro
 
         // Horas extra (montos)
@@ -618,6 +625,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     montoVacaciones,
     montoDiasLaborados,
     montoCubreEmpresa,
+    montoPermisosJustificados,
     montoHoras25,
     montoHoras50,
     montoHoras75,
@@ -1474,6 +1482,20 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                     <Typography variant="body1">
                       {resumenHoras.conteoHoras.conteoDias?.permisoConSueldo ??
                         0}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Monto por permisos justificados:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {fMon.format(montoPermisosJustificados || 0)}
                     </Typography>
                   </Box>
                   <Box
