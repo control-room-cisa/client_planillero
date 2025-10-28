@@ -35,6 +35,8 @@ export interface NominaDto {
   totalDeducciones?: number | null;
   totalNetoPagar?: number | null;
 
+  comentario?: string | null;
+
   createdAt?: string | null;
   updatedAt?: string | null;
 }
@@ -73,6 +75,8 @@ export interface CrearNominaDto {
   otros?: number | null;
   totalDeducciones?: number | null;
   totalNetoPagar?: number | null;
+
+  comentario?: string | null;
 }
 
 export interface ActualizarNominaDto extends Partial<CrearNominaDto> {}

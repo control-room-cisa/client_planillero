@@ -318,6 +318,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   const [cobroPrestamo, setCobroPrestamo] = React.useState<number>(0);
   const [impuestoVecinal, setImpuestoVecinal] = React.useState<number>(0);
   const [otros, setOtros] = React.useState<number>(0);
+  const [comentario, setComentario] = React.useState<string>("");
 
   // Estados string para UI (permiten estados intermedios como "0." o "15.")
   const [inputMontoIncapacidadEmpresa, setInputMontoIncapacidadEmpresa] =
@@ -481,6 +482,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     setCobroPrestamo(0);
     setImpuestoVecinal(0);
     setOtros(0);
+    setComentario("");
     // Resetear también los inputs string (excepto IHSS y RAP)
     setInputAjuste("");
     setInputMontoIncapacidadEmpresa("");
@@ -593,6 +595,8 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         otros: otros || 0,
         totalDeducciones: totalDeducciones || 0,
         totalNetoPagar: totalNetoPagar || 0,
+
+        comentario: comentario || null,
       };
 
       const creada = await NominaService.create(payload);
@@ -1725,6 +1729,24 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                 </Typography>
               </Box>
             </Box>
+
+            {/* Campo de comentario */}
+            <Box sx={{ mt: 3 }}>
+              <TextField
+                label="Comentario"
+                multiline
+                rows={3}
+                fullWidth
+                placeholder="Agregar comentario adicional (máximo 200 caracteres)"
+                value={comentario}
+                onChange={(e) =>
+                  setComentario(e.target.value.substring(0, 200))
+                }
+                inputProps={{ maxLength: 200 }}
+                helperText={`${comentario.length}/200 caracteres`}
+              />
+            </Box>
+
             <Box sx={{ mt: 2, textAlign: "right" }}>
               <Button
                 variant="contained"
