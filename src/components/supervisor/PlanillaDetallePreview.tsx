@@ -382,15 +382,25 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   };
 
   const TZ = "America/Tegucigalpa";
+  const parseHNT = (dateString?: string): Date | null => {
+    if (!dateString) return null;
+    const hasTZ = /Z$|[+\-]\d{2}:?\d{2}$/i.test(dateString);
+    const iso = hasTZ
+      ? dateString
+      : `${dateString}${dateString.includes("T") ? "" : "T00:00:00"}-06:00`;
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? null : d;
+  };
   const formatTimeCorrectly = (dateString: string) => {
     if (!dateString) return "-";
-    const date = new Date(dateString);
+    const localDate = parseHNT(dateString);
+    if (!localDate) return "-";
     return new Intl.DateTimeFormat("es-HN", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
       timeZone: TZ,
-    }).format(date);
+    }).format(localDate);
   };
 
   const formatDateInSpanish = (ymd: string) => {
@@ -435,11 +445,12 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   ): number => {
     if (registro.esDiaLibre) return 0;
     // Regla: (salida - entrada) - 1h de almuerzo cuando NO es hora corrida
-    const entrada = new Date(registro.horaEntrada);
-    const salida = new Date(registro.horaSalida);
+    const entrada = parseHNT(registro.horaEntrada);
+    const salida = parseHNT(registro.horaSalida);
+    if (!entrada || !salida) return 0;
 
-    const entradaMin = entrada.getUTCHours() * 60 + entrada.getUTCMinutes();
-    let salidaMin = salida.getUTCHours() * 60 + salida.getUTCMinutes();
+    const entradaMin = entrada.getHours() * 60 + entrada.getMinutes();
+    let salidaMin = salida.getHours() * 60 + salida.getMinutes();
 
     // Si entrada === salida, no hay horas normales esperadas
     if (entradaMin === salidaMin) return 0;
@@ -608,6 +619,134 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
 
               const isPlaceholder = !registro.id;
 
+              // Ordenar actividades: extras antes de entrada, luego dentro del turno, luego extras después de salida.
+              const toMinutes = (d?: string) => {
+                if (!d) return Number.POSITIVE_INFINITY;
+                const hm = formatTimeCorrectly(d);
+                const [h, m] = hm.split(":").map(Number);
+                if (!Number.isFinite(h) || !Number.isFinite(m))
+                  return Number.POSITIVE_INFINITY;
+                return h * 60 + m;
+              };
+              const entradaMinLocal = toMinutes(registro.horaEntrada);
+              const salidaMinLocal = toMinutes(registro.horaSalida);
+              const entradaLin = entradaMinLocal;
+              const salidaLin =
+                salidaMinLocal < entradaMinLocal
+                  ? salidaMinLocal + 1440
+                  : salidaMinLocal;
+              const linearize = (min: number) =>
+                esTurnoNocturno && min < entradaMinLocal ? min + 1440 : min;
+              const activities = (registro.actividades ?? []).slice();
+              const extraBefore: ActividadData[] & any[] = [];
+              const middle: ActividadData[] & any[] = [];
+              const extraAfter: ActividadData[] & any[] = [];
+              for (const act of activities) {
+                const startMin = toMinutes(act.horaInicio);
+                const startLin = Number.isFinite(startMin)
+                  ? linearize(startMin)
+                  : Number.POSITIVE_INFINITY;
+                const item = { act, startLin } as any;
+                if (act.esExtra === true && startLin < entradaLin) {
+                  extraBefore.push(item);
+                } else if (act.esExtra === true && startLin >= salidaLin) {
+                  extraAfter.push(item);
+                } else {
+                  middle.push(item);
+                }
+              }
+              const cmpAsc = (a: any, b: any) =>
+                (a.startMin ?? a.startLin) - (b.startMin ?? b.startLin);
+              extraBefore.sort(cmpAsc);
+              middle.sort(cmpAsc);
+              extraAfter.sort(cmpAsc);
+              // Solo rellenar tiempo Libre ANTES de entrada y DESPUES de salida
+              const toEndLin = (act: any): number => {
+                if (!act?.horaFin) return Number.POSITIVE_INFINITY;
+                return linearize(toMinutes(act.horaFin));
+              };
+              const extraBeforeWithGaps: any[] = [...extraBefore];
+              if (extraBeforeWithGaps.length > 0) {
+                const last =
+                  extraBeforeWithGaps[extraBeforeWithGaps.length - 1];
+                const lastEnd = toEndLin(last.act);
+                if (lastEnd < entradaLin) {
+                  extraBeforeWithGaps.push({
+                    act: {
+                      id: `gap-${lastEnd}-${entradaLin}-${registro.id}`,
+                      descripcion: "Libre",
+                      duracionHoras:
+                        Math.round(((entradaLin - lastEnd) / 60) * 100) / 100,
+                      _synthetic: "Libre",
+                      esExtra: true,
+                    },
+                    startLin: lastEnd,
+                  });
+                }
+              }
+              const extraAfterWithGaps: any[] = [...extraAfter];
+              if (extraAfterWithGaps.length > 0) {
+                const first = extraAfterWithGaps[0];
+                if (salidaLin < first.startLin) {
+                  extraAfterWithGaps.unshift({
+                    act: {
+                      id: `gap-${salidaLin}-${first.startLin}-${registro.id}`,
+                      descripcion: "Libre",
+                      duracionHoras:
+                        Math.round(((first.startLin - salidaLin) / 60) * 100) /
+                        100,
+                      _synthetic: "Libre",
+                      esExtra: true,
+                    },
+                    startLin: salidaLin,
+                  });
+                }
+              }
+              // Construir lista final según exista o no bloque normal
+              let actividadesOrdenadas: ActividadData[];
+              if (horasNormalesEsperadas === 0) {
+                // Día sin horas normales (entrada = salida):
+                // mostrar extras ordenados y los intervalos LIBRE entre extras a lo largo del día
+                const toEndLin = (act: any): number => {
+                  if (!act?.horaFin) return Number.POSITIVE_INFINITY;
+                  return linearize(toMinutes(act.horaFin));
+                };
+                const extrasAll: any[] = [...extraBefore, ...extraAfter]
+                  .slice()
+                  .sort((a, b) => a.startLin - b.startLin);
+                const withGaps: any[] = [];
+                for (let i = 0; i < extrasAll.length; i++) {
+                  const curr = extrasAll[i];
+                  if (i > 0) {
+                    const prev = extrasAll[i - 1];
+                    const prevEnd = toEndLin(prev.act);
+                    const gapStart = prevEnd;
+                    const gapEnd = curr.startLin;
+                    if (gapEnd - gapStart > 1) {
+                      withGaps.push({
+                        act: {
+                          id: `gap-${gapStart}-${gapEnd}-${registro.id}`,
+                          descripcion: "Libre",
+                          duracionHoras:
+                            Math.round(((gapEnd - gapStart) / 60) * 100) / 100,
+                          _synthetic: "Libre",
+                          esExtra: true,
+                        },
+                        startLin: gapStart,
+                      });
+                    }
+                  }
+                  withGaps.push(curr);
+                }
+                actividadesOrdenadas = withGaps.map((x) => x.act);
+              } else {
+                actividadesOrdenadas = [
+                  ...extraBeforeWithGaps,
+                  ...middle,
+                  ...extraAfterWithGaps,
+                ].map((x) => x.act);
+              }
+
               return (
                 <Grow
                   key={registro.id!}
@@ -695,23 +834,41 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                           <TableBody>
                             {registro.actividades &&
                             registro.actividades.length > 0 ? (
-                              registro.actividades
-                                ?.slice()
-                                .sort((a, b) =>
-                                  a.esExtra === b.esExtra
-                                    ? 0
-                                    : a.esExtra
-                                    ? 1
-                                    : -1
-                                )
-                                .map((act: ActividadData) => (
+                              actividadesOrdenadas.map((act: any) => {
+                                if (act?._synthetic) {
+                                  return (
+                                    <TableRow key={act.id ?? act.jobId}>
+                                      <TableCell colSpan={8} align="center">
+                                        <Typography
+                                          sx={{
+                                            fontWeight: 600,
+                                            color: "error.main",
+                                          }}
+                                        >
+                                          {act.descripcion}
+                                        </Typography>
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                }
+                                return (
                                   <TableRow key={act.id ?? act.jobId}>
                                     <TableCell>{act.descripcion}</TableCell>
                                     <TableCell>
-                                      <Chip
-                                        label={`${act.duracionHoras}h`}
-                                        size="small"
-                                      />
+                                      {Number.isFinite(
+                                        Number(act.duracionHoras)
+                                      ) ? (
+                                        <Chip
+                                          label={`${act.duracionHoras}h`}
+                                          size="small"
+                                        />
+                                      ) : (
+                                        <Chip
+                                          label={`-`}
+                                          size="small"
+                                          variant="outlined"
+                                        />
+                                      )}
                                     </TableCell>
                                     <TableCell>
                                       {act.horaInicio && act.horaFin
@@ -722,8 +879,32 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                           )}`
                                         : "-"}
                                     </TableCell>
-                                    <TableCell>{act.job?.nombre}</TableCell>
-                                    <TableCell>{act.job?.codigo}</TableCell>
+                                    <TableCell>
+                                      <Typography
+                                        color={
+                                          (act?.job?.codigo || "").startsWith(
+                                            "E"
+                                          )
+                                            ? "error.main"
+                                            : undefined
+                                        }
+                                      >
+                                        {act.job?.nombre ?? "-"}
+                                      </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Typography
+                                        color={
+                                          (act?.job?.codigo || "").startsWith(
+                                            "E"
+                                          )
+                                            ? "error.main"
+                                            : undefined
+                                        }
+                                      >
+                                        {act.job?.codigo ?? "-"}
+                                      </Typography>
+                                    </TableCell>
                                     <TableCell>
                                       <Chip
                                         label={act.esExtra ? "Extra" : "Normal"}
@@ -753,7 +934,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                       </Tooltip>
                                     </TableCell>
                                   </TableRow>
-                                ))
+                                );
+                              })
                             ) : (
                               <TableRow>
                                 <TableCell colSpan={8}>
@@ -786,98 +968,134 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                       <Stack spacing={1.5}>
                         {registro.actividades &&
                         registro.actividades.length > 0 ? (
-                          registro.actividades
-                            ?.slice()
-                            .sort((a, b) =>
-                              a.esExtra === b.esExtra ? 0 : a.esExtra ? 1 : -1
-                            )
-                            .map((act: ActividadData) => (
-                              <Paper
-                                key={act.id ?? act.jobId}
-                                variant="outlined"
-                                sx={{ p: 1.5 }}
-                              >
-                                <Stack spacing={1}>
-                                  <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Descripción
-                                    </Typography>
-                                    <Typography
-                                      variant="body2"
-                                      sx={{ fontWeight: 600 }}
-                                    >
-                                      {act.descripcion}
-                                    </Typography>
-                                  </Box>
+                          actividadesOrdenadas.map((act: any) => (
+                            <Paper
+                              key={act.id ?? act.jobId}
+                              variant="outlined"
+                              sx={{ p: 1.5 }}
+                            >
+                              <Stack spacing={1}>
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Descripción
+                                  </Typography>
+                                  <Typography
+                                    variant="body2"
+                                    sx={{ fontWeight: 600 }}
+                                    color={
+                                      act?._synthetic === "Libre"
+                                        ? "error.main"
+                                        : undefined
+                                    }
+                                  >
+                                    {act.descripcion}
+                                  </Typography>
+                                </Box>
 
-                                  <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Horario
-                                    </Typography>
-                                    <Typography variant="body2">
-                                      {act.horaInicio && act.horaFin
-                                        ? `${formatTimeCorrectly(
-                                            act.horaInicio
-                                          )} - ${formatTimeCorrectly(
-                                            act.horaFin
-                                          )}`
-                                        : "-"}
-                                    </Typography>
-                                  </Box>
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Horario
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {act.horaInicio && act.horaFin
+                                      ? `${formatTimeCorrectly(
+                                          act.horaInicio
+                                        )} - ${formatTimeCorrectly(
+                                          act.horaFin
+                                        )}`
+                                      : "-"}
+                                  </Typography>
+                                </Box>
 
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Horas
+                                  </Typography>
                                   <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Horas
-                                    </Typography>
-                                    <Box>
+                                    {Number.isFinite(
+                                      Number(act.duracionHoras)
+                                    ) ? (
                                       <Chip
                                         label={`${act.duracionHoras}h`}
                                         size="small"
                                       />
-                                    </Box>
+                                    ) : (
+                                      <Chip
+                                        label={`-`}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    )}
                                   </Box>
+                                </Box>
 
-                                  <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Job
-                                    </Typography>
-                                    <Typography variant="body2">
-                                      {act.job?.nombre ?? "-"}
-                                    </Typography>
-                                  </Box>
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Job
+                                  </Typography>
+                                  <Typography
+                                    variant="body2"
+                                    color={
+                                      (act?.job?.codigo || "").startsWith("E")
+                                        ? "error.main"
+                                        : undefined
+                                    }
+                                  >
+                                    {act.job?.nombre ?? "-"}
+                                  </Typography>
+                                </Box>
 
-                                  <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Código
-                                    </Typography>
-                                    <Typography variant="body2">
-                                      {act.job?.codigo ?? "-"}
-                                    </Typography>
-                                  </Box>
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Código
+                                  </Typography>
+                                  <Typography
+                                    variant="body2"
+                                    color={
+                                      (act?.job?.codigo || "").startsWith("E")
+                                        ? "error.main"
+                                        : undefined
+                                    }
+                                  >
+                                    {act.job?.codigo ?? "-"}
+                                  </Typography>
+                                </Box>
 
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    Tipo
+                                  </Typography>
                                   <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Tipo
-                                    </Typography>
-                                    <Box>
+                                    {act?._synthetic ? (
+                                      <Chip
+                                        label={act._synthetic}
+                                        size="small"
+                                        color={
+                                          act._synthetic === "Libre"
+                                            ? "error"
+                                            : "warning"
+                                        }
+                                        variant="outlined"
+                                      />
+                                    ) : (
                                       <Chip
                                         label={act.esExtra ? "Extra" : "Normal"}
                                         size="small"
@@ -885,45 +1103,26 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                           act.esExtra ? "error" : "default"
                                         }
                                       />
-                                    </Box>
+                                    )}
                                   </Box>
+                                </Box>
 
-                                  <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Clase
-                                    </Typography>
-                                    <Typography variant="body2">
-                                      {act.className || "-"}
-                                    </Typography>
-                                  </Box>
-
-                                  <Box
-                                    sx={{
-                                      display: "flex",
-                                      justifyContent: "flex-end",
-                                    }}
+                                <Box>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
                                   >
-                                    <Tooltip title="Editar job">
-                                      <span>
-                                        <IconButton
-                                          aria-label="Editar job"
-                                          size="small"
-                                          onClick={() =>
-                                            openJobDialog(registro, act)
-                                          }
-                                          disabled={disabled}
-                                        >
-                                          <EditIcon fontSize="small" />
-                                        </IconButton>
-                                      </span>
-                                    </Tooltip>
-                                  </Box>
-                                </Stack>
-                              </Paper>
-                            ))
+                                    Clase
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {act?._synthetic
+                                      ? "-"
+                                      : act.className || "-"}
+                                  </Typography>
+                                </Box>
+                              </Stack>
+                            </Paper>
+                          ))
                         ) : (
                           <Paper variant="outlined" sx={{ p: 1.5 }}>
                             <Typography variant="body2" color="text.secondary">

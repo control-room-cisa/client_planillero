@@ -33,6 +33,7 @@ import EmpleadoService from "../../../services/empleadoService";
 import NominaService, {
   type CrearNominaDto,
 } from "../../../services/nominaService";
+import DetalleRegistrosDiariosModal from "./detalleRegistrosDiariosModal";
 
 interface NominasDashboardProps {
   empleado?: Empleado;
@@ -286,8 +287,12 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   const montoCubreEmpresa =
     (diasPermisoCS / (periodoNomina || 15)) * salarioQuincenal;
 
-  // Horas de permisos justificados (convertir días a horas)
-  const horasPermisosJustificados = diasPermisoCS * 8;
+  // Horas de permisos justificados: usar horas del resumen si existen, si no días × 8
+  const horasPermisosJustificados =
+    Number(
+      (resumenHoras as any)?.conteoHoras?.cantidadHoras
+        ?.permisoConSueldoHoras ?? diasPermisoCS * 8
+    ) || 0;
   const montoPermisosJustificados = horasPermisosJustificados * salarioPorHora;
 
   // Estado editable para incapacidad cubierta por empresa (inicial por cálculo)
@@ -343,6 +348,9 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   const [inputOtros, setInputOtros] = React.useState<string>("");
   const [inputMontoExcedenteIHSS, setInputMontoExcedenteIHSS] =
     React.useState<string>("");
+
+  // Estado para controlar el modal de registros diarios
+  const [modalRegistrosOpen, setModalRegistrosOpen] = React.useState(false);
 
   // Cálculos de totales según indicaciones
   const totalPercepciones =
@@ -1344,6 +1352,18 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
           </Card>
         </Box>
 
+        {/* Botón para revisar registros diarios */}
+        <Box sx={{ mt: 3, textAlign: "center" }}>
+          <Button
+            variant="outlined"
+            color="primary"
+            onClick={() => setModalRegistrosOpen(true)}
+            disabled={!rangoValido || !empleado}
+          >
+            Revisar actividades diarias
+          </Button>
+        </Box>
+
         {/* Información de días */}
         <Box sx={{ mt: 4 }}>
           <Typography variant="h5" gutterBottom>
@@ -1782,6 +1802,14 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
           </Paper>
         </Box>
       </Box>
+      {/* Modal de detalle de registros diarios */}
+      <DetalleRegistrosDiariosModal
+        open={modalRegistrosOpen}
+        onClose={() => setModalRegistrosOpen(false)}
+        empleadoId={Number(empleado.id)}
+        fechaInicio={fechaInicio}
+        fechaFin={fechaFin}
+      />
     </Container>
   );
 };
