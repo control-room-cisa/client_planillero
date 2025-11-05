@@ -189,7 +189,8 @@ const TimesheetReviewSupervisor: React.FC<TimesheetReviewSupervisorProps> = ({
     return days;
   };
 
-  // Calcular el estado del período (completo, pendiente aprobación, pendiente registro)
+  // Calcular el estado del período basado SOLO en los días seleccionados (startDate y endDate)
+  // Este cálculo es independiente de la lista de empleados y se basa únicamente en el rango de fechas seleccionado
   useEffect(() => {
     const run = async () => {
       if (!selectedEmployee || !startDate || !endDate) {
@@ -198,7 +199,17 @@ const TimesheetReviewSupervisor: React.FC<TimesheetReviewSupervisorProps> = ({
       }
       setCompleteLoading(true);
       try {
+        // Construir array de todos los días del rango seleccionado
         const days = buildDaysRange(startDate, endDate);
+
+        // Si no hay días en el rango, no hay estado
+        if (days.length === 0) {
+          setPeriodStatus(null);
+          setCompleteLoading(false);
+          return;
+        }
+
+        // Obtener todos los registros para los días seleccionados
         const results = await Promise.all(
           days.map((fecha) =>
             RegistroDiarioService.getByDate(fecha, selectedEmployee.id).catch(
@@ -207,10 +218,10 @@ const TimesheetReviewSupervisor: React.FC<TimesheetReviewSupervisorProps> = ({
           )
         );
 
-        // Estados posibles:
-        // 1. "completo" - Todos los días están registrados y aprobados
-        // 2. "pendiente_aprobacion" - Todos los días tienen registro pero faltan aprobaciones
-        // 3. "pendiente_registro" - Faltan registros por guardar
+        // Estados posibles basados SOLO en los días seleccionados:
+        // 1. "completo" - Todos los días del rango seleccionado están registrados y aprobados
+        // 2. "pendiente_aprobacion" - Todos los días del rango tienen registro pero faltan aprobaciones
+        // 3. "pendiente_registro" - Faltan registros por guardar en el rango seleccionado
         //
         // IMPORTANTE: Los días libres también deben registrarse y aprobarse
         // porque pueden contener horas extras
@@ -219,28 +230,23 @@ const TimesheetReviewSupervisor: React.FC<TimesheetReviewSupervisorProps> = ({
         let hayConRegistroSinAprobar = false;
         let todosAprobados = true;
 
-        await Promise.all(
-          results.map(async (_r) => {
-            // TODOS los días del período requieren registro y aprobación
-            // (incluyendo días libres, por posibles horas extras)
+        // Verificar cada día del rango seleccionado
+        for (const r of results) {
+          if (!r) {
+            // No hay registro para este día del rango seleccionado
+            haySinRegistro = true;
+            todosAprobados = false;
+            continue;
+          }
 
-            const r = _r;
-            if (!r) {
-              // No hay registro → falta guardar
-              haySinRegistro = true;
-              todosAprobados = false;
-              return;
-            }
+          // Hay registro, verificar si está aprobado
+          if (r.aprobacionSupervisor !== true) {
+            hayConRegistroSinAprobar = true;
+            todosAprobados = false;
+          }
+        }
 
-            // Hay registro, verificar aprobación
-            if (r.aprobacionSupervisor !== true) {
-              hayConRegistroSinAprobar = true;
-              todosAprobados = false;
-            }
-          })
-        );
-
-        // Determinar estado final
+        // Determinar estado final basado en los días seleccionados
         if (todosAprobados) {
           setPeriodStatus("completo");
         } else if (haySinRegistro) {
@@ -251,6 +257,7 @@ const TimesheetReviewSupervisor: React.FC<TimesheetReviewSupervisorProps> = ({
           setPeriodStatus(null);
         }
       } catch (_e) {
+        console.error("Error al calcular estado del período:", _e);
         setPeriodStatus(null);
       } finally {
         setCompleteLoading(false);
@@ -370,7 +377,7 @@ const TimesheetReviewSupervisor: React.FC<TimesheetReviewSupervisorProps> = ({
         ) : periodStatus === "pendiente_aprobacion" ? (
           <Chip label="Pendiente de Aprobación" size="small" color="warning" />
         ) : periodStatus === "pendiente_registro" ? (
-          <Chip label="Registros Pendientes" size="small" color="error" />
+          <Chip label="Pendiente de llenado" size="small" color="error" />
         ) : null}
       </Box>
 
