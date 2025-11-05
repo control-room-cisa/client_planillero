@@ -208,7 +208,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   ): Promise<JobConJerarquia[]> => {
     try {
       setLoadingJobs(true);
-      const jobsData = await JobService.getAll();
+      // Pasar el empleadoId para filtrar por empresa del departamento del empleado
+      const jobsData = await JobService.getAll(empleado.id);
       const jobsActivos = jobsData.filter((j: any) => j.activo === true);
 
       const base = includeSpecial
@@ -555,6 +556,44 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     return { valido: errores.length === 0, errores };
   };
 
+  // Calcula duración (en horas) a partir de horaInicio/horaFin en TZ local,
+  // considerando cruces de medianoche. Devuelve null si no es posible calcular.
+  const computeHoursFromTimes = (
+    horaInicio?: string,
+    horaFin?: string
+  ): number | null => {
+    if (!horaInicio || !horaFin) return null;
+    const inicioHM = formatTimeCorrectly(horaInicio); // HH:mm
+    const finHM = formatTimeCorrectly(horaFin); // HH:mm
+    const [ih, im] = inicioHM.split(":").map(Number);
+    const [fh, fm] = finHM.split(":").map(Number);
+    if (
+      !Number.isFinite(ih) ||
+      !Number.isFinite(im) ||
+      !Number.isFinite(fh) ||
+      !Number.isFinite(fm)
+    ) {
+      return null;
+    }
+    const inicioMin = ih * 60 + im;
+    let finMin = fh * 60 + fm;
+    if (finMin <= inicioMin) finMin += 24 * 60; // cruza medianoche o es igual
+    return Math.round(((finMin - inicioMin) / 60) * 100) / 100;
+  };
+
+  // Obtiene horas de la actividad con regla: extras siempre de fin - inicio.
+  const getActividadHoras = (act: any): number | null => {
+    if (act?._synthetic) {
+      const v = Number(act.duracionHoras);
+      return Number.isFinite(v) ? v : null;
+    }
+    if (act?.esExtra) {
+      return computeHoursFromTimes(act.horaInicio, act.horaFin);
+    }
+    const v = Number(act?.duracionHoras);
+    return Number.isFinite(v) ? v : null;
+  };
+
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
       <Box
@@ -595,7 +634,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
               const extras =
                 registro.actividades
                   ?.filter((a) => a.esExtra)
-                  .reduce((s, a) => s + a.duracionHoras, 0) ?? 0;
+                  .reduce((s, a: any) => s + (getActividadHoras(a) ?? 0), 0) ??
+                0;
               const total = normales + extras;
               const disabled = registro.aprobacionRrhh === true;
 
@@ -855,20 +895,23 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                   <TableRow key={act.id ?? act.jobId}>
                                     <TableCell>{act.descripcion}</TableCell>
                                     <TableCell>
-                                      {Number.isFinite(
-                                        Number(act.duracionHoras)
-                                      ) ? (
-                                        <Chip
-                                          label={`${act.duracionHoras}h`}
-                                          size="small"
-                                        />
-                                      ) : (
-                                        <Chip
-                                          label={`-`}
-                                          size="small"
-                                          variant="outlined"
-                                        />
-                                      )}
+                                      {(() => {
+                                        const horas = getActividadHoras(act);
+                                        return Number.isFinite(
+                                          Number(horas)
+                                        ) ? (
+                                          <Chip
+                                            label={`${horas}h`}
+                                            size="small"
+                                          />
+                                        ) : (
+                                          <Chip
+                                            label={`-`}
+                                            size="small"
+                                            variant="outlined"
+                                          />
+                                        );
+                                      })()}
                                     </TableCell>
                                     <TableCell>
                                       {act.horaInicio && act.horaFin
@@ -1021,20 +1064,21 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                     Horas
                                   </Typography>
                                   <Box>
-                                    {Number.isFinite(
-                                      Number(act.duracionHoras)
-                                    ) ? (
-                                      <Chip
-                                        label={`${act.duracionHoras}h`}
-                                        size="small"
-                                      />
-                                    ) : (
-                                      <Chip
-                                        label={`-`}
-                                        size="small"
-                                        variant="outlined"
-                                      />
-                                    )}
+                                    {(() => {
+                                      const horas = getActividadHoras(act);
+                                      return Number.isFinite(Number(horas)) ? (
+                                        <Chip
+                                          label={`${horas}h`}
+                                          size="small"
+                                        />
+                                      ) : (
+                                        <Chip
+                                          label={`-`}
+                                          size="small"
+                                          variant="outlined"
+                                        />
+                                      );
+                                    })()}
                                   </Box>
                                 </Box>
 
