@@ -317,8 +317,8 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   const montoHoras100 = (horas?.p100 || 0) * salarioPorHora * 2.0;
 
   // Constantes y estados de deducciones/ajustes
-  const TECHO_IHSS = 11903; // techo IHSS
-  const DEDUCCION_IHSS_FIJA = 595.16; // IHSS fijo segunda quincena
+  const PISO_IHSS = 11903.13; // piso IHSS para cálculo de RAP
+  const DEDUCCION_IHSS_FIJA = 595.16; // IHSS fijo constante
   const [ajuste, setAjuste] = React.useState<number>(0);
   const [montoExcedenteIHSS, setMontoExcedenteIHSS] = React.useState<number>(0);
   const [deduccionIHSS, setDeduccionIHSS] = React.useState<number>(0);
@@ -378,29 +378,33 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     return false;
   }, [fechaInicio, fechaFin]);
 
-  // Asunción: 1.5% (0.015) del excedente sobre techo IHSS
-  const deduccionRAPBase =
-    Math.max(0, (sueldoMensual || 0) - TECHO_IHSS) * 0.015;
+  // Cálculo de RAP: 1.5% (0.015) del excedente sobre piso IHSS
+  // Si Salario ≤ 11,903.13 → Base = 0
+  // Si Salario > 11,903.13 → Base = (Salario - 11,903.13) * 0.015
+  const deduccionRAPBase = React.useMemo(() => {
+    const salario = sueldoMensual || 0;
+    if (salario <= PISO_IHSS) return 0;
+    return (salario - PISO_IHSS) * 0.015;
+  }, [sueldoMensual]);
 
-  // Defaults dependientes de quincena (editables por el usuario)
-  // Se ejecutan cuando cambian las fechas para calcular IHSS y RAP automáticamente
+  // Defaults automáticos para IHSS y RAP
+  // IHSS siempre se inicializa en 595.16
+  // RAP se calcula automáticamente según el salario mensual
   React.useEffect(() => {
     if (!fechaInicio || !fechaFin) return;
 
-    const valorIHSS = isPrimeraQuincena ? 0 : DEDUCCION_IHSS_FIJA;
-    const redondeado = roundTo2Decimals(valorIHSS);
-    setDeduccionIHSS(redondeado);
-    setInputDeduccionIHSS(redondeado > 0 ? String(redondeado) : "");
-  }, [isPrimeraQuincena, fechaInicio, fechaFin]);
+    // IHSS siempre es 595.16
+    const valorIHSS = DEDUCCION_IHSS_FIJA;
+    const redondeadoIHSS = roundTo2Decimals(valorIHSS);
+    setDeduccionIHSS(redondeadoIHSS);
+    setInputDeduccionIHSS(String(redondeadoIHSS));
 
-  React.useEffect(() => {
-    if (!fechaInicio || !fechaFin) return;
-
-    const valorRAP = isPrimeraQuincena ? 0 : deduccionRAPBase;
-    const redondeado = roundTo2Decimals(valorRAP);
-    setDeduccionRAP(redondeado);
-    setInputDeduccionRAP(redondeado > 0 ? String(redondeado) : "");
-  }, [isPrimeraQuincena, deduccionRAPBase, fechaInicio, fechaFin]);
+    // RAP se calcula automáticamente según el salario
+    const valorRAP = deduccionRAPBase;
+    const redondeadoRAP = roundTo2Decimals(valorRAP);
+    setDeduccionRAP(redondeadoRAP);
+    setInputDeduccionRAP(valorRAP > 0 ? String(redondeadoRAP) : "");
+  }, [fechaInicio, fechaFin, deduccionRAPBase]);
 
   // Sincronizar montoIncapacidadCubreEmpresa con su input string
   React.useEffect(() => {
@@ -1732,7 +1736,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
               />
               <TextField
                 label={`(-) Deducción RAP (1.5% excedente sobre ${fMon.format(
-                  TECHO_IHSS
+                  PISO_IHSS
                 )})`}
                 type="text"
                 inputMode="decimal"
