@@ -55,9 +55,10 @@ interface UpdateJobDto {
 }
 
 class JobService {
-  static async getAll(): Promise<Job[]> {
+  static async getAll(empleadoId?: number): Promise<Job[]> {
     try {
-      const response = await api.get<JobsResponse>("/jobs");
+      const params = empleadoId ? { empleadoId: empleadoId.toString() } : {};
+      const response = await api.get<JobsResponse>("/jobs", { params });
       return response.data.data;
     } catch (error) {
       console.error("Error al obtener jobs:", error);
