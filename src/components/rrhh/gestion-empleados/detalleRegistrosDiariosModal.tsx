@@ -173,26 +173,18 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
   };
 
   const TZ = "America/Tegucigalpa";
-  const parsePreserveLocal = (dateString?: string): Date | null => {
+  const parseHNT = (dateString?: string): Date | null => {
     if (!dateString) return null;
-    const d = new Date(dateString);
-    // Si viene con sufijo Z (UTC), interpretamos sus componentes UTC como hora local
-    if (typeof dateString === "string" && /Z$/i.test(dateString)) {
-      return new Date(
-        d.getUTCFullYear(),
-        d.getUTCMonth(),
-        d.getUTCDate(),
-        d.getUTCHours(),
-        d.getUTCMinutes(),
-        d.getUTCSeconds(),
-        d.getUTCMilliseconds()
-      );
-    }
-    return d;
+    const hasTZ = /Z$|[+\-]\d{2}:?\d{2}$/i.test(dateString);
+    const iso = hasTZ
+      ? dateString
+      : `${dateString}${dateString.includes("T") ? "" : "T00:00:00"}-06:00`;
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? null : d;
   };
   const formatTimeCorrectly = (dateString: string) => {
     if (!dateString) return "-";
-    const localDate = parsePreserveLocal(dateString);
+    const localDate = parseHNT(dateString);
     if (!localDate) return "-";
     return new Intl.DateTimeFormat("es-HN", {
       hour: "2-digit",
@@ -241,8 +233,8 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
 
   const calcularHorasNormales = (registro: RegistroDiarioData): number => {
     if (registro.esDiaLibre) return 0;
-    const entrada = parsePreserveLocal(registro.horaEntrada);
-    const salida = parsePreserveLocal(registro.horaSalida);
+    const entrada = parseHNT(registro.horaEntrada);
+    const salida = parseHNT(registro.horaSalida);
     if (!entrada || !salida) return 0;
 
     const entradaMin = entrada.getHours() * 60 + entrada.getMinutes();
@@ -327,18 +319,18 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
               // Ordenar actividades: extras antes de entrada, luego medio, luego extras después de salida. Dentro de cada grupo por hora de inicio asc.
               const toMinutes = (d?: string) => {
                 if (!d) return Number.POSITIVE_INFINITY;
-                const dt = parsePreserveLocal(d);
+                const dt = parseHNT(d);
                 if (!dt) return Number.POSITIVE_INFINITY;
                 return dt.getHours() * 60 + dt.getMinutes();
               };
               const entradaMinLocal =
-                (parsePreserveLocal(registro.horaEntrada)?.getHours() ?? 0) *
+                (parseHNT(registro.horaEntrada)?.getHours() ?? 0) *
                   60 +
-                (parsePreserveLocal(registro.horaEntrada)?.getMinutes() ?? 0);
+                (parseHNT(registro.horaEntrada)?.getMinutes() ?? 0);
               const salidaMinLocal =
-                (parsePreserveLocal(registro.horaSalida)?.getHours() ?? 0) *
+                (parseHNT(registro.horaSalida)?.getHours() ?? 0) *
                   60 +
-                (parsePreserveLocal(registro.horaSalida)?.getMinutes() ?? 0);
+                (parseHNT(registro.horaSalida)?.getMinutes() ?? 0);
               const entradaLin = entradaMinLocal;
               const salidaLin =
                 salidaMinLocal < entradaMinLocal
