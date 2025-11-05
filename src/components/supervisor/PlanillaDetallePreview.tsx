@@ -833,6 +833,24 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                             )}
                         </>
                       )}
+                      {/* Estado de procesamiento por RRHH - alineado a la derecha */}
+                      <Box sx={{ flexGrow: 1 }} />
+                      {registro.aprobacionRrhh === true && (
+                        <Chip
+                          label="Procesado"
+                          color="primary"
+                          size="small"
+                          variant="outlined"
+                        />
+                      )}
+                      {registro.aprobacionRrhh === false && (
+                        <Chip
+                          label="Rechazado por RRHH"
+                          color="error"
+                          size="small"
+                          variant="outlined"
+                        />
+                      )}
                     </Stack>
 
                     {registro.comentarioEmpleado && (

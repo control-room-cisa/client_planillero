@@ -324,12 +324,10 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                 return dt.getHours() * 60 + dt.getMinutes();
               };
               const entradaMinLocal =
-                (parseHNT(registro.horaEntrada)?.getHours() ?? 0) *
-                  60 +
+                (parseHNT(registro.horaEntrada)?.getHours() ?? 0) * 60 +
                 (parseHNT(registro.horaEntrada)?.getMinutes() ?? 0);
               const salidaMinLocal =
-                (parseHNT(registro.horaSalida)?.getHours() ?? 0) *
-                  60 +
+                (parseHNT(registro.horaSalida)?.getHours() ?? 0) * 60 +
                 (parseHNT(registro.horaSalida)?.getMinutes() ?? 0);
               const entradaLin = entradaMinLocal;
               const salidaLin =
@@ -500,7 +498,7 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                       {registro.aprobacionRrhh === true && (
                         <Chip
                           label="Procesado"
-                          color="success"
+                          color="primary"
                           variant="outlined"
                           size="small"
                           sx={{ ml: 1 }}
