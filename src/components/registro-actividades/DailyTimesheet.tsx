@@ -1973,6 +1973,10 @@ const DailyTimesheet: React.FC = () => {
             value={initialLoading ? "" : dayConfigData.comentarioEmpleado}
             onChange={handleDayConfigInputChange}
             size="small"
+            inputProps={{ maxLength: 500 }}
+            helperText={`${
+              (dayConfigData.comentarioEmpleado || "").length
+            }/500 caracteres`}
           />
         </CardContent>
       </Card>
@@ -2295,7 +2299,11 @@ const DailyTimesheet: React.FC = () => {
               value={formData.descripcion}
               onChange={handleInputChange}
               error={!!formErrors.descripcion}
-              helperText={formErrors.descripcion}
+              helperText={
+                formErrors.descripcion ||
+                `${formData.descripcion.length}/200 caracteres`
+              }
+              inputProps={{ maxLength: 200 }}
               sx={{ mb: 3 }}
             />
 
