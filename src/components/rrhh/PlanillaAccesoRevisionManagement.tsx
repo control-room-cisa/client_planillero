@@ -24,8 +24,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  Chip,
 } from "@mui/material";
+import type { SelectChangeEvent } from "@mui/material";
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -166,11 +166,9 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
     fetchAccesos();
   }, [fetchAccesos]);
 
-  // Funciones para el manejo del formulario
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>
-  ) => {
-    const { name, value } = e.target;
+  // Handler específico para Select de Material-UI
+  const handleSelectChange = (event: SelectChangeEvent<number>) => {
+    const { name, value } = event.target;
     setFormData({
       ...formData,
       [name as string]: Number(value),
@@ -191,42 +189,48 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
   };
 
   // Cargar supervisores por empresa
-  const fetchSupervisores = React.useCallback(async (empresaId: string) => {
-    if (!empresaId) {
-      setSupervisores([]);
-      return;
-    }
-    setLoadingSupervisores(true);
-    try {
-      const empresaIdNum = parseInt(empresaId);
-      const data = await EmpleadoService.getAll(empresaIdNum);
-      setSupervisores(data);
-    } catch (err) {
-      console.error("Error al cargar supervisores:", err);
-      showSnackbar("Error al cargar los supervisores", "error");
-    } finally {
-      setLoadingSupervisores(false);
-    }
-  }, [showSnackbar]);
+  const fetchSupervisores = React.useCallback(
+    async (empresaId: string) => {
+      if (!empresaId) {
+        setSupervisores([]);
+        return;
+      }
+      setLoadingSupervisores(true);
+      try {
+        const empresaIdNum = parseInt(empresaId);
+        const data = await EmpleadoService.getAll(empresaIdNum);
+        setSupervisores(data);
+      } catch (err) {
+        console.error("Error al cargar supervisores:", err);
+        showSnackbar("Error al cargar los supervisores", "error");
+      } finally {
+        setLoadingSupervisores(false);
+      }
+    },
+    [showSnackbar]
+  );
 
   // Cargar empleados por empresa para el diálogo
-  const fetchEmpleadosDialog = React.useCallback(async (empresaId: string) => {
-    if (!empresaId) {
-      setEmpleadosDialog([]);
-      return;
-    }
-    setLoadingEmpleadosDialog(true);
-    try {
-      const empresaIdNum = parseInt(empresaId);
-      const data = await EmpleadoService.getAll(empresaIdNum);
-      setEmpleadosDialog(data);
-    } catch (err) {
-      console.error("Error al cargar empleados:", err);
-      showSnackbar("Error al cargar los empleados", "error");
-    } finally {
-      setLoadingEmpleadosDialog(false);
-    }
-  }, [showSnackbar]);
+  const fetchEmpleadosDialog = React.useCallback(
+    async (empresaId: string) => {
+      if (!empresaId) {
+        setEmpleadosDialog([]);
+        return;
+      }
+      setLoadingEmpleadosDialog(true);
+      try {
+        const empresaIdNum = parseInt(empresaId);
+        const data = await EmpleadoService.getAll(empresaIdNum);
+        setEmpleadosDialog(data);
+      } catch (err) {
+        console.error("Error al cargar empleados:", err);
+        showSnackbar("Error al cargar los empleados", "error");
+      } finally {
+        setLoadingEmpleadosDialog(false);
+      }
+    },
+    [showSnackbar]
+  );
 
   const handleOpenDialog = async (acceso?: PlanillaAccesoRevision) => {
     if (acceso) {
@@ -236,31 +240,35 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
         supervisorId: acceso.supervisorId,
         empleadoId: acceso.empleadoId,
       });
-      
+
       // Si el acceso tiene supervisor y empleado con empresa, cargar sus empresas
       // Primero intentar obtener empresaId de la relación
       let supervisorEmpId = acceso.supervisor?.empresaId;
       let empleadoEmpId = acceso.empleado?.empresaId;
-      
+
       // Si no está en la relación, obtener los empleados completos
       if (!supervisorEmpId && acceso.supervisorId) {
         try {
-          const supervisorCompleto = await EmpleadoService.getById(acceso.supervisorId);
+          const supervisorCompleto = await EmpleadoService.getById(
+            acceso.supervisorId
+          );
           supervisorEmpId = supervisorCompleto.empresaId;
         } catch (err) {
           console.error("Error al obtener supervisor completo:", err);
         }
       }
-      
+
       if (!empleadoEmpId && acceso.empleadoId) {
         try {
-          const empleadoCompleto = await EmpleadoService.getById(acceso.empleadoId);
+          const empleadoCompleto = await EmpleadoService.getById(
+            acceso.empleadoId
+          );
           empleadoEmpId = empleadoCompleto.empresaId;
         } catch (err) {
           console.error("Error al obtener empleado completo:", err);
         }
       }
-      
+
       // Establecer las empresas y cargar los empleados
       if (supervisorEmpId) {
         setSupervisorEmpresaId(supervisorEmpId.toString());
@@ -291,7 +299,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
         );
         return;
       }
-      
+
       // Validar que la combinación no exista ya
       const accesosExistentes = await PlanillaAccesoRevisionService.getAll();
       const existeCombinacion = accesosExistentes.some(
@@ -299,7 +307,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
           acceso.supervisorId === formData.supervisorId &&
           acceso.empleadoId === formData.empleadoId
       );
-      
+
       if (existeCombinacion) {
         showSnackbar(
           "Ya existe un acceso de planilla para este supervisor y colaborador supervisado. La combinación debe ser única.",
@@ -307,7 +315,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
         );
         return;
       }
-      
+
       await PlanillaAccesoRevisionService.create(formData);
       showSnackbar("Acceso de planilla creado exitosamente", "success");
       handleCloseDialog();
@@ -326,7 +334,10 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
           "error"
         );
       } else {
-        showSnackbar(errorMessage || "Error al crear el acceso de planilla", "error");
+        showSnackbar(
+          errorMessage || "Error al crear el acceso de planilla",
+          "error"
+        );
       }
     }
   };
@@ -342,7 +353,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
         );
         return;
       }
-      
+
       // Validar que la combinación no exista ya (excepto el actual)
       const accesosExistentes = await PlanillaAccesoRevisionService.getAll();
       const existeCombinacion = accesosExistentes.some(
@@ -351,7 +362,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
           acceso.supervisorId === formData.supervisorId &&
           acceso.empleadoId === formData.empleadoId
       );
-      
+
       if (existeCombinacion) {
         showSnackbar(
           "Ya existe un acceso de planilla para este supervisor y colaborador supervisado. La combinación debe ser única.",
@@ -359,7 +370,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
         );
         return;
       }
-      
+
       const updateData: UpdatePlanillaAccesoRevisionDto = {
         supervisorId: formData.supervisorId,
         empleadoId: formData.empleadoId,
@@ -415,12 +426,16 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
   // Filtrar accesos por término de búsqueda
   const filteredAccesos = accesos.filter((acceso) => {
     if (!searchTerm) return true;
-    
+
     const supervisorNombre = acceso.supervisor
-      ? `${acceso.supervisor.nombre} ${acceso.supervisor.apellido || ""}`.toLowerCase()
+      ? `${acceso.supervisor.nombre} ${
+          acceso.supervisor.apellido || ""
+        }`.toLowerCase()
       : "";
     const empleadoNombre = acceso.empleado
-      ? `${acceso.empleado.nombre} ${acceso.empleado.apellido || ""}`.toLowerCase()
+      ? `${acceso.empleado.nombre} ${
+          acceso.empleado.apellido || ""
+        }`.toLowerCase()
       : "";
     const supervisorCodigo = acceso.supervisor?.codigo?.toLowerCase() || "";
     const empleadoCodigo = acceso.empleado?.codigo?.toLowerCase() || "";
@@ -454,11 +469,14 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
 
   // Agrupar accesos por supervisor
   const accesosAgrupados = React.useMemo(() => {
-    const grupos = new Map<number, {
-      supervisor: Empleado | undefined;
-      supervisorId: number;
-      accesos: PlanillaAccesoRevision[];
-    }>();
+    const grupos = new Map<
+      number,
+      {
+        supervisor: Empleado | undefined;
+        supervisorId: number;
+        accesos: PlanillaAccesoRevision[];
+      }
+    >();
 
     filteredAccesos.forEach((acceso) => {
       if (!grupos.has(acceso.supervisorId)) {
@@ -535,7 +553,11 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
           </Select>
         </FormControl>
 
-        <FormControl sx={{ minWidth: 200 }} size="small" disabled={!selectedEmpresaId || loadingEmpleados}>
+        <FormControl
+          sx={{ minWidth: 200 }}
+          size="small"
+          disabled={!selectedEmpresaId || loadingEmpleados}
+        >
           <InputLabel>Filtrar por Supervisor</InputLabel>
           <Select
             value={filterSupervisorId}
@@ -554,13 +576,18 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
             </MenuItem>
             {empleados.map((empleado) => (
               <MenuItem key={empleado.id} value={empleado.id.toString()}>
-                {getEmpleadoNombre(empleado)} {empleado.codigo && `(${empleado.codigo})`}
+                {getEmpleadoNombre(empleado)}{" "}
+                {empleado.codigo && `(${empleado.codigo})`}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
 
-        <FormControl sx={{ minWidth: 200 }} size="small" disabled={!selectedEmpresaId || loadingEmpleados}>
+        <FormControl
+          sx={{ minWidth: 200 }}
+          size="small"
+          disabled={!selectedEmpresaId || loadingEmpleados}
+        >
           <InputLabel>Filtrar por Colaborador Supervisado</InputLabel>
           <Select
             value={filterEmpleadoId}
@@ -579,7 +606,8 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
             </MenuItem>
             {empleados.map((empleado) => (
               <MenuItem key={empleado.id} value={empleado.id.toString()}>
-                {getEmpleadoNombre(empleado)} {empleado.codigo && `(${empleado.codigo})`}
+                {getEmpleadoNombre(empleado)}{" "}
+                {empleado.codigo && `(${empleado.codigo})`}
               </MenuItem>
             ))}
           </Select>
@@ -651,7 +679,9 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                     }}
                   >
                     <TableCell colSpan={5}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
                         <SupervisorIcon color="primary" fontSize="medium" />
                         <Box>
                           <Typography variant="body1" fontWeight="bold">
@@ -660,12 +690,20 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                               : `ID: ${grupo.supervisorId}`}
                           </Typography>
                           {grupo.supervisor?.codigo && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
                               Código: {grupo.supervisor.codigo}
                             </Typography>
                           )}
-                          <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                            ({grupo.accesos.length} colaborador{grupo.accesos.length !== 1 ? "es" : ""})
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ ml: 1 }}
+                          >
+                            ({grupo.accesos.length} colaborador
+                            {grupo.accesos.length !== 1 ? "es" : ""})
                           </Typography>
                         </Box>
                       </Box>
@@ -676,7 +714,10 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                     <TableRow
                       key={acceso.id}
                       sx={{
-                        backgroundColor: accesoIndex % 2 === 0 ? "background.default" : "action.hover",
+                        backgroundColor:
+                          accesoIndex % 2 === 0
+                            ? "background.default"
+                            : "action.hover",
                         "&:hover": {
                           backgroundColor: "action.selected",
                         },
@@ -684,7 +725,14 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                     >
                       <TableCell>
                         {/* Colaborador supervisado con indentación para mostrar jerarquía */}
-                        <Box sx={{ pl: 3, display: "flex", alignItems: "center", gap: 1 }}>
+                        <Box
+                          sx={{
+                            pl: 3,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                          }}
+                        >
                           <Box
                             sx={{
                               width: 2,
@@ -703,7 +751,10 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                                 : `ID: ${acceso.empleadoId}`}
                             </Typography>
                             {acceso.empleado?.codigo && (
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
                                 {acceso.empleado.codigo}
                               </Typography>
                             )}
@@ -746,7 +797,10 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                   {/* Espaciado entre grupos */}
                   {grupoIndex < accesosAgrupados.length - 1 && (
                     <TableRow>
-                      <TableCell colSpan={5} sx={{ height: 16, border: "none" }} />
+                      <TableCell
+                        colSpan={5}
+                        sx={{ height: 16, border: "none" }}
+                      />
                     </TableRow>
                   )}
                 </React.Fragment>
@@ -764,7 +818,9 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
         fullWidth
       >
         <DialogTitle>
-          {isEditing ? "Editar Acceso de Planilla" : "Crear Nuevo Acceso de Planilla"}
+          {isEditing
+            ? "Editar Acceso de Planilla"
+            : "Crear Nuevo Acceso de Planilla"}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
@@ -805,7 +861,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                 name="supervisorId"
                 value={formData.supervisorId || ""}
                 label="Supervisor"
-                onChange={handleInputChange}
+                onChange={handleSelectChange}
                 disabled={!supervisorEmpresaId || loadingSupervisores}
               >
                 <MenuItem value="">
@@ -819,7 +875,8 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                 </MenuItem>
                 {supervisores.map((empleado) => (
                   <MenuItem key={empleado.id} value={empleado.id}>
-                    {getEmpleadoNombre(empleado)} {empleado.codigo && `(${empleado.codigo})`}
+                    {getEmpleadoNombre(empleado)}{" "}
+                    {empleado.codigo && `(${empleado.codigo})`}
                   </MenuItem>
                 ))}
               </Select>
@@ -862,7 +919,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                 name="empleadoId"
                 value={formData.empleadoId || ""}
                 label="Colaborador Supervisado"
-                onChange={handleInputChange}
+                onChange={handleSelectChange}
                 disabled={!empleadoEmpresaId || loadingEmpleadosDialog}
               >
                 <MenuItem value="">
@@ -878,7 +935,8 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                   .filter((emp) => emp.id !== formData.supervisorId)
                   .map((empleado) => (
                     <MenuItem key={empleado.id} value={empleado.id}>
-                      {getEmpleadoNombre(empleado)} {empleado.codigo && `(${empleado.codigo})`}
+                      {getEmpleadoNombre(empleado)}{" "}
+                      {empleado.codigo && `(${empleado.codigo})`}
                     </MenuItem>
                   ))}
               </Select>
@@ -887,7 +945,8 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
             {formData.supervisorId === formData.empleadoId &&
               formData.supervisorId !== 0 && (
                 <Alert severity="error">
-                  El supervisor y el colaborador supervisado no pueden ser la misma persona
+                  El supervisor y el colaborador supervisado no pueden ser la
+                  misma persona
                 </Alert>
               )}
           </Box>
@@ -933,4 +992,3 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
 };
 
 export default PlanillaAccesoRevisionManagement;
-
