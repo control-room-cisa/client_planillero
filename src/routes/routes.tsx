@@ -25,6 +25,9 @@ const TimesheetReviewRrhh = React.lazy(
 const FeriadosManagement = React.lazy(
   () => import("../components/rrhh/FeriadosManagement")
 );
+const PlanillaAccesoRevisionManagement = React.lazy(
+  () => import("../components/rrhh/PlanillaAccesoRevisionManagement")
+);
 const EmpleadosManagement = React.lazy(
   () => import("../components/rrhh/EmpleadosManagement")
 );
@@ -115,6 +118,14 @@ const AppRoutes: React.FC = () => {
           element={
             <RoleProtectedRoute allowedRoles={[3]}>
               <FeriadosManagement />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="rrhh/accesos-planilla"
+          element={
+            <RoleProtectedRoute allowedRoles={[3]}>
+              <PlanillaAccesoRevisionManagement />
             </RoleProtectedRoute>
           }
         />

@@ -32,6 +32,7 @@ import EventIcon from "@mui/icons-material/Event";
 import PeopleIcon from "@mui/icons-material/People";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import LockOpenIcon from "@mui/icons-material/LockOpen";
 
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -187,6 +188,12 @@ export default function Layout() {
           text: "Gestión de Feriados",
           icon: <EventIcon />,
           path: "/rrhh/feriados",
+        },
+        {
+          id: "accesos-planilla",
+          text: "Accesos de Planilla",
+          icon: <LockOpenIcon />,
+          path: "/rrhh/accesos-planilla",
         },
       ];
     }

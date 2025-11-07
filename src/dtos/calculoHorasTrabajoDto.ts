@@ -42,14 +42,20 @@ export interface ConteoHorasTrabajadasDto {
     libre: number; // 0 del valor de la hora normal
     almuerzo: number; // 0 del valor de la hora normal
     // Variantes por jobs especiales en horas NORMALES
-    incapacidad?: number; // E01
+    incapacidadCubreEmpresaHoras?: number; // E01 primeros 3 días consecutivos
+    incapacidadCubreIHSSHoras?: number; // E01 del día 4 en adelante
     vacaciones?: number; // E02
     permisoConSueldo?: number; // E03
+    permisoConSueldoHoras?: number; // E03 (alias para compatibilidad)
     permisoSinSueldo?: number; // E04
     inasistencias?: number; // E05
-    compensatorio?: number; // E06/E07
+    llegadasTarde?: number; // E05
+    compensatorio?: number; // E06 y E07
   };
-  // Resumen de días del período (base 15)
+  /**
+   * Conteo agregado en días para el período. Base 15 días por período.
+   * La suma debe cumplir: 15 = diasLaborados + vacaciones + permisoConSueldo + permisoSinSueldo + incapacidadCubreEmpresaDias + incapacidadCubreIHSSDias + inasistencias
+   */
   conteoDias?: {
     totalPeriodo: number; // siempre 15
     diasLaborados: number; // 15 - (otras categorías)
@@ -57,8 +63,12 @@ export interface ConteoHorasTrabajadasDto {
     permisoConSueldo: number; // E03 horas / 8
     permisoSinSueldo: number; // E04 horas / 8
     inasistencias: number; // E05 horas / 8
+    incapacidadCubreEmpresaDias?: number; // E01 primeros 3 días consecutivos
+    incapacidadCubreIHSSDias?: number; // E01 del día 4 en adelante
   };
-  // Errores de validación encontrados durante el cálculo
+  /**
+   * Errores de validación encontrados durante el cálculo
+   */
   validationErrors?: ConteoHorasValidationErrorDto;
   // Campos adicionales potenciales (según backend)
   totalHorasTrabajadas?: number;

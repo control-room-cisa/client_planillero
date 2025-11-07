@@ -260,6 +260,10 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   const diasLaborados = conteoDias?.diasLaborados ?? 0;
   const diasVacaciones = conteoDias?.vacaciones ?? 0;
   const diasPermisoCS = conteoDias?.permisoConSueldo ?? 0; // justificado
+  const diasIncapacidadCubreEmpresa =
+    conteoDias?.incapacidadCubreEmpresaDias ?? 0;
+  const diasIncapacidadCubreIHSS =
+    conteoDias?.incapacidadCubreIHSSDias ?? 0;
 
   const salarioQuincenal = React.useMemo(
     () => (sueldoMensual || 0) / 2,
@@ -285,7 +289,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   const montoVacaciones =
     (diasVacaciones / (periodoNomina || 15)) * salarioQuincenal;
   const montoCubreEmpresa =
-    (diasPermisoCS / (periodoNomina || 15)) * salarioQuincenal;
+    (diasIncapacidadCubreEmpresa / (periodoNomina || 15)) * salarioQuincenal;
 
   // Horas de permisos justificados: usar horas del resumen si existen, si no días × 8
   const horasPermisosJustificados =
@@ -294,6 +298,18 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         ?.permisoConSueldoHoras ?? diasPermisoCS * 8
     ) || 0;
   const montoPermisosJustificados = horasPermisosJustificados * salarioPorHora;
+
+  // Horas de incapacidades
+  const horasIncapacidadCubreEmpresa =
+    Number(
+      resumenHoras?.conteoHoras?.cantidadHoras?.incapacidadCubreEmpresaHoras ??
+        diasIncapacidadCubreEmpresa * 8
+    ) || 0;
+  const horasIncapacidadCubreIHSS =
+    Number(
+      resumenHoras?.conteoHoras?.cantidadHoras?.incapacidadCubreIHSSHoras ??
+        diasIncapacidadCubreIHSS * 8
+    ) || 0;
 
   // Estado editable para incapacidad cubierta por empresa (inicial por cálculo)
   const [montoIncapacidadCubreEmpresa, setMontoIncapacidadCubreEmpresa] =
@@ -414,6 +430,13 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         : ""
     );
   }, [montoIncapacidadCubreEmpresa]);
+
+  // Actualizar montoIncapacidadCubreEmpresa cuando cambian los días de incapacidad
+  React.useEffect(() => {
+    if (montoCubreEmpresa !== undefined && montoCubreEmpresa !== null) {
+      setMontoIncapacidadCubreEmpresa(montoCubreEmpresa);
+    }
+  }, [montoCubreEmpresa]);
 
   const totalDeducciones =
     (deduccionIHSS || 0) +
@@ -1449,6 +1472,34 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                     }}
                   >
                     <Typography variant="body1">
+                      <strong>Incapacidad cubre empresa (días):</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {diasIncapacidadCubreEmpresa}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Incapacidad cubre IHSS (días):</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {diasIncapacidadCubreIHSS}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
                       <strong>Total días nómina:</strong>
                     </Typography>
                     <Typography variant="body1">{periodoNomina}</Typography>
@@ -1493,7 +1544,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                     }}
                   >
                     <Typography variant="body1">
-                      <strong>Monto cubre empresa:</strong>
+                      <strong>Monto incapacidad cubre empresa:</strong>
                     </Typography>
                     <Typography variant="body1">
                       {fMon.format(montoCubreEmpresa || 0)}
@@ -1573,6 +1624,34 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                     </Typography>
                     <Typography variant="body1">
                       {resumenHoras.conteoHoras.conteoDias?.inasistencias ?? 0}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Incapacidad cubre empresa (horas):</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {horasIncapacidadCubreEmpresa.toFixed(2)}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Incapacidad cubre IHSS (horas):</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {horasIncapacidadCubreIHSS.toFixed(2)}
                     </Typography>
                   </Box>
                 </Box>
