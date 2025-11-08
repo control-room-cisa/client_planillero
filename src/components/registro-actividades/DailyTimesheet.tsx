@@ -2171,30 +2171,77 @@ const DailyTimesheet: React.FC = () => {
         registroDiario.actividades.length > 0 ? (
         <Stack spacing={2}>
           {(() => {
-            // Ordenar actividades: primero normales, luego extra ordenadas por hora de inicio
-            const actividadesOrdenadas = [...registroDiario.actividades].sort(
-              (a, b) => {
-                // Primero ordenar por tipo: normales antes que extra
-                if (a.esExtra !== b.esExtra) {
-                  return a.esExtra ? 1 : -1; // Normales primero (-1), extra después (1)
-                }
+            // Obtener horas de entrada y salida en minutos para comparar
+            const entradaMin = registroDiario.horaEntrada
+              ? timeToMinutes(formatTimeLocal(registroDiario.horaEntrada))
+              : 0;
+            const salidaMin = registroDiario.horaSalida
+              ? timeToMinutes(formatTimeLocal(registroDiario.horaSalida))
+              : 1440;
 
-                // Si ambas son actividades extra con hora, ordenar por hora de inicio
-                if (a.esExtra && b.esExtra && a.horaInicio && b.horaInicio) {
-                  const aMin = timeToMinutes(formatTimeLocal(a.horaInicio));
-                  const bMin = timeToMinutes(formatTimeLocal(b.horaInicio));
-                  return aMin - bMin;
-                }
+            // Clasificar actividades en tres grupos
+            const extrasAntesEntrada: typeof registroDiario.actividades = [];
+            const normales: typeof registroDiario.actividades = [];
+            const extrasDespuesSalida: typeof registroDiario.actividades = [];
 
-                // Para actividades normales o si no tienen hora, mantener orden original
-                return 0;
+            registroDiario.actividades.forEach((act) => {
+              if (!act.esExtra) {
+                // Actividades normales
+                normales.push(act);
+              } else if (act.horaInicio) {
+                // Actividades extra con hora de inicio
+                const inicioMin = timeToMinutes(
+                  formatTimeLocal(act.horaInicio)
+                );
+                if (inicioMin < entradaMin) {
+                  // Extra antes de la hora de entrada
+                  extrasAntesEntrada.push(act);
+                } else if (inicioMin >= salidaMin) {
+                  // Extra después o igual a la hora de salida
+                  extrasDespuesSalida.push(act);
+                } else {
+                  // Extra dentro del horario laboral (no debería pasar, pero por si acaso)
+                  normales.push(act);
+                }
+              } else {
+                // Extra sin hora de inicio (caso especial)
+                normales.push(act);
               }
-            );
+            });
+
+            // Ordenar extras por hora de inicio ascendente
+            extrasAntesEntrada.sort((a, b) => {
+              if (!a.horaInicio || !b.horaInicio) return 0;
+              const aMin = timeToMinutes(formatTimeLocal(a.horaInicio));
+              const bMin = timeToMinutes(formatTimeLocal(b.horaInicio));
+              return aMin - bMin;
+            });
+
+            extrasDespuesSalida.sort((a, b) => {
+              if (!a.horaInicio || !b.horaInicio) return 0;
+              const aMin = timeToMinutes(formatTimeLocal(a.horaInicio));
+              const bMin = timeToMinutes(formatTimeLocal(b.horaInicio));
+              return aMin - bMin;
+            });
+
+            // Concatenar en el orden correcto: extras antes, normales, extras después
+            const actividadesOrdenadas = [
+              ...extrasAntesEntrada,
+              ...normales,
+              ...extrasDespuesSalida,
+            ];
 
             return actividadesOrdenadas.map((actividad, index) => (
               <Card
                 key={actividad.id || index}
-                sx={{ bgcolor: "background.paper" }}
+                sx={{
+                  bgcolor: actividad.esExtra
+                    ? "rgba(255, 243, 224, 0.5)" // Color pastel suave naranja/amarillo para extras
+                    : "background.paper", // Color normal para actividades normales
+                  borderLeft: actividad.esExtra
+                    ? "4px solid rgba(255, 152, 0, 0.3)" // Borde izquierdo sutil para extras
+                    : "none",
+                }}
               >
                 <CardContent>
                   <Box
