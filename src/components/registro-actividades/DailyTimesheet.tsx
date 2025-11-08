@@ -172,6 +172,13 @@ const DailyTimesheet: React.FC = () => {
     tipoHorario: string; // Agregar tipo de horario
   } | null>(null);
 
+  // Estado para guardar los datos del horario completo (para acceder a cantidadHorasLaborables)
+  const [horarioData, setHorarioData] = React.useState<{
+    cantidadHorasLaborables: number;
+    esFestivo: boolean;
+    cantidadHorasLaborablesNormales: number; // Horas que se habrían trabajado si no fuera feriado
+  } | null>(null);
+
   // Reglas de UI ahora controlan visibilidad/habilitación por tipo de horario
   const horarioRules = useHorarioRules({
     tipoHorario: horarioValidado?.tipoHorario || undefined,
@@ -561,6 +568,18 @@ const DailyTimesheet: React.FC = () => {
       setLoading(true);
       const dateString = ymdInTZ(currentDate);
 
+      // Limpiar el estado del formulario antes de cargar nuevos datos
+      // Esto asegura que no se mantengan valores del día anterior
+      setDayConfigData({
+        horaEntrada: "",
+        horaSalida: "",
+        jornada: "D",
+        esDiaLibre: false,
+        esHoraCorrida: false,
+        comentarioEmpleado: "",
+      });
+      setRegistroDiario(null);
+
       // Delay mínimo de 500ms para evitar parpadeo
       const [registro] = await Promise.all([
         RegistroDiarioService.getByDate(dateString),
@@ -593,6 +612,9 @@ const DailyTimesheet: React.FC = () => {
       if (!user?.id) return;
 
       // Obtener horario desde la API de cálculo usando getHorarioTrabajo
+      // NOTA: Cuando es día feriado, el backend automáticamente calcula y guarda
+      // las horas laborables (cantidadHorasLaborables) en el campo horasFeriado
+      // del registro diario. Esto se hace en RegistroDiarioService.upsertRegistro
       const horarioData = await CalculoHorasTrabajoService.getHorarioTrabajo(
         user.id,
         fecha
@@ -610,6 +632,34 @@ const DailyTimesheet: React.FC = () => {
         horarioData,
         datosExistentes
       );
+
+      // Calcular horas laborables normales (antes de aplicar feriado)
+      // Si es feriado, calcular las horas que se habrían trabajado según el día de la semana
+      let cantidadHorasLaborablesNormales = horarioData.cantidadHorasLaborables;
+      if (horarioData.esFestivo) {
+        const fechaObj = new Date(`${fecha}T00:00:00`);
+        const diaSemana = fechaObj.getDay(); // 0=Dom, 1=Lun, ..., 6=Sáb
+
+        // Calcular horas normales según día de la semana (lógica H1)
+        // Viernes = 8h, otros días laborables = 9h, sábado/domingo = 0h
+        if (diaSemana === 5) {
+          // Viernes
+          cantidadHorasLaborablesNormales = 8;
+        } else if (diaSemana === 0 || diaSemana === 6) {
+          // Domingo o Sábado
+          cantidadHorasLaborablesNormales = 0;
+        } else {
+          // Lunes a Jueves
+          cantidadHorasLaborablesNormales = 9;
+        }
+      }
+
+      // Guardar datos del horario para acceso directo
+      setHorarioData({
+        cantidadHorasLaborables: horarioData.cantidadHorasLaborables,
+        esFestivo: horarioData.esFestivo,
+        cantidadHorasLaborablesNormales,
+      });
 
       // Crear el objeto de validación con las horas normales de la API
       const validacionCompleta = {
@@ -645,8 +695,8 @@ const DailyTimesheet: React.FC = () => {
               return {
                 ...base,
                 esDiaLibre: Boolean(horarioData.esDiaLibre),
-                comentarioEmpleado:
-                  registro.comentarioEmpleado || base.comentarioEmpleado || "",
+                // Asegurar que comentarioEmpleado use el valor del registro o esté vacío
+                comentarioEmpleado: registro.comentarioEmpleado || "",
               };
             } else {
               // H2 u otros: conservar horas del registro guardado
@@ -656,16 +706,18 @@ const DailyTimesheet: React.FC = () => {
                 horaEntrada: formatTimeLocal(registro.horaEntrada),
                 horaSalida: formatTimeLocal(registro.horaSalida),
                 esDiaLibre: Boolean(horarioData.esDiaLibre),
-                comentarioEmpleado:
-                  registro.comentarioEmpleado || base.comentarioEmpleado || "",
+                // Asegurar que comentarioEmpleado use el valor del registro o esté vacío
+                comentarioEmpleado: registro.comentarioEmpleado || "",
               };
             }
           }
 
           // Si no hay registro existente, aplicar el esDiaLibre desde el horario de la API
+          // Asegurar que comentarioEmpleado esté vacío si no hay registro
           const result = {
             ...base,
             esDiaLibre: Boolean(horarioData.esDiaLibre),
+            comentarioEmpleado: registro?.comentarioEmpleado || "",
           };
 
           console.log("[DEBUG] Final result esDiaLibre:", result.esDiaLibre);
@@ -971,6 +1023,12 @@ const DailyTimesheet: React.FC = () => {
         ? false
         : dayConfigData.esHoraCorrida;
 
+      // Calcular horas feriado si es día festivo
+      const horasFeriado =
+        horarioData?.esFestivo && horarioData.cantidadHorasLaborablesNormales
+          ? horarioData.cantidadHorasLaborablesNormales
+          : undefined;
+
       const params = {
         fecha: dateString,
         horaEntrada: horaEntradaISO,
@@ -979,6 +1037,7 @@ const DailyTimesheet: React.FC = () => {
         esDiaLibre: esDiaLibreFinal,
         esHoraCorrida: esHoraCorridaFinal,
         comentarioEmpleado: dayConfigData.comentarioEmpleado,
+        ...(horasFeriado !== undefined && { horasFeriado }),
         actividades:
           registroDiario?.actividades?.map((act) => ({
             jobId: act.jobId,
@@ -1393,6 +1452,12 @@ const DailyTimesheet: React.FC = () => {
         const salidaM = timeToMinutes(dayConfigData.horaSalida);
         const addDayForEnd = salidaM <= entradaM ? 1 : 0;
 
+        // Calcular horas feriado si es día festivo
+        const horasFeriado =
+          horarioData?.esFestivo && horarioData.cantidadHorasLaborablesNormales
+            ? horarioData.cantidadHorasLaborablesNormales
+            : undefined;
+
         const params = {
           fecha: dateString,
           horaEntrada: buildISO(currentDate, dayConfigData.horaEntrada, 0),
@@ -1405,6 +1470,7 @@ const DailyTimesheet: React.FC = () => {
           esDiaLibre: dayConfigData.esDiaLibre,
           esHoraCorrida: isH2 ? true : dayConfigData.esHoraCorrida,
           comentarioEmpleado: dayConfigData.comentarioEmpleado,
+          ...(horasFeriado !== undefined && { horasFeriado }),
           actividades: actividadesActualizadas,
         };
 
@@ -1417,6 +1483,12 @@ const DailyTimesheet: React.FC = () => {
         const entradaM = timeToMinutes(dayConfigData.horaEntrada);
         const salidaM = timeToMinutes(dayConfigData.horaSalida);
         const addDayForEnd = salidaM <= entradaM ? 1 : 0;
+
+        // Calcular horas feriado si es día festivo
+        const horasFeriado =
+          horarioData?.esFestivo && horarioData.cantidadHorasLaborablesNormales
+            ? horarioData.cantidadHorasLaborablesNormales
+            : undefined;
 
         const params = {
           fecha: dateString,
@@ -1431,6 +1503,7 @@ const DailyTimesheet: React.FC = () => {
           // Si es H2, enviar esHoraCorrida=true al backend
           esHoraCorrida: isH2 ? true : dayConfigData.esHoraCorrida,
           comentarioEmpleado: dayConfigData.comentarioEmpleado,
+          ...(horasFeriado !== undefined && { horasFeriado }),
           actividades: [actividad],
         };
 
@@ -1789,6 +1862,21 @@ const DailyTimesheet: React.FC = () => {
               color="success"
               variant="filled"
             />
+            {/* Mostrar horas feriado: usar las horas normales que se habrían trabajado si no fuera feriado */}
+            {horarioData?.esFestivo &&
+              horarioData.cantidadHorasLaborablesNormales !== undefined &&
+              horarioData.cantidadHorasLaborablesNormales > 0 && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mt: 1 }}
+                >
+                  Horas laborables asignadas a feriado:{" "}
+                  <strong>
+                    {horarioData.cantidadHorasLaborablesNormales.toFixed(2)}h
+                  </strong>
+                </Typography>
+              )}
           </Box>
         )}
 

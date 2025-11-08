@@ -13,6 +13,7 @@ export interface RegistroDiarioData {
   comentarioRrhh?: string;
   empleadoId?: number;
   actividades?: ActividadData[];
+  horasFeriado?: number; // Horas laborables asignadas a feriado cuando es día festivo
 }
 
 export interface ActividadData {
@@ -42,6 +43,7 @@ export interface UpsertRegistroDiarioParams {
   esDiaLibre?: boolean;
   esHoraCorrida?: boolean;
   comentarioEmpleado?: string;
+  horasFeriado?: number; // Horas laborables asignadas a feriado cuando es día festivo
   actividades?: {
     jobId: number;
     duracionHoras: number;
