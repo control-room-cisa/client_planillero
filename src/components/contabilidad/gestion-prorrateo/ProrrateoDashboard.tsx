@@ -378,61 +378,130 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     );
   }
 
-  const renderTabla = (titulo: string, items: any[]) => (
-    <Box sx={{ mt: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        {titulo}
-      </Typography>
-      {items?.length ? (
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Job</TableCell>
-              <TableCell>Nombre del Job</TableCell>
-              <TableCell align="right">Horas</TableCell>
-              <TableCell align="center">Comentarios</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {items.map((j) => (
-              <TableRow key={`${j.jobId}-${j.codigoJob}`}>
-                <TableCell>{j.codigoJob}</TableCell>
-                <TableCell>{j.nombreJob}</TableCell>
-                <TableCell align="right">
-                  {Number(
-                    j.horas
-                      ? j.horas.toFixed(4)
-                      : j.cantidadHoras?.toFixed(4) || 0
-                  )}
-                </TableCell>
-                <TableCell align="center">
-                  {Array.isArray(j.comentarios) && j.comentarios.length > 0 ? (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() =>
-                        handleOpenComentarios(j.nombreJob, j.comentarios)
-                      }
-                    >
-                      Ver comentarios ({j.comentarios.length})
-                    </Button>
-                  ) : (
-                    <Typography variant="caption" color="text.secondary">
-                      —
-                    </Typography>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      ) : (
-        <Typography variant="body2" color="text.secondary">
-          Sin datos
-        </Typography>
-      )}
-    </Box>
+  const formatterMonto = React.useMemo(
+    () =>
+      new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    []
   );
+
+  const formatMonto = React.useCallback(
+    (value: number | null | undefined) =>
+      formatterMonto.format(Number(value ?? 0)),
+    [formatterMonto]
+  );
+
+  const formatHoras = React.useCallback((value: number) => {
+    if (!Number.isFinite(value)) return "0";
+    const rounded = Math.round(value * 100) / 100;
+    return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(2);
+  }, []);
+
+  const obtenerTotalHoras = React.useCallback(
+    (jobs: any[]) =>
+      (jobs ?? []).reduce(
+        (acc, j) => acc + Number(j?.cantidadHoras ?? j?.horas ?? 0),
+        0
+      ),
+    []
+  );
+
+  const renderTabla = (
+    titulo: string,
+    items: any[],
+    options?: { totalHoras?: number; totalMonto?: number }
+  ) => {
+    const totalHoras = Number(options?.totalHoras ?? 0);
+    const totalMonto = Number(options?.totalMonto ?? 0);
+    const showMonto = totalMonto > 0 && totalHoras > 0;
+
+    return (
+      <Box sx={{ mt: 2 }}>
+        <Typography variant="h6" gutterBottom>
+          {titulo}
+        </Typography>
+        {items?.length ? (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Job</TableCell>
+                <TableCell>Nombre del Job</TableCell>
+                <TableCell align="right">Horas</TableCell>
+                {showMonto && <TableCell align="right">Monto</TableCell>}
+                <TableCell align="center">Comentarios</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {items.map((j) => {
+                const horas = Number(
+                  j.cantidadHoras ?? j.horas ?? 0
+                );
+                const monto = showMonto
+                  ? (horas / totalHoras) * totalMonto
+                  : 0;
+                return (
+                  <TableRow key={`${j.jobId}-${j.codigoJob}`}>
+                    <TableCell>{j.codigoJob}</TableCell>
+                    <TableCell>{j.nombreJob}</TableCell>
+                    <TableCell align="right">
+                      {formatHoras(horas)}
+                    </TableCell>
+                    {showMonto && (
+                      <TableCell align="right">
+                        {formatterMonto.format(monto)}
+                      </TableCell>
+                    )}
+                    <TableCell align="center">
+                      {Array.isArray(j.comentarios) &&
+                      j.comentarios.length > 0 ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() =>
+                            handleOpenComentarios(j.nombreJob, j.comentarios)
+                          }
+                        >
+                          Ver comentarios ({j.comentarios.length})
+                        </Button>
+                      ) : (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                        >
+                          —
+                        </Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              <TableRow>
+                <TableCell>
+                  <strong>Total</strong>
+                </TableCell>
+                <TableCell />
+                <TableCell align="right">
+                <strong>{formatHoras(totalHoras)}</strong>
+                </TableCell>
+                {showMonto && (
+                  <TableCell align="right">
+                    <strong>{formatterMonto.format(totalMonto)}</strong>
+                  </TableCell>
+                )}
+                <TableCell />
+              </TableRow>
+            </TableBody>
+          </Table>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Sin datos
+          </Typography>
+        )}
+      </Box>
+    );
+  };
 
   return (
     <>
@@ -841,52 +910,57 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                               <TableRow>
                                 <TableCell>Deducción IHSS</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${
-                                    nominaSeleccionada?.deduccionIHSS ?? 0
-                                  } L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.deduccionIHSS
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Deducción ISR</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${nominaSeleccionada?.deduccionISR ?? 0} L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.deduccionISR
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Deducción RAP</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${nominaSeleccionada?.deduccionRAP ?? 0} L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.deduccionRAP
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Deducción Comida</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${
-                                    nominaSeleccionada?.deduccionAlimentacion ??
-                                    0
-                                  } L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.deduccionAlimentacion
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Impuesto Vecinal</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${
-                                    nominaSeleccionada?.impuestoVecinal ?? 0
-                                  } L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.impuestoVecinal
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Otros</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${nominaSeleccionada?.otros ?? 0} L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.otros
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Préstamo</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${
-                                    nominaSeleccionada?.cobroPrestamo ?? 0
-                                  } L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.cobroPrestamo
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
@@ -894,7 +968,9 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                   <strong>Total deducciones</strong>
                                 </TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  <strong>{`${totalDeducciones} L`}</strong>
+                                  <strong>{`${formatMonto(
+                                    totalDeducciones
+                                  )} L`}</strong>
                                 </TableCell>
                               </TableRow>
                             </TableBody>
@@ -912,25 +988,25 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                               <TableRow>
                                 <TableCell>Sueldo mensual</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${
-                                    nominaSeleccionada?.sueldoMensual ?? 0
-                                  } L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.sueldoMensual
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Monto días laborados</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${
-                                    nominaSeleccionada?.montoDiasLaborados ?? 0
-                                  } L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.montoDiasLaborados
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Monto vacaciones</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${
-                                    nominaSeleccionada?.montoVacaciones ?? 0
-                                  } L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.montoVacaciones
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
@@ -938,10 +1014,10 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                   Monto incapacidad (empresa)
                                 </TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${
-                                    nominaSeleccionada?.montoIncapacidadCubreEmpresa ??
-                                    0
-                                  } L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada
+                                      ?.montoIncapacidadCubreEmpresa
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
@@ -949,50 +1025,56 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                   Monto permisos justificados
                                 </TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${
-                                    nominaSeleccionada?.montoPermisosJustificados ??
-                                    0
-                                  } L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada
+                                      ?.montoPermisosJustificados
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Horas extra 25% (monto)</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${nominaSeleccionada?.montoHoras25 ?? 0} L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.montoHoras25
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Horas extra 50% (monto)</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${nominaSeleccionada?.montoHoras50 ?? 0} L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.montoHoras50
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Horas extra 75% (monto)</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${nominaSeleccionada?.montoHoras75 ?? 0} L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.montoHoras75
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Horas extra 100% (monto)</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${
-                                    nominaSeleccionada?.montoHoras100 ?? 0
-                                  } L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.montoHoras100
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Ajuste</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${nominaSeleccionada?.ajuste ?? 0} L`}
+                                  {`${formatMonto(nominaSeleccionada?.ajuste)} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
                                 <TableCell>Subtotal quincena</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  {`${
-                                    nominaSeleccionada?.subtotalQuincena ?? 0
-                                  } L`}
+                                  {`${formatMonto(
+                                    nominaSeleccionada?.subtotalQuincena
+                                  )} L`}
                                 </TableCell>
                               </TableRow>
                               <TableRow>
@@ -1000,9 +1082,9 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                   <strong>Total percepciones</strong>
                                 </TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
-                                  <strong>{`${
-                                    nominaSeleccionada?.totalPercepciones ?? 0
-                                  } L`}</strong>
+                                  <strong>{`${formatMonto(
+                                    nominaSeleccionada?.totalPercepciones
+                                  )} L`}</strong>
                                 </TableCell>
                               </TableRow>
                             </TableBody>
@@ -1030,16 +1112,59 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                       {tab === 0 &&
                         renderTabla(
                           "Horas Normales",
-                          prorrateo.cantidadHoras.normal
+                          prorrateo.cantidadHoras.normal,
+                          {
+                            totalHoras: obtenerTotalHoras(
+                              prorrateo.cantidadHoras.normal
+                            ),
+                            totalMonto:
+                              nominaSeleccionada?.montoDiasLaborados ?? 0,
+                          }
                         )}
                       {tab === 1 &&
-                        renderTabla("Horas 25%", prorrateo.cantidadHoras.p25)}
+                        renderTabla(
+                          "Horas 25%",
+                          prorrateo.cantidadHoras.p25,
+                          {
+                            totalHoras: obtenerTotalHoras(
+                              prorrateo.cantidadHoras.p25
+                            ),
+                            totalMonto: nominaSeleccionada?.montoHoras25 ?? 0,
+                          }
+                        )}
                       {tab === 2 &&
-                        renderTabla("Horas 50%", prorrateo.cantidadHoras.p50)}
+                        renderTabla(
+                          "Horas 50%",
+                          prorrateo.cantidadHoras.p50,
+                          {
+                            totalHoras: obtenerTotalHoras(
+                              prorrateo.cantidadHoras.p50
+                            ),
+                            totalMonto: nominaSeleccionada?.montoHoras50 ?? 0,
+                          }
+                        )}
                       {tab === 3 &&
-                        renderTabla("Horas 75%", prorrateo.cantidadHoras.p75)}
+                        renderTabla(
+                          "Horas 75%",
+                          prorrateo.cantidadHoras.p75,
+                          {
+                            totalHoras: obtenerTotalHoras(
+                              prorrateo.cantidadHoras.p75
+                            ),
+                            totalMonto: nominaSeleccionada?.montoHoras75 ?? 0,
+                          }
+                        )}
                       {tab === 4 &&
-                        renderTabla("Horas 100%", prorrateo.cantidadHoras.p100)}
+                        renderTabla(
+                          "Horas 100%",
+                          prorrateo.cantidadHoras.p100,
+                          {
+                            totalHoras: obtenerTotalHoras(
+                              prorrateo.cantidadHoras.p100
+                            ),
+                            totalMonto: nominaSeleccionada?.montoHoras100 ?? 0,
+                          }
+                        )}
                     </Box>
                   </Paper>
                 </>
