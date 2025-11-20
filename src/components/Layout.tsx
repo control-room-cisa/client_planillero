@@ -33,6 +33,7 @@ import PeopleIcon from "@mui/icons-material/People";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
+import ReceiptIcon from "@mui/icons-material/Receipt";
 
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -178,8 +179,14 @@ export default function Layout() {
           path: "/rrhh/colaboradores",
         },
         {
+          id: "nominas",
+          text: "Gestión de Nóminas",
+          icon: <ReceiptIcon />,
+          path: "/rrhh/nominas-gestion",
+        },
+        {
           id: "feriados",
-          text: "Gestión de Feriados",
+          text: "Feriados",
           icon: <EventIcon />,
           path: "/rrhh/feriados",
         },

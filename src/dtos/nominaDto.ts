@@ -4,6 +4,7 @@ export interface NominaDto {
   empleadoId: number;
   empresaId: number;
   nombrePeriodoNomina?: string | null;
+  codigoNomina?: string | null;
   fechaInicio: string; // ISO YYYY-MM-DD
   fechaFin: string; // ISO YYYY-MM-DD
   sueldoMensual: number;
@@ -37,6 +38,7 @@ export interface NominaDto {
   totalNetoPagar?: number | null;
 
   comentario?: string | null;
+  pagado?: boolean;
 
   createdAt?: string | null;
   updatedAt?: string | null;

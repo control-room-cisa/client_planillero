@@ -526,7 +526,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
       }}
     >
       <Typography variant="h4" gutterBottom sx={{ flexShrink: 0 }}>
-        Gestión de Accesos de Planilla
+        Accesos de Planilla
       </Typography>
 
       {/* Filtros y búsqueda */}

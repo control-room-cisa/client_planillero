@@ -43,6 +43,9 @@ const NotificationsEmployee = React.lazy(
 const NominasRoute = React.lazy(
   () => import("../components/rrhh/NominasRoute")
 );
+const NominasManagement = React.lazy(
+  () => import("../components/rrhh/NominasManagement")
+);
 
 const AppRoutes: React.FC = () => {
   return (
@@ -123,6 +126,14 @@ const AppRoutes: React.FC = () => {
           element={
             <RoleProtectedRoute allowedRoles={[3]}>
               <NominasRoute />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="rrhh/nominas-gestion"
+          element={
+            <RoleProtectedRoute allowedRoles={[3]}>
+              <NominasManagement />
             </RoleProtectedRoute>
           }
         />

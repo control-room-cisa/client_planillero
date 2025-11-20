@@ -16,6 +16,7 @@ class NominaService {
     empresaId?: number;
     start?: string;
     end?: string;
+    codigoNomina?: string;
   }): Promise<NominaDto[]> {
     const response = await api.get<NominasResponse>("/nominas", { params });
     return response.data.data || [];
@@ -37,6 +38,10 @@ class NominaService {
   static async getById(id: number): Promise<NominaDto> {
     const response = await api.get<NominaResponse>(`/nominas/${id}`);
     return response.data.data;
+  }
+
+  static async delete(id: number): Promise<void> {
+    await api.delete<ApiResponse<void>>(`/nominas/${id}`);
   }
 }
 
