@@ -19,9 +19,6 @@ const SupervisorManagement = React.lazy(
 const SupervisorRoute = React.lazy(
   () => import("../components/supervisor/SupervisorRoute")
 );
-const TimesheetReviewRrhh = React.lazy(
-  () => import("../components/rrhh/TimesheetReviewRrhh")
-);
 const FeriadosManagement = React.lazy(
   () => import("../components/rrhh/FeriadosManagement")
 );
@@ -97,14 +94,6 @@ const AppRoutes: React.FC = () => {
         />
 
         {/* RRHH */}
-        <Route
-          path="rrhh/planillas"
-          element={
-            <RoleProtectedRoute allowedRoles={[3]}>
-              <TimesheetReviewRrhh />
-            </RoleProtectedRoute>
-          }
-        />
         <Route
           path="rrhh/colaboradores"
           element={

@@ -133,7 +133,7 @@ export default function Layout() {
     if (!user?.rolId) return; // Esperar a que el usuario esté cargado
 
     if (user.rolId === 3) {
-      navigate("/rrhh/planillas", { replace: true });
+      navigate("/rrhh/colaboradores", { replace: true });
     } else if (user.rolId === 4) {
       navigate("/contabilidad", { replace: true });
     } else if (user.rolId === 1 || user.rolId === 2) {
@@ -171,12 +171,6 @@ export default function Layout() {
     // RRHH (rol 3)  -> sin notificaciones
     if (user?.rolId === 3) {
       return [
-        {
-          id: "rrhh-planillas",
-          text: "Revisión de Actividades Diarias",
-          icon: <FindInPageIcon />,
-          path: "/rrhh/planillas",
-        },
         {
           id: "colaboradores",
           text: "Gestión de Colaboradores",
