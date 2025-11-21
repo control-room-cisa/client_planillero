@@ -10,6 +10,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableFooter,
   IconButton,
   Chip,
   CircularProgress,
@@ -34,6 +35,7 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import NominaService, { type NominaDto } from "../../services/nominaService";
 import { empresaService } from "../../services/empresaService";
 import EmpleadoService from "../../services/empleadoService";
+import CalculoHorasTrabajoService from "../../services/calculoHorasTrabajoService";
 import type { Empresa } from "../../types/auth";
 import type { Empleado } from "../../services/empleadoService";
 import { Select, MenuItem, InputLabel, FormControl } from "@mui/material";
@@ -56,6 +58,11 @@ const NominasManagement: React.FC = () => {
   const [openDetailModal, setOpenDetailModal] = useState(false);
   const [currentNomina, setCurrentNomina] = useState<NominaDto | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<NominaDto>>({});
+  const [errorAlimentacion, setErrorAlimentacion] = useState<{
+    tieneError: boolean;
+    mensajeError: string;
+  } | null>(null);
+  const [loadingAlimentacion, setLoadingAlimentacion] = useState(false);
 
   // Estado para notificaciones
   const [snackbar, setSnackbar] = useState<{
@@ -249,25 +256,106 @@ const NominasManagement: React.FC = () => {
     }).format(amount);
   };
 
+  const calcularTotalHorasExtra = useCallback((nomina: NominaDto) => {
+    return (
+      (nomina.montoHoras25 ?? 0) +
+      (nomina.montoHoras50 ?? 0) +
+      (nomina.montoHoras75 ?? 0) +
+      (nomina.montoHoras100 ?? 0)
+    );
+  }, []);
+
+  const aggregatedTotals = useMemo(() => {
+    return nominas.reduce(
+      (acc, nomina) => {
+        const sueldoQuincenal = (nomina.sueldoMensual ?? 0) / 2;
+        acc.sueldoQuincenal += sueldoQuincenal;
+        acc.subtotal += nomina.subtotalQuincena ?? 0;
+        acc.horasExtra += calcularTotalHorasExtra(nomina);
+        acc.ajustes += nomina.ajuste ?? 0;
+        acc.totalDeducciones += nomina.totalDeducciones ?? 0;
+        acc.totalNeto += nomina.totalNetoPagar ?? 0;
+        return acc;
+      },
+      {
+        sueldoQuincenal: 0,
+        subtotal: 0,
+        horasExtra: 0,
+        ajustes: 0,
+        totalDeducciones: 0,
+        totalNeto: 0,
+      }
+    );
+  }, [nominas, calcularTotalHorasExtra]);
+
   // Abrir modal de edición
-  const handleOpenEditModal = (nomina: NominaDto) => {
+  const handleOpenEditModal = async (nomina: NominaDto) => {
     if (nomina.pagado === true) {
       showSnackbar("No se puede editar una nómina que ya está pagada", "error");
       return;
     }
     setCurrentNomina(nomina);
-    setEditFormData({
-      // Solo deducciones y ajustes
-      ajuste: nomina.ajuste,
-      deduccionIHSS: nomina.deduccionIHSS,
-      deduccionISR: nomina.deduccionISR,
-      deduccionRAP: nomina.deduccionRAP,
-      deduccionAlimentacion: nomina.deduccionAlimentacion,
-      cobroPrestamo: nomina.cobroPrestamo,
-      impuestoVecinal: nomina.impuestoVecinal,
-      otros: nomina.otros,
-      comentario: nomina.comentario,
-    });
+    setErrorAlimentacion(null);
+    setLoadingAlimentacion(true);
+    
+    // Obtener conteo de horas para calcular deducciones de alimentación
+    try {
+      const conteoHoras = await CalculoHorasTrabajoService.getConteoHoras(
+        nomina.empleadoId,
+        nomina.fechaInicio,
+        nomina.fechaFin
+      );
+      
+      // Si hay error en la alimentación, mostrar mensaje y permitir edición
+      if (conteoHoras.errorAlimentacion?.tieneError) {
+        setErrorAlimentacion(conteoHoras.errorAlimentacion);
+        // Si hay error, establecer el campo en 0 y habilitar edición
+        setEditFormData({
+          ajuste: nomina.ajuste,
+          deduccionIHSS: nomina.deduccionIHSS,
+          deduccionISR: nomina.deduccionISR,
+          deduccionRAP: nomina.deduccionRAP,
+          deduccionAlimentacion: 0,
+          cobroPrestamo: nomina.cobroPrestamo,
+          impuestoVecinal: nomina.impuestoVecinal,
+          otros: nomina.otros,
+          comentario: nomina.comentario,
+        });
+      } else {
+        // Si no hay error (success = true), usar el valor del conteo de horas (no editable)
+        setErrorAlimentacion(null);
+        setEditFormData({
+          ajuste: nomina.ajuste,
+          deduccionIHSS: nomina.deduccionIHSS,
+          deduccionISR: nomina.deduccionISR,
+          deduccionRAP: nomina.deduccionRAP,
+          deduccionAlimentacion: conteoHoras.deduccionesAlimentacion ?? 0,
+          cobroPrestamo: nomina.cobroPrestamo,
+          impuestoVecinal: nomina.impuestoVecinal,
+          otros: nomina.otros,
+          comentario: nomina.comentario,
+        });
+      }
+    } catch (err: any) {
+      // Error general del cálculo de horas - NO mostrar error en el campo de alimentación
+      // Solo limpiar el estado de error de alimentación
+      setErrorAlimentacion(null);
+      // Si hay error general, mantener el valor actual de la nómina
+      setEditFormData({
+        ajuste: nomina.ajuste,
+        deduccionIHSS: nomina.deduccionIHSS,
+        deduccionISR: nomina.deduccionISR,
+        deduccionRAP: nomina.deduccionRAP,
+        deduccionAlimentacion: nomina.deduccionAlimentacion,
+        cobroPrestamo: nomina.cobroPrestamo,
+        impuestoVecinal: nomina.impuestoVecinal,
+        otros: nomina.otros,
+        comentario: nomina.comentario,
+      });
+    } finally {
+      setLoadingAlimentacion(false);
+    }
+    
     setOpenEditModal(true);
   };
 
@@ -289,6 +377,8 @@ const NominasManagement: React.FC = () => {
     setOpenEditModal(false);
     setCurrentNomina(null);
     setEditFormData({});
+    setErrorAlimentacion(null);
+    setLoadingAlimentacion(false);
   };
 
   const handleCloseDetailModal = () => {
@@ -367,12 +457,7 @@ const NominasManagement: React.FC = () => {
       {/* Filtros */}
       <Paper sx={{ p: 2, mb: 3, flexShrink: 0 }}>
         <Box
-          sx={{
-            display: "flex",
-            gap: 2,
-            flexWrap: "wrap",
-            alignItems: "flex-end",
-          }}
+          sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "flex-end" }}
         >
           <Autocomplete
             options={empresas}
@@ -381,8 +466,6 @@ const NominasManagement: React.FC = () => {
             onChange={(_, value) => {
               setSelectedEmpresaId(value?.id || null);
               setSearchTerm("");
-              setSelectedYear(null);
-              setSelectedPeriodo(null);
             }}
             sx={{ minWidth: 200 }}
             renderInput={(params) => (
@@ -464,7 +547,7 @@ const NominasManagement: React.FC = () => {
       {/* Tabla */}
       <TableContainer
         component={Paper}
-        sx={{ flex: 1, minHeight: 0, overflow: "auto" }}
+        sx={{ flex: 1, minHeight: 0, overflowX: "auto" }}
       >
         {!selectedEmpresaId || !codigoNominaFiltro ? (
           <Box
@@ -493,14 +576,27 @@ const NominasManagement: React.FC = () => {
             <CircularProgress />
           </Box>
         ) : (
-          <Table stickyHeader>
+          <Table stickyHeader sx={{ minWidth: 1600 }}>
             <TableHead>
               <TableRow>
-                <TableCell>Período</TableCell>
+                <TableCell sx={{ minWidth: 220 }}>Período</TableCell>
                 <TableCell>Colaborador</TableCell>
                 <TableCell>Fecha Inicio</TableCell>
                 <TableCell>Fecha Fin</TableCell>
-                <TableCell align="right">Total Neto</TableCell>
+                <TableCell align="right">Sueldo Quincenal</TableCell>
+                <TableCell align="right">Subtotal</TableCell>
+                <TableCell align="right">Total Horas Extra</TableCell>
+                <TableCell align="right">Ajustes</TableCell>
+                <TableCell align="right">Total Percepciones</TableCell>
+                <TableCell align="right">Deducción IHSS</TableCell>
+                <TableCell align="right">Deducción ISR</TableCell>
+                <TableCell align="right">Deducción RAP</TableCell>
+                <TableCell align="right">Deducción Alimentación</TableCell>
+                <TableCell align="right">Préstamo</TableCell>
+                <TableCell align="right">Impuesto Vecinal</TableCell>
+                <TableCell align="right">Otros</TableCell>
+                <TableCell align="right">Total Deducciones</TableCell>
+                <TableCell align="right">Total a Pagar</TableCell>
                 <TableCell>Estado</TableCell>
                 <TableCell align="center">Acciones</TableCell>
               </TableRow>
@@ -508,14 +604,14 @@ const NominasManagement: React.FC = () => {
             <TableBody>
               {nominas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={20} align="center">
                     No hay nóminas registradas
                   </TableCell>
                 </TableRow>
               ) : (
                 nominas.map((nomina) => (
                   <TableRow key={nomina.id} hover>
-                    <TableCell>
+                    <TableCell sx={{ maxWidth: 260, whiteSpace: "nowrap" }}>
                       {nomina.nombrePeriodoNomina || "Sin nombre"}
                     </TableCell>
                     <TableCell>
@@ -523,6 +619,45 @@ const NominasManagement: React.FC = () => {
                     </TableCell>
                     <TableCell>{formatDate(nomina.fechaInicio)}</TableCell>
                     <TableCell>{formatDate(nomina.fechaFin)}</TableCell>
+                    <TableCell align="right">
+                      {formatCurrency((nomina.sueldoMensual ?? 0) / 2)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.subtotalQuincena)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(calcularTotalHorasExtra(nomina))}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.ajuste)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.totalPercepciones)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.deduccionIHSS)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.deduccionISR)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.deduccionRAP)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.deduccionAlimentacion)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.cobroPrestamo)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.impuestoVecinal)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.otros)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.totalDeducciones)}
+                    </TableCell>
                     <TableCell align="right">
                       {formatCurrency(nomina.totalNetoPagar)}
                     </TableCell>
@@ -575,6 +710,42 @@ const NominasManagement: React.FC = () => {
                 ))
               )}
             </TableBody>
+            {nominas.length > 0 && (
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={4} sx={{ fontWeight: 600 }}>
+                    Totales
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.sueldoQuincenal)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.subtotal)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.horasExtra)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.ajustes)}
+                  </TableCell>
+                  <TableCell />
+                  <TableCell />
+                  <TableCell />
+                  <TableCell />
+                  <TableCell />
+                  <TableCell />
+                  <TableCell />
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.totalDeducciones)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.totalNeto)}
+                  </TableCell>
+                  <TableCell />
+                  <TableCell />
+                </TableRow>
+              </TableFooter>
+            )}
           </Table>
         )}
       </TableContainer>
@@ -692,6 +863,18 @@ const NominasManagement: React.FC = () => {
                 }
                 fullWidth
                 size="small"
+                disabled={
+                  (errorAlimentacion?.tieneError !== true) ||
+                  loadingAlimentacion
+                }
+                helperText={
+                  loadingAlimentacion
+                    ? "Cargando..."
+                    : errorAlimentacion?.tieneError
+                    ? errorAlimentacion.mensajeError
+                    : undefined
+                }
+                error={errorAlimentacion?.tieneError === true}
               />
               <TextField
                 label="Cobro Préstamo"

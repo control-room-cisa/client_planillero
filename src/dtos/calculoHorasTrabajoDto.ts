@@ -67,6 +67,17 @@ export interface ConteoHorasTrabajadasDto {
     incapacidadCubreIHSSDias?: number; // E01 del día 4 en adelante
   };
   /**
+   * Deducciones de alimentación calculadas
+   */
+  deduccionesAlimentacion?: number;
+  /**
+   * Información sobre el error al obtener gastos de alimentación
+   */
+  errorAlimentacion?: {
+    tieneError: boolean;
+    mensajeError: string;
+  };
+  /**
    * Errores de validación encontrados durante el cálculo
    */
   validationErrors?: ConteoHorasValidationErrorDto;
@@ -133,7 +144,7 @@ export interface ConteoHorasProrrateoDto {
 
     deduccionesISR: number;
     deduccionesRAP: number;
-    deduccionesComida: number;
+    deduccionesAlimentacion: number;
     deduccionesIHSS: number;
     Prestamo: number;
     Total: number;

@@ -33,6 +33,7 @@ import EmpleadoService from "../../../services/empleadoService";
 import NominaService, {
   type CrearNominaDto,
 } from "../../../services/nominaService";
+import CalculoHorasTrabajoService from "../../../services/calculoHorasTrabajoService";
 import DetalleRegistrosDiariosModal from "./detalleRegistrosDiariosModal";
 
 interface NominasDashboardProps {
@@ -365,6 +366,13 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   const [inputMontoExcedenteIHSS, setInputMontoExcedenteIHSS] =
     React.useState<string>("");
 
+  // Estado para error de alimentación
+  const [errorAlimentacion, setErrorAlimentacion] = React.useState<{
+    tieneError: boolean;
+    mensajeError: string;
+  } | null>(null);
+  const [loadingAlimentacion, setLoadingAlimentacion] = React.useState(false);
+
   // Estado para controlar el modal de registros diarios
   const [modalRegistrosOpen, setModalRegistrosOpen] = React.useState(false);
 
@@ -513,37 +521,84 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     [fechaInicio, fechaFin, getNombrePeriodoNomina]
   );
 
-  // Resetear inputs al cambiar período (excepto IHSS y RAP que se manejan por separado)
+  // Resetear inputs al cambiar período (excepto IHSS, RAP y Alimentación que se manejan por separado)
   React.useEffect(() => {
     setAjuste(0);
     setMontoIncapacidadCubreEmpresa(0);
     setMontoExcedenteIHSS(0);
     setDeduccionISR(0);
-    setDeduccionAlimentacion(0);
+    // deduccionAlimentacion NO se resetea aquí - se carga desde el servicio
     setCobroPrestamo(0);
     setImpuestoVecinal(0);
     setOtros(0);
     setComentario("");
-    // Resetear también los inputs string (excepto IHSS y RAP)
+    // Resetear también los inputs string (excepto IHSS, RAP y Alimentación)
     setInputAjuste("");
     setInputMontoIncapacidadEmpresa("");
     setInputMontoExcedenteIHSS("");
     setInputDeduccionISR("");
-    setInputDeduccionAlimentacion("");
+    // inputDeduccionAlimentacion NO se resetea aquí - se carga desde el servicio
     setInputCobroPrestamo("");
     setInputImpuestoVecinal("");
     setInputOtros("");
+    // Resetear error de alimentación al cambiar período
+    setErrorAlimentacion(null);
   }, [fechaInicio, fechaFin]);
 
   React.useEffect(() => {
     if (isPrimeraQuincena) {
       setDeduccionISR(0);
-      setDeduccionAlimentacion(0);
+      // deduccionAlimentacion NO se resetea - se aplica en todas las quincenas
       setCobroPrestamo(0);
       setImpuestoVecinal(0);
       setOtros(0);
     }
   }, [isPrimeraQuincena]);
+
+  // Cargar deducciones de alimentación cuando se obtiene el resumen de horas
+  React.useEffect(() => {
+    const cargarDeduccionAlimentacion = async () => {
+      if (!empleado?.id || !fechaInicio || !fechaFin || !rangoValido) {
+        return;
+      }
+
+      setLoadingAlimentacion(true);
+      setErrorAlimentacion(null);
+
+      try {
+        const conteoHoras = await CalculoHorasTrabajoService.getConteoHoras(
+          empleado.id,
+          fechaInicio,
+          fechaFin
+        );
+
+        // Solo manejar el error específico de alimentación que viene en el objeto
+        if (conteoHoras.errorAlimentacion?.tieneError) {
+          setErrorAlimentacion(conteoHoras.errorAlimentacion);
+          // Si hay error, establecer el campo en 0 y habilitar edición
+          setDeduccionAlimentacion(0);
+          setInputDeduccionAlimentacion("");
+        } else {
+          // Si no hay error (success = true), usar el valor calculado (no editable)
+          const valorCalculado = conteoHoras.deduccionesAlimentacion ?? 0;
+          setDeduccionAlimentacion(valorCalculado);
+          setInputDeduccionAlimentacion(
+            valorCalculado > 0 ? String(valorCalculado) : ""
+          );
+          setErrorAlimentacion(null);
+        }
+      } catch (err: any) {
+        // Error general del cálculo de horas - NO mostrar error en el campo de alimentación
+        // Solo limpiar el estado de error de alimentación
+        setErrorAlimentacion(null);
+        // No cambiar el valor del input, mantener el valor actual
+      } finally {
+        setLoadingAlimentacion(false);
+      }
+    };
+
+    cargarDeduccionAlimentacion();
+  }, [empleado?.id, fechaInicio, fechaFin, rangoValido]);
 
   // Crear nómina
   // Bloqueo por errores de validación (no se puede procesar la nómina)
@@ -1760,6 +1815,18 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                   setInputDeduccionAlimentacion(sanitized);
                   setDeduccionAlimentacion(parseDecimalValue(sanitized));
                 }}
+                disabled={
+                  (errorAlimentacion?.tieneError !== true) ||
+                  loadingAlimentacion
+                }
+                helperText={
+                  loadingAlimentacion
+                    ? "Cargando..."
+                    : errorAlimentacion?.tieneError
+                    ? errorAlimentacion.mensajeError
+                    : undefined
+                }
+                error={errorAlimentacion?.tieneError === true}
               />
               <TextField
                 label="(+) Ajuste"
