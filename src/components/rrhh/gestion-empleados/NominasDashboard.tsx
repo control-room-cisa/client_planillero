@@ -18,12 +18,23 @@ import {
   Select,
   MenuItem,
   InputLabel,
+  InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
 } from "@mui/material";
 import {
   NavigateBefore as NavigateBeforeIcon,
   NavigateNext as NavigateNextIcon,
 } from "@mui/icons-material";
 import { ArrowBack as ArrowBackIcon } from "@mui/icons-material";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
 import type { Empleado } from "../../../services/empleadoService";
 import type { EmpleadoIndexItem, LayoutOutletCtx } from "../../Layout";
@@ -35,6 +46,7 @@ import NominaService, {
 } from "../../../services/nominaService";
 import CalculoHorasTrabajoService from "../../../services/calculoHorasTrabajoService";
 import DetalleRegistrosDiariosModal from "./detalleRegistrosDiariosModal";
+import type { DeduccionAlimentacionDetalleDto } from "../../../dtos/calculoHorasTrabajoDto";
 
 interface NominasDashboardProps {
   empleado?: Empleado;
@@ -263,8 +275,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   const diasPermisoCS = conteoDias?.permisoConSueldo ?? 0; // justificado
   const diasIncapacidadCubreEmpresa =
     conteoDias?.incapacidadCubreEmpresaDias ?? 0;
-  const diasIncapacidadCubreIHSS =
-    conteoDias?.incapacidadCubreIHSSDias ?? 0;
+  const diasIncapacidadCubreIHSS = conteoDias?.incapacidadCubreIHSSDias ?? 0;
 
   const salarioQuincenal = React.useMemo(
     () => (sueldoMensual || 0) / 2,
@@ -274,16 +285,12 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     () => (sueldoMensual || 0) / (30 * 8),
     [sueldoMensual]
   );
-  const fMon = React.useMemo(
-    () =>
-      new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "HNL",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }),
-    []
-  );
+  const formatCurrency = React.useCallback((valor: number) => {
+    return `${(valor || 0).toLocaleString("es-HN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} L`;
+  }, []);
 
   const montoDiasLaborados =
     (diasLaborados / (periodoNomina || 15)) * salarioQuincenal;
@@ -372,6 +379,10 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     mensajeError: string;
   } | null>(null);
   const [loadingAlimentacion, setLoadingAlimentacion] = React.useState(false);
+  const [detalleDeduccionAlimentacion, setDetalleDeduccionAlimentacion] =
+    React.useState<DeduccionAlimentacionDetalleDto[]>([]);
+  const [modalDetalleAlimentacionOpen, setModalDetalleAlimentacionOpen] =
+    React.useState(false);
 
   // Estado para controlar el modal de registros diarios
   const [modalRegistrosOpen, setModalRegistrosOpen] = React.useState(false);
@@ -456,6 +467,15 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     (otros || 0);
 
   const totalNetoPagar = (totalPercepciones || 0) - (totalDeducciones || 0);
+
+  const totalDetalleAlimentacion = React.useMemo(
+    () =>
+      detalleDeduccionAlimentacion.reduce(
+        (acum, item) => acum + (item.precio || 0),
+        0
+      ),
+    [detalleDeduccionAlimentacion]
+  );
 
   // Toast (MUI Snackbar)
   const [toastOpen, setToastOpen] = React.useState(false);
@@ -559,11 +579,14 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   React.useEffect(() => {
     const cargarDeduccionAlimentacion = async () => {
       if (!empleado?.id || !fechaInicio || !fechaFin || !rangoValido) {
+        setDetalleDeduccionAlimentacion([]);
+        setModalDetalleAlimentacionOpen(false);
         return;
       }
 
       setLoadingAlimentacion(true);
       setErrorAlimentacion(null);
+      setModalDetalleAlimentacionOpen(false);
 
       try {
         const conteoHoras = await CalculoHorasTrabajoService.getConteoHoras(
@@ -578,6 +601,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
           // Si hay error, establecer el campo en 0 y habilitar edición
           setDeduccionAlimentacion(0);
           setInputDeduccionAlimentacion("");
+          setDetalleDeduccionAlimentacion([]);
         } else {
           // Si no hay error (success = true), usar el valor calculado (no editable)
           const valorCalculado = conteoHoras.deduccionesAlimentacion ?? 0;
@@ -586,11 +610,15 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
             valorCalculado > 0 ? String(valorCalculado) : ""
           );
           setErrorAlimentacion(null);
+          setDetalleDeduccionAlimentacion(
+            conteoHoras.deduccionesAlimentacionDetalle ?? []
+          );
         }
       } catch (err: any) {
         // Error general del cálculo de horas - NO mostrar error en el campo de alimentación
         // Solo limpiar el estado de error de alimentación
         setErrorAlimentacion(null);
+        setDetalleDeduccionAlimentacion([]);
         // No cambiar el valor del input, mantener el valor actual
       } finally {
         setLoadingAlimentacion(false);
@@ -1394,18 +1422,20 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                   <strong>Sueldo Mensual:</strong>{" "}
-                  {fMon.format(empleado.sueldoMensual ?? 0) ?? "—"}
+                  {empleado?.sueldoMensual != null
+                    ? formatCurrency(empleado.sueldoMensual)
+                    : "—"}
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                   <strong>Sueldo Quincenal:</strong>{" "}
                   {empleado?.sueldoMensual != null
-                    ? fMon.format(empleado.sueldoMensual / 2)
+                    ? formatCurrency(empleado.sueldoMensual / 2)
                     : "—"}
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                   <strong>Sueldo por hora:</strong>{" "}
                   {Number.isFinite(Number(empleado?.sueldoMensual))
-                    ? fMon.format(Number(empleado!.sueldoMensual) / 240)
+                    ? formatCurrency(Number(empleado!.sueldoMensual) / 240)
                     : "—"}
                 </Typography>
               </Box>
@@ -1574,7 +1604,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                       <strong>Monto días laborados:</strong>
                     </Typography>
                     <Typography variant="body1">
-                      {fMon.format(montoDiasLaborados || 0)}
+                      {formatCurrency(montoDiasLaborados || 0)}
                     </Typography>
                   </Box>
                   <Box
@@ -1588,7 +1618,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                       <strong>Monto vacaciones:</strong>
                     </Typography>
                     <Typography variant="body1">
-                      {fMon.format(montoVacaciones || 0)}
+                      {formatCurrency(montoVacaciones || 0)}
                     </Typography>
                   </Box>
                   <Box
@@ -1602,7 +1632,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                       <strong>Monto incapacidad cubre empresa:</strong>
                     </Typography>
                     <Typography variant="body1">
-                      {fMon.format(montoCubreEmpresa || 0)}
+                      {formatCurrency(montoCubreEmpresa || 0)}
                     </Typography>
                   </Box>
                   <Box
@@ -1616,7 +1646,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                       <strong>Subtotal:</strong>
                     </Typography>
                     <Typography variant="body1">
-                      {fMon.format(subtotalQuincena || 0)}
+                      {formatCurrency(subtotalQuincena || 0)}
                     </Typography>
                   </Box>
                 </Box>
@@ -1649,7 +1679,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                       <strong>Monto por permisos justificados:</strong>
                     </Typography>
                     <Typography variant="body1">
-                      {fMon.format(montoPermisosJustificados || 0)}
+                      {formatCurrency(montoPermisosJustificados || 0)}
                     </Typography>
                   </Box>
                   <Box
@@ -1735,7 +1765,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
               p75: montoHoras75,
               p100: montoHoras100,
             }}
-            currencyFormatter={(n: number) => fMon.format(n || 0)}
+            currencyFormatter={(n: number) => formatCurrency(n || 0)}
             horasNormales={horasNormales}
           />
         </Box>
@@ -1815,10 +1845,23 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                   setInputDeduccionAlimentacion(sanitized);
                   setDeduccionAlimentacion(parseDecimalValue(sanitized));
                 }}
-                disabled={
-                  (errorAlimentacion?.tieneError !== true) ||
-                  loadingAlimentacion
-                }
+                InputProps={{
+                  readOnly: errorAlimentacion?.tieneError !== true,
+                  endAdornment:
+                    !loadingAlimentacion &&
+                    errorAlimentacion?.tieneError !== true ? (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          aria-label="Ver detalle de deducción de alimentación"
+                          onClick={() => setModalDetalleAlimentacionOpen(true)}
+                        >
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : undefined,
+                }}
+                disabled={loadingAlimentacion}
                 helperText={
                   loadingAlimentacion
                     ? "Cargando..."
@@ -1881,7 +1924,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                 }}
               />
               <TextField
-                label={`(-) Deducción RAP (1.5% excedente sobre ${fMon.format(
+                label={`(-) Deducción RAP (1.5% excedente sobre ${formatCurrency(
                   PISO_IHSS
                 )})`}
                 type="text"
@@ -1922,7 +1965,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                   <strong>Total Percepciones:</strong>
                 </Typography>
                 <Typography variant="body1">
-                  {fMon.format(totalPercepciones)}
+                  {formatCurrency(totalPercepciones)}
                 </Typography>
               </Box>
               <Box
@@ -1933,7 +1976,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                   <strong>Total Deducciones:</strong>
                 </Typography>
                 <Typography variant="body1">
-                  {fMon.format(totalDeducciones)}
+                  {formatCurrency(totalDeducciones)}
                 </Typography>
               </Box>
               <Box sx={{ display: "flex", justifyContent: "space-between" }}>
@@ -1941,7 +1984,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                   <strong>Total Neto a Pagar:</strong>
                 </Typography>
                 <Typography variant="body1">
-                  {fMon.format(totalNetoPagar)}
+                  {formatCurrency(totalNetoPagar)}
                 </Typography>
               </Box>
             </Box>
@@ -1984,6 +2027,65 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         fechaInicio={fechaInicio}
         fechaFin={fechaFin}
       />
+      <Dialog
+        open={modalDetalleAlimentacionOpen}
+        onClose={() => setModalDetalleAlimentacionOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Detalle de deducción de alimentación</DialogTitle>
+        <DialogContent dividers>
+          {detalleDeduccionAlimentacion.length > 0 ? (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Tipo</TableCell>
+                  <TableCell>Fecha</TableCell>
+                  <TableCell align="right">Costo</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {detalleDeduccionAlimentacion.map((item, index) => (
+                  <TableRow key={`${item.fecha}-${index}`}>
+                    <TableCell>{item.producto || "N/D"}</TableCell>
+                    <TableCell>
+                      {new Date(item.fecha).toLocaleDateString("es-HN", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(item.precio || 0)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow>
+                  <TableCell colSpan={2}>
+                    <Typography variant="subtitle2" fontWeight={600}>
+                      Total
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="subtitle2" fontWeight={600}>
+                      {formatCurrency(totalDetalleAlimentacion)}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No se registran consumos de alimentación para este período.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setModalDetalleAlimentacionOpen(false)}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

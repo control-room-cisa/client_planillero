@@ -26,6 +26,12 @@ export interface ConteoHorasValidationErrorDto {
   fechasSinRegistro: string[]; // Fechas que no tienen registro diario creado
 }
 
+export interface DeduccionAlimentacionDetalleDto {
+  producto: string;
+  precio: number;
+  fecha: string;
+}
+
 /**
  * Conteo de horas trabajadas por un empleado en un período
  */
@@ -70,6 +76,10 @@ export interface ConteoHorasTrabajadasDto {
    * Deducciones de alimentación calculadas
    */
   deduccionesAlimentacion?: number;
+  /**
+   * Detalle de las deducciones de alimentación
+   */
+  deduccionesAlimentacionDetalle?: DeduccionAlimentacionDetalleDto[];
   /**
    * Información sobre el error al obtener gastos de alimentación
    */
