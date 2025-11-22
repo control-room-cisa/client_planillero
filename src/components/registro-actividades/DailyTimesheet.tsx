@@ -188,7 +188,8 @@ const DailyTimesheet: React.FC = () => {
 
   // === NUEVO: bandera de horario H2 ===
   const isH2 = horarioValidado?.tipoHorario === "H2";
-  const isH1 = horarioValidado?.tipoHorario === "H1";
+  // Helper para verificar si es H1, H1_1 o H1_2
+  const isH1 = ["H1", "H1_1", "H1_2"].includes(horarioValidado?.tipoHorario || "");
 
   // ===== Helpers de tiempo =====
   const timeToMinutes = (time: string): number => {
@@ -686,11 +687,11 @@ const DailyTimesheet: React.FC = () => {
           console.log("[DEBUG] prev esDiaLibre:", prev.esDiaLibre);
           console.log("[DEBUG] base esDiaLibre:", base.esDiaLibre);
 
-          // Para H1: siempre usar horas del horario de la API (no editables)
+          // Para H1, H1_1, H1_2: siempre usar horas del horario de la API (no editables)
           // Para H2: conservar horas del registro guardado (editables)
           if (datosExistentes && registro) {
-            if (horarioData.tipoHorario === "H1") {
-              // H1: usar horas de la API, ignorar las del registro
+            if (["H1", "H1_1", "H1_2"].includes(horarioData.tipoHorario)) {
+              // H1, H1_1, H1_2: usar horas de la API, ignorar las del registro
               // PERO conservar esDiaLibre si viene del horario de la API
               return {
                 ...base,
@@ -1008,10 +1009,10 @@ const DailyTimesheet: React.FC = () => {
         }
       }
 
-      // Si es H1 y el horario indica que es día libre, respetar ese valor aunque esté deshabilitado
-      // Para H1, el día libre viene del API y se marca automáticamente (domingos, feriados, etc.)
+      // Si es H1, H1_1 o H1_2 y el horario indica que es día libre, respetar ese valor aunque esté deshabilitado
+      // Para H1, H1_1, H1_2, el día libre viene del API y se marca automáticamente (domingos, feriados, etc.)
       const esDiaLibreFinal = isH1
-        ? dayConfigData.esDiaLibre // Para H1, siempre usar el valor de dayConfigData (viene del API)
+        ? dayConfigData.esDiaLibre // Para H1, H1_1, H1_2, siempre usar el valor de dayConfigData (viene del API)
         : horasCero
         ? false
         : dayConfigData.esDiaLibre;
@@ -1611,7 +1612,7 @@ const DailyTimesheet: React.FC = () => {
   const canAddExtraHours = horasNormales === 0 || progressPercentage >= 100;
   // === NUEVO: bloquear checkbox Hora Corrida cuando es H2 ===
   const disableHoraCorrida =
-    isH2 || (horasNormales === 0 && horarioValidado?.tipoHorario === "H1");
+    isH2 || (horasNormales === 0 && isH1);
 
   // Estado del registro diario
   const hasDayRecord = Boolean(registroDiario);
@@ -1619,7 +1620,7 @@ const DailyTimesheet: React.FC = () => {
   const forceExtra = horasNormales === 0;
   const horasCero = horasNormales === 0;
 
-  // Lógica para H1: controlar checkbox Hora Extra automáticamente según progreso
+  // Lógica para H1, H1_1, H1_2: controlar checkbox Hora Extra automáticamente según progreso
   const shouldForceExtraH1 = isH1 && !editingActivity;
   const isH1ProgressComplete = isH1 && progressPercentage >= 100;
   const isH1ProgressIncomplete = isH1 && progressPercentage < 100;
@@ -1667,7 +1668,7 @@ const DailyTimesheet: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.horaInicio, formData.horaFin]);
 
-  // Efecto para controlar automáticamente el checkbox "Hora Extra" en H1
+  // Efecto para controlar automáticamente el checkbox "Hora Extra" en H1, H1_1, H1_2
   React.useEffect(() => {
     if (shouldForceExtraH1 && drawerOpen) {
       setFormData((prev) => {

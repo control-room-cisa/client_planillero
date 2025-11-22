@@ -134,6 +134,8 @@ export class HorarioValidator {
   ): HorarioValidationResult {
     switch (tipoHorario) {
       case "H1":
+      case "H1_1":
+      case "H1_2":
         return this.validateH1(horario, datosExistentes);
       case "H2":
         return this.validateH2(horario, datosExistentes);

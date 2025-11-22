@@ -5,6 +5,8 @@ import type { FieldName, HorarioFormRulesConfig, HorarioRuleEngine } from "./int
 
 const registry = new Map<string, HorarioRuleEngine>([
   [H1Rules.type, H1Rules],
+  ["H1_1", H1Rules], // H1_1 usa las mismas reglas que H1
+  ["H1_2", H1Rules], // H1_2 usa las mismas reglas que H1
   [H2Rules.type, H2Rules],
   [DefaultRules.type, DefaultRules],
 ]);
