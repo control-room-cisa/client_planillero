@@ -478,15 +478,8 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   <MenuItem value="" disabled>
                     <em>Seleccionar horario</em>
                   </MenuItem>
-                  <MenuItem value="H1">H1 Lunes a Viernes 9 y 8 horas</MenuItem>
-                  <MenuItem value="H2">H2 7x7 Control room</MenuItem>
-                  <MenuItem value="H3">H3 21x7</MenuItem>
-                  <MenuItem value="H4">
-                    H4 Lunes a viernes Control room
-                  </MenuItem>
-                  <MenuItem value="H5">H5 10h cocina</MenuItem>
-                  <MenuItem value="H6">H6 </MenuItem>
-                  <MenuItem value="H7">H7</MenuItem>
+                  <MenuItem value="H1_1">Normal L-V</MenuItem>
+                  <MenuItem value="H1_2">Martes a Sábado</MenuItem>
                 </Select>
                 {fieldErrors.tipoHorario && (
                   <Typography

@@ -163,7 +163,11 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
                   </Typography>
                   <Typography>
                     <strong>Tipo de Horario:</strong>{" "}
-                    {empleado.tipoHorario || "N/A"}
+                    {empleado.tipoHorario === "H1_1"
+                      ? "Normal L-V"
+                      : empleado.tipoHorario === "H1_2"
+                      ? "Martes a Sábado"
+                      : empleado.tipoHorario || "N/A"}
                   </Typography>
                   <Typography>
                     <strong>Tipo de Contrato:</strong>{" "}
