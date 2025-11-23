@@ -14,11 +14,8 @@ export const H2Rules: HorarioRuleEngine = {
       comentarioEmpleado: { visible: true, enabled: true, required: false },
     },
     calculateNormalHours: (formData, apiData, ctx) => {
-      if (apiData?.cantidadHorasLaborables != null) return apiData.cantidadHorasLaborables;
-      // Regla especial H2: martes de jornada nocturna = 6h
-      const now = ctx?.now || new Date();
-      if (formData?.jornada === "N" && now.getDay() === 2) return 6;
-      if (!formData?.horaEntrada || !formData?.horaSalida) return 8;
+      if (formData?.esDiaLibre || apiData?.esFestivo) return 0;
+      if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
       const timeToMinutes = (t: string) => {
         const [h, m] = t.split(":").map(Number);
         return h * 60 + m;
@@ -32,8 +29,15 @@ export const H2Rules: HorarioRuleEngine = {
     processApiDefaults: (prev, apiData, hasExisting) => {
       const next = { ...prev };
       if (!hasExisting) {
-        next.jornada = "D";
-        next.esDiaLibre = false;
+        next.esDiaLibre = Boolean(apiData?.esDiaLibre);
+        if (!next.jornada) next.jornada = "D";
+        if (next.jornada === "D") {
+          next.horaEntrada = "07:00";
+          next.horaSalida = "19:00";
+        } else if (next.jornada === "N") {
+          next.horaEntrada = next.horaEntrada || "19:00";
+          next.horaSalida = next.horaSalida || "07:00";
+        }
       }
       if (!prev.horaEntrada && apiData?.horarioTrabajo?.inicio) next.horaEntrada = apiData.horarioTrabajo.inicio;
       if (!prev.horaSalida && apiData?.horarioTrabajo?.fin) next.horaSalida = apiData.horarioTrabajo.fin;

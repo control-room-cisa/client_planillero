@@ -1422,6 +1422,8 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                     ? "Normal L-V"
                     : empleado.tipoHorario === "H1_2"
                     ? "Martes a Sábado"
+                    : empleado.tipoHorario === "H2"
+                    ? "Turnos 7x7"
                     : empleado.tipoHorario ?? "—"}
                 </Typography>
                 <Typography variant="body1" gutterBottom>

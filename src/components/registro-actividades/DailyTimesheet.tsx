@@ -190,11 +190,18 @@ const DailyTimesheet: React.FC = () => {
   const isH2 = horarioValidado?.tipoHorario === "H2";
   // Helper para verificar si es H1, H1_1 o H1_2
   const isH1 = ["H1", "H1_1", "H1_2"].includes(horarioValidado?.tipoHorario || "");
+  const isHoliday = Boolean(horarioData?.esFestivo || horarioValidado?.esFestivo);
 
   // ===== Helpers de tiempo =====
   const timeToMinutes = (time: string): number => {
     const [h, m] = time.split(":").map(Number);
     return h * 60 + m;
+  };
+
+  const minutesToHHMM = (minutes: number): string => {
+    const h = Math.floor(minutes / 60) % 24;
+    const m = minutes % 60;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
   };
 
   // Función para validar formato de hora (incluyendo 24:00)
@@ -318,6 +325,48 @@ const DailyTimesheet: React.FC = () => {
 
   const intervalOverlap = (a1: number, a2: number, b1: number, b2: number) =>
     Math.max(0, Math.min(a2, b2) - Math.max(a1, b1));
+
+  const getH2Schedule = React.useCallback(
+    (jornadaValue?: string | null, targetDate?: Date) => {
+      if (jornadaValue === "D") {
+        return { horaEntrada: "07:00", horaSalida: "19:00" };
+      }
+      if (jornadaValue === "N") {
+        const referenceDate = targetDate ?? currentDate;
+        const day = referenceDate.getDay(); // 0 = domingo, 2 = martes
+        if (day === 2) {
+          return { horaEntrada: "00:00", horaSalida: "07:00" };
+        }
+        return { horaEntrada: "19:00", horaSalida: "07:00" };
+      }
+      return null;
+    },
+    [currentDate]
+  );
+
+  const getDefaultHorario = React.useCallback(
+    (jornadaValue?: string | null) => {
+      if (horarioValidado?.tipoHorario === "H2") {
+        return (
+          getH2Schedule(
+            jornadaValue && jornadaValue !== "" ? jornadaValue : "D",
+            currentDate
+          ) || { horaEntrada: "07:00", horaSalida: "19:00" }
+        );
+      }
+      return {
+        horaEntrada: horarioValidado?.horaInicio || "07:00",
+        horaSalida: horarioValidado?.horaFin || "17:00",
+      };
+    },
+    [
+      currentDate,
+      getH2Schedule,
+      horarioValidado?.horaFin,
+      horarioValidado?.horaInicio,
+      horarioValidado?.tipoHorario,
+    ]
+  );
 
   // ===== Helpers de validación/cálculo =====
 
@@ -461,33 +510,53 @@ const DailyTimesheet: React.FC = () => {
     formatHours(computeHorasActividadForDisplayNum(act));
 
   // === NUEVO: helpers para validar actividades vs. nuevo rango del día ===
+  const buildIntervals = (start: number, end: number) => {
+    if (end >= start) return [[start, end]];
+    return [
+      [0, end],
+      [start, 24 * 60],
+    ];
+  };
+
   const getBoundsFromHHMM = (entrada: string, salida: string) => {
     const start = timeToMinutes(entrada);
     let end = timeToMinutes(salida);
     const crossesMidnight = end <= start;
+    const intervals = buildIntervals(start, end);
     if (crossesMidnight) end += 1440;
-    return { dayStart: start, dayEnd: end, crossesMidnight };
+    return { dayStart: start, dayEnd: end, crossesMidnight, intervals };
+  };
+
+  const splitActivityIntervals = (
+    startMin: number,
+    endMin: number
+  ): Array<[number, number]> => {
+    if (endMin >= startMin) return [[startMin, endMin]];
+    return [
+      [startMin, 24 * 60],
+      [0, endMin],
+    ];
   };
 
   const isActivityOutsideRange = (
     act: Activity,
-    dayStart: number,
-    dayEnd: number,
-    crossesMidnight: boolean
+    intervals: Array<[number, number]>
   ) => {
     if (!act.horaInicio || !act.horaFin) return false;
     const sHM = formatTimeLocal(act.horaInicio);
     const eHM = formatTimeLocal(act.horaFin);
 
-    let s = normalizeToDaySpan(timeToMinutes(sHM), dayStart, crossesMidnight);
-    let e = normalizeToDaySpan(
-      eHM === "24:00" ? 1440 : timeToMinutes(eHM),
-      dayStart,
-      crossesMidnight
+    const activityIntervals = splitActivityIntervals(
+      timeToMinutes(sHM),
+      eHM === "24:00" ? 24 * 60 : timeToMinutes(eHM)
     );
-    if (e <= s) e += 1440;
 
-    return s < dayStart || e > dayEnd;
+    const isSegmentInside = (segStart: number, segEnd: number) =>
+      intervals.some(([intStart, intEnd]) => segStart >= intStart && segEnd <= intEnd);
+
+    return activityIntervals.some(
+      ([segStart, segEnd]) => !isSegmentInside(segStart, segEnd)
+    );
   };
 
   // Usar ref para evitar bucle infinito en el efecto de redirección
@@ -907,7 +976,14 @@ const DailyTimesheet: React.FC = () => {
 
     let finalValue = type === "checkbox" ? checked : value;
 
-    if ((name === "esDiaLibre" || name === "esHoraCorrida") && horasCero) {
+    if (name === "esHoraCorrida" && horasCero) {
+      return;
+    }
+
+    if (
+      isHoliday &&
+      (name === "horaEntrada" || name === "horaSalida")
+    ) {
       return;
     }
 
@@ -919,9 +995,68 @@ const DailyTimesheet: React.FC = () => {
       finalValue = roundToQuarterHour(value);
     }
 
-    setDayConfigData((prev) =>
-      horarioRules.utils.onFieldChange(name as any, finalValue, prev)
-    );
+    setDayConfigData((prev) => {
+      let next = horarioRules.utils.onFieldChange(
+        name as any,
+        finalValue,
+        prev,
+        horarioValidado
+      );
+
+      if (horarioValidado?.tipoHorario === "H2") {
+        if (name === "esDiaLibre") {
+          if (finalValue) {
+            next = {
+              ...next,
+              jornada: "",
+              horaEntrada: "07:00",
+              horaSalida: "07:00",
+            };
+          } else {
+            const schedule = getDefaultHorario(prev.jornada || "D");
+            next = {
+              ...next,
+              jornada: prev.jornada || "D",
+              horaEntrada: schedule.horaEntrada,
+              horaSalida: schedule.horaSalida,
+            };
+          }
+        } else if (
+          name === "jornada" &&
+          typeof finalValue === "string" &&
+          finalValue &&
+          !next.esDiaLibre
+        ) {
+          const schedule = getH2Schedule(finalValue, currentDate);
+          if (schedule) {
+            next = {
+              ...next,
+              horaEntrada: schedule.horaEntrada,
+              horaSalida: schedule.horaSalida,
+            };
+          }
+        }
+      } else if (name === "esDiaLibre") {
+        const defaults = getDefaultHorario(prev.jornada || "D");
+        if (finalValue) {
+          next = {
+            ...next,
+            jornada: "",
+            horaEntrada: defaults.horaEntrada,
+            horaSalida: defaults.horaEntrada,
+          };
+        } else {
+          next = {
+            ...next,
+            jornada: prev.jornada || "D",
+            horaEntrada: defaults.horaEntrada,
+            horaSalida: defaults.horaSalida,
+          };
+        }
+      }
+
+      return next;
+    });
 
     if (dayConfigErrors[name])
       setDayConfigErrors((prev) => ({ ...prev, [name]: "" }));
@@ -982,6 +1117,7 @@ const DailyTimesheet: React.FC = () => {
           dayStart: newStart,
           dayEnd: newEnd,
           crossesMidnight: newCross,
+          intervals: newIntervals,
         } = getBoundsFromHHMM(
           dayConfigData.horaEntrada,
           dayConfigData.horaSalida
@@ -993,7 +1129,7 @@ const DailyTimesheet: React.FC = () => {
           .map((act, idx) => ({
             idx,
             act,
-            outside: isActivityOutsideRange(act, newStart, newEnd, newCross),
+            outside: isActivityOutsideRange(act, newIntervals),
           }))
           .filter((x) => x.outside);
 
@@ -1291,43 +1427,34 @@ const DailyTimesheet: React.FC = () => {
         finMin += 1440;
       }
 
-      // Validar "fuera del horario" SOLO si hay horario laboral (>0h)
       const shouldValidateOutside =
         formData.horaExtra &&
         !(dayConfigData.horaEntrada === dayConfigData.horaSalida);
 
       if (shouldValidateOutside) {
-        // Manejar turno nocturno
-        const esTurnoNoche = entradaMin > salidaMin;
+        const laborIntervalsForValidation = buildIntervals(
+          entradaMin,
+          salidaMin
+        );
+        const activityIntervalsForValidation = splitActivityIntervals(
+          inicioMin,
+          formData.horaFin === "24:00" ? 1440 : timeToMinutes(formData.horaFin)
+        );
 
-        // Verificar que la actividad esté completamente fuera del horario laboral
-        let estaFuera = false;
+        const overlapsSchedule = activityIntervalsForValidation.some(
+          ([segStart, segEnd]) =>
+            laborIntervalsForValidation.some(
+              ([intStart, intEnd]) =>
+                segStart < intEnd && segEnd > intStart
+            )
+        );
 
-        if (esTurnoNoche) {
-          // Para turno nocturno: intervalos válidos son [00:00, salidaMin] y [entradaMin, 23:59]
-          // Las actividades extra deben estar entre salidaMin y entradaMin
-          const finEnMismoDia = finMin <= 1440 ? finMin : finMin - 1440;
-
-          // Caso 1: Actividad completamente en el período permitido del mismo día
-          const enPeriodoPermitido =
-            (inicioMin >= salidaMin && finEnMismoDia <= entradaMin) ||
-            (inicioMin >= salidaMin &&
-              inicioMin < 1440 &&
-              finMin > 1440 &&
-              finMin - 1440 <= entradaMin);
-
-          estaFuera = enPeriodoPermitido;
-        } else {
-          // Para turno normal, debe estar antes de entrada o después de salida
-          estaFuera = finMin <= entradaMin || inicioMin >= salidaMin;
-        }
-
-        if (!estaFuera) {
-          const rangoPermitido = esTurnoNoche
-            ? `entre ${dayConfigData.horaSalida} y ${dayConfigData.horaEntrada}`
-            : `antes de ${dayConfigData.horaEntrada} o después de ${dayConfigData.horaSalida}`;
-          errors.horaInicio = `La hora extra debe estar ${rangoPermitido}`;
-          errors.horaFin = `La hora extra debe estar ${rangoPermitido}`;
+        if (overlapsSchedule) {
+          const rangoPermitido = laborIntervalsForValidation
+            .map(([start, end]) => `${minutesToHHMM(start)}-${minutesToHHMM(end)}`)
+            .join(" y ");
+          errors.horaInicio = `La hora extra debe estar fuera del horario laboral (${rangoPermitido})`;
+          errors.horaFin = `La hora extra debe estar fuera del horario laboral (${rangoPermitido})`;
         }
       }
 
@@ -1613,6 +1740,11 @@ const DailyTimesheet: React.FC = () => {
   // === NUEVO: bloquear checkbox Hora Corrida cuando es H2 ===
   const disableHoraCorrida =
     isH2 || (horasNormales === 0 && isH1);
+  const disableTimeFields = dayConfigData.esDiaLibre || isHoliday;
+
+  const exceededNormalHours =
+    horasNormales > 0 ? Math.max(0, workedHoursNormales - horasNormales) : 0;
+  const hasExceededNormalHours = exceededNormalHours > 0;
 
   // Estado del registro diario
   const hasDayRecord = Boolean(registroDiario);
@@ -1637,6 +1769,44 @@ const DailyTimesheet: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [horasCero, dayConfigData.horaEntrada, dayConfigData.horaSalida]);
+
+  React.useEffect(() => {
+    if (horarioValidado?.tipoHorario !== "H2") return;
+    setDayConfigData((prev) => {
+      if (prev.esDiaLibre) {
+        if (
+          prev.horaEntrada === "07:00" &&
+          prev.horaSalida === "07:00" &&
+          prev.jornada === ""
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          horaEntrada: "07:00",
+          horaSalida: "07:00",
+          jornada: "",
+        };
+      }
+
+      if (!prev.jornada) return prev;
+
+      const schedule = getH2Schedule(prev.jornada, currentDate);
+      if (!schedule) return prev;
+      if (
+        prev.horaEntrada === schedule.horaEntrada &&
+        prev.horaSalida === schedule.horaSalida
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        horaEntrada: schedule.horaEntrada,
+        horaSalida: schedule.horaSalida,
+      };
+    });
+  }, [currentDate, getH2Schedule, horarioValidado?.tipoHorario]);
 
   // Recalcular horasInvertidas cuando cambia hora corrida / entrada / salida
   React.useEffect(() => {
@@ -1914,6 +2084,7 @@ const DailyTimesheet: React.FC = () => {
               disabled={
                 readOnly ||
                 initialLoading ||
+                disableTimeFields ||
                 !horarioRules.utils.isFieldEnabled("horaEntrada")
               }
               fullWidth
@@ -1939,6 +2110,7 @@ const DailyTimesheet: React.FC = () => {
               disabled={
                 readOnly ||
                 initialLoading ||
+                disableTimeFields ||
                 !horarioRules.utils.isFieldEnabled("horaSalida")
               }
               fullWidth
@@ -1976,6 +2148,7 @@ const DailyTimesheet: React.FC = () => {
                   disabled={
                     readOnly ||
                     initialLoading ||
+                    dayConfigData.esDiaLibre ||
                     !horarioRules.utils.isFieldEnabled("jornada")
                   }
                   name="jornada"
@@ -2004,7 +2177,6 @@ const DailyTimesheet: React.FC = () => {
                       disabled={
                         readOnly ||
                         initialLoading ||
-                        horasCero ||
                         !horarioRules.utils.isFieldEnabled("esDiaLibre")
                       }
                       name="esDiaLibre"
@@ -2101,6 +2273,7 @@ const DailyTimesheet: React.FC = () => {
             <LinearProgress
               variant="determinate"
               value={progressPercentage}
+              color={hasExceededNormalHours ? "error" : "primary"}
               sx={{
                 height: 8,
                 borderRadius: 4,
@@ -2111,9 +2284,19 @@ const DailyTimesheet: React.FC = () => {
             />
           )}
 
-          <Typography variant="body2" color="warning.main">
-            {initialLoading ? "Calculando progreso..." : horasFaltantesMessage}
-          </Typography>
+          {initialLoading ? (
+            <Typography variant="body2" color="warning.main">
+              Calculando progreso...
+            </Typography>
+          ) : hasExceededNormalHours ? (
+            <Typography variant="body2" color="error.main" fontWeight="bold">
+              Se exceden {exceededNormalHours.toFixed(2)} horas normales
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="warning.main">
+              {horasFaltantesMessage}
+            </Typography>
+          )}
           {/* El mensaje se calcula usando las horas normales obtenidas desde la API */}
         </CardContent>
       </Card>
