@@ -38,6 +38,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
 import type { Empleado } from "../../../services/empleadoService";
 import type { EmpleadoIndexItem, LayoutOutletCtx } from "../../Layout";
+import { getImageUrl } from "../../../utils/imageUtils";
 import { useHorasTrabajo } from "../../../hooks/useHorasTrabajo";
 import DesgloseIncidenciasComponent from "./DesgloseIncidencias";
 import EmpleadoService from "../../../services/empleadoService";
@@ -1114,7 +1115,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
               }}
             >
               <Avatar
-                src={empleado.urlFotoPerfil || undefined}
+                src={getImageUrl(empleado.urlFotoPerfil)}
                 alt={`${empleado.nombre} ${empleado.apellido}`}
                 sx={{ width: 100, height: 100, border: "3px solid white" }}
               >

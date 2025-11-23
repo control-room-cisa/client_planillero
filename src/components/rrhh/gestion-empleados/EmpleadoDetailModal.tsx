@@ -22,6 +22,7 @@ import {
   Description as DescriptionIcon,
 } from "@mui/icons-material";
 import type { Empleado } from "../../../services/empleadoService";
+import { getImageUrl } from "../../../utils/imageUtils";
 
 interface EmpleadoDetailModalProps {
   open: boolean;
@@ -57,7 +58,7 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
             sx={{ cursor: "pointer" }}
           >
             <Avatar
-              src={empleado.urlFotoPerfil}
+              src={getImageUrl(empleado.urlFotoPerfil)}
               alt={`${empleado.nombre} ${empleado.apellido}`}
               sx={{ width: 56, height: 56 }}
             >
@@ -307,7 +308,7 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
                     <Button
                       variant="outlined"
                       startIcon={<AttachFileIcon />}
-                      href={empleado.urlCv}
+                      href={getImageUrl(empleado.urlCv) || empleado.urlCv}
                       target="_blank"
                       fullWidth
                     >
@@ -336,7 +337,7 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
       >
         <DialogContent sx={{ p: 0 }}>
           <img
-            src={empleado.urlFotoPerfil}
+            src={getImageUrl(empleado.urlFotoPerfil) || ""}
             alt="Foto de perfil"
             style={{ width: "100%", height: "auto" }}
           />

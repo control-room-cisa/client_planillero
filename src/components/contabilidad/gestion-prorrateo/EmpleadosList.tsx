@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { AccountBalance as AccountBalanceIcon } from "@mui/icons-material";
 import type { Empleado } from "../../../services/empleadoService";
+import { getImageUrl } from "../../../utils/imageUtils";
 
 interface EmpleadosListProps {
   empleados: Empleado[];
@@ -103,7 +104,7 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
               <TableCell>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                   <Avatar
-                    src={empleado.urlFotoPerfil || undefined}
+                    src={getImageUrl(empleado.urlFotoPerfil)}
                     alt={`${empleado.nombre} ${empleado.apellido}`}
                   >
                     {empleado.nombre?.[0]}

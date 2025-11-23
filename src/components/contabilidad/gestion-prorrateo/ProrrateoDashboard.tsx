@@ -35,6 +35,7 @@ import {
 import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
 import type { Empleado } from "../../../services/empleadoService";
 import type { EmpleadoIndexItem, LayoutOutletCtx } from "../../Layout";
+import { getImageUrl } from "../../../utils/imageUtils";
 import { useProrrateo } from "../../../hooks/useProrrateo";
 import {
   listarNominasResumenPorEmpleado,
@@ -566,7 +567,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                 }}
               >
                 <Avatar
-                  src={empleado.urlFotoPerfil || undefined}
+                  src={getImageUrl(empleado.urlFotoPerfil)}
                   alt={`${empleado.nombre} ${empleado.apellido}`}
                   sx={{ width: 100, height: 100, border: "3px solid white" }}
                 >

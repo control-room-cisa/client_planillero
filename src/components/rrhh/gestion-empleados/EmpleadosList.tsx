@@ -27,6 +27,7 @@ import {
   RequestPage as RequestPageIcon,
 } from "@mui/icons-material";
 import type { Empleado } from "../../../services/empleadoService";
+import { getImageUrl } from "../../../utils/imageUtils";
 
 // Opcional: índice simple para navegación en Nóminas
 export type EmpleadoIndexItem = {
@@ -221,7 +222,7 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
               <TableCell>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                   <Avatar
-                    src={empleado.urlFotoPerfil || undefined}
+                    src={getImageUrl(empleado.urlFotoPerfil)}
                     alt={`${empleado.nombre} ${empleado.apellido}`}
                   >
                     {empleado.nombre?.[0]}

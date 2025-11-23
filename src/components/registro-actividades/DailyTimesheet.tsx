@@ -189,8 +189,12 @@ const DailyTimesheet: React.FC = () => {
   // === NUEVO: bandera de horario H2 ===
   const isH2 = horarioValidado?.tipoHorario === "H2";
   // Helper para verificar si es H1, H1_1 o H1_2
-  const isH1 = ["H1", "H1_1", "H1_2"].includes(horarioValidado?.tipoHorario || "");
-  const isHoliday = Boolean(horarioData?.esFestivo || horarioValidado?.esFestivo);
+  const isH1 = ["H1", "H1_1", "H1_2"].includes(
+    horarioValidado?.tipoHorario || ""
+  );
+  const isHoliday = Boolean(
+    horarioData?.esFestivo || horarioValidado?.esFestivo
+  );
 
   // ===== Helpers de tiempo =====
   const timeToMinutes = (time: string): number => {
@@ -504,7 +508,10 @@ const DailyTimesheet: React.FC = () => {
     formatHours(computeHorasActividadForDisplayNum(act));
 
   // === NUEVO: helpers para validar actividades vs. nuevo rango del día ===
-  const buildIntervals = (start: number, end: number): Array<[number, number]> => {
+  const buildIntervals = (
+    start: number,
+    end: number
+  ): Array<[number, number]> => {
     if (end >= start) return [[start, end]];
     return [
       [0, end],
@@ -546,7 +553,9 @@ const DailyTimesheet: React.FC = () => {
     );
 
     const isSegmentInside = (segStart: number, segEnd: number) =>
-      intervals.some(([intStart, intEnd]) => segStart >= intStart && segEnd <= intEnd);
+      intervals.some(
+        ([intStart, intEnd]) => segStart >= intStart && segEnd <= intEnd
+      );
 
     return activityIntervals.some(
       ([segStart, segEnd]) => !isSegmentInside(segStart, segEnd)
@@ -974,10 +983,7 @@ const DailyTimesheet: React.FC = () => {
       return;
     }
 
-    if (
-      isHoliday &&
-      (name === "horaEntrada" || name === "horaSalida")
-    ) {
+    if (isHoliday && (name === "horaEntrada" || name === "horaSalida")) {
       return;
     }
 
@@ -1432,14 +1438,15 @@ const DailyTimesheet: React.FC = () => {
         const overlapsSchedule = activityIntervalsForValidation.some(
           ([segStart, segEnd]) =>
             laborIntervalsForValidation.some(
-              ([intStart, intEnd]) =>
-                segStart < intEnd && segEnd > intStart
+              ([intStart, intEnd]) => segStart < intEnd && segEnd > intStart
             )
         );
 
         if (overlapsSchedule) {
           const rangoPermitido = laborIntervalsForValidation
-            .map(([start, end]) => `${minutesToHHMM(start)}-${minutesToHHMM(end)}`)
+            .map(
+              ([start, end]) => `${minutesToHHMM(start)}-${minutesToHHMM(end)}`
+            )
             .join(" y ");
           errors.horaInicio = `La hora extra debe estar fuera del horario laboral (${rangoPermitido})`;
           errors.horaFin = `La hora extra debe estar fuera del horario laboral (${rangoPermitido})`;
@@ -1726,8 +1733,7 @@ const DailyTimesheet: React.FC = () => {
   // Verificar si se pueden ingresar horas extra (solo cuando progreso normal = 100%)
   const canAddExtraHours = horasNormales === 0 || progressPercentage >= 100;
   // === NUEVO: bloquear checkbox Hora Corrida cuando es H2 ===
-  const disableHoraCorrida =
-    isH2 || (horasNormales === 0 && isH1);
+  const disableHoraCorrida = isH2 || (horasNormales === 0 && isH1);
   const disableTimeFields = dayConfigData.esDiaLibre || isHoliday;
 
   const exceededNormalHours =

@@ -22,6 +22,7 @@ import {
   Search as SearchIcon,
 } from "@mui/icons-material";
 import type { Empleado } from "../../../services/empleadoService";
+import { getImageUrl } from "../../../utils/imageUtils";
 
 interface ColaboradoresListProps {
   empleados: Empleado[];
@@ -203,7 +204,7 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
                   <TableCell>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                       <Avatar
-                        src={empleado.urlFotoPerfil || undefined}
+                        src={getImageUrl(empleado.urlFotoPerfil)}
                         alt={`${empleado.nombre} ${empleado.apellido}`}
                       >
                         {empleado.nombre?.[0]}
