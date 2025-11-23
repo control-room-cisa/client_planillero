@@ -13,7 +13,7 @@ export const H2Rules: HorarioRuleEngine = {
       esHoraCorrida: { visible: false, enabled: false, required: false, defaultValue: false },
       comentarioEmpleado: { visible: true, enabled: true, required: false },
     },
-    calculateNormalHours: (formData, apiData, ctx) => {
+    calculateNormalHours: (formData, apiData) => {
       if (formData?.esDiaLibre || apiData?.esFestivo) return 0;
       if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
       const timeToMinutes = (t: string) => {

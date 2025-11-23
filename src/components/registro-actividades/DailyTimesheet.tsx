@@ -317,12 +317,6 @@ const DailyTimesheet: React.FC = () => {
       .padStart(2, "0")}`;
   };
 
-  const normalizeToDaySpan = (
-    t: number,
-    dayStart: number,
-    crossesMidnight: boolean
-  ) => (crossesMidnight && t < dayStart ? t + 1440 : t);
-
   const intervalOverlap = (a1: number, a2: number, b1: number, b2: number) =>
     Math.max(0, Math.min(a2, b2) - Math.max(a1, b1));
 
@@ -510,7 +504,7 @@ const DailyTimesheet: React.FC = () => {
     formatHours(computeHorasActividadForDisplayNum(act));
 
   // === NUEVO: helpers para validar actividades vs. nuevo rango del día ===
-  const buildIntervals = (start: number, end: number) => {
+  const buildIntervals = (start: number, end: number): Array<[number, number]> => {
     if (end >= start) return [[start, end]];
     return [
       [0, end],
@@ -999,8 +993,7 @@ const DailyTimesheet: React.FC = () => {
       let next = horarioRules.utils.onFieldChange(
         name as any,
         finalValue,
-        prev,
-        horarioValidado
+        prev
       );
 
       if (horarioValidado?.tipoHorario === "H2") {
@@ -1113,12 +1106,7 @@ const DailyTimesheet: React.FC = () => {
 
       // === NUEVO: Validación de actividades vs. NUEVO rango del día ===
       {
-        const {
-          dayStart: newStart,
-          dayEnd: newEnd,
-          crossesMidnight: newCross,
-          intervals: newIntervals,
-        } = getBoundsFromHHMM(
+        const { intervals: newIntervals } = getBoundsFromHHMM(
           dayConfigData.horaEntrada,
           dayConfigData.horaSalida
         );
