@@ -809,15 +809,19 @@ const DailyTimesheet: React.FC = () => {
   const handleDrawerOpen = async () => {
     setDrawerOpen(true);
 
-    // Si el día tiene 0 horas normales, fuerza Hora Extra y limpia campos manuales
-    if (horasNormales === 0) {
+    const sinHorasDisponibles =
+      horasNormales === 0 || horasRestantesDia <= 0.01;
+
+    if (sinHorasDisponibles) {
       setFormData((prev) => ({
         ...prev,
         horaExtra: true,
         horasInvertidas: "",
         horaInicio: "",
         horaFin: "",
+        job: "",
       }));
+      setSelectedJob(null);
     }
 
     await loadJobs();
@@ -1139,13 +1143,8 @@ const DailyTimesheet: React.FC = () => {
         }
       }
 
-      // Si es H1, H1_1 o H1_2 y el horario indica que es día libre, respetar ese valor aunque esté deshabilitado
-      // Para H1, H1_1, H1_2, el día libre viene del API y se marca automáticamente (domingos, feriados, etc.)
-      const esDiaLibreFinal = isH1
-        ? dayConfigData.esDiaLibre // Para H1, H1_1, H1_2, siempre usar el valor de dayConfigData (viene del API)
-        : horasCero
-        ? false
-        : dayConfigData.esDiaLibre;
+      // Usar siempre el valor actual de esDiaLibre del formulario (para cualquier tipo de horario)
+      const esDiaLibreFinal = dayConfigData.esDiaLibre;
 
       // Si es H2, enviar esHoraCorrida=true al backend
       const esHoraCorridaFinal = isH2
@@ -1389,21 +1388,13 @@ const DailyTimesheet: React.FC = () => {
           errors.horasInvertidas = "Ingresa un número válido mayor a 0";
         } else {
           // Validar que no exceda las horas normales restantes del día
-          const horasRestantes = Math.max(
-            0,
-            horasNormales - workedHoursNormales
-          );
-
-          // Si estamos editando una actividad normal, sumar sus horas actuales para no contar doble
-          let horasDisponibles = horasRestantes;
-          if (editingActivity && !editingActivity.esExtra) {
-            horasDisponibles += editingActivity.duracionHoras || 0;
-          }
-
-          if (hours > horasDisponibles) {
-            errors.horasInvertidas = `Las horas exceden el límite disponible. Solo quedan ${horasRestantes.toFixed(
+          if (horasDisponiblesValidacionForm <= 0) {
+            errors.horasInvertidas =
+              "Sin horas normales disponibles. Activa Hora Extra para continuar.";
+          } else if (hours > horasDisponiblesValidacionForm) {
+            errors.horasInvertidas = `Las horas exceden el límite disponible. Solo quedan ${horasDisponiblesValidacionForm.toFixed(
               2
-            )} horas para completar el día`;
+            )} horas.`;
           }
         }
       }
@@ -1500,10 +1491,15 @@ const DailyTimesheet: React.FC = () => {
       }
     }
 
-    // Si el día no tiene horas normales, no se permiten actividades normales
-    if (!formData.horaExtra && horasNormales === 0) {
+    // Regla global: si el día no tiene horas normales o las horas restantes son 0, no se permiten actividades normales
+    if (
+      !formData.horaExtra &&
+      (horasNormales === 0 || horasDisponiblesValidacionForm <= 0)
+    ) {
       errors.horasInvertidas =
-        "Este día no tiene horas normales; usa Hora Extra";
+        horasNormales === 0
+          ? "Este día no tiene horas normales; utiliza Hora Extra."
+          : "Sin horas normales disponibles. Activa Hora Extra para continuar.";
       setFormErrors(errors);
       return false;
     }
@@ -1730,8 +1726,16 @@ const DailyTimesheet: React.FC = () => {
     horasNormales
   );
 
+  const horasRestantesDia = Math.max(0, horasNormales - workedHoursNormales);
+  const editingHoursNormales =
+    editingActivity && !editingActivity.esExtra
+      ? editingActivity.duracionHoras || 0
+      : 0;
+  const horasDisponiblesValidacionForm =
+    horasRestantesDia + editingHoursNormales;
+
   // Verificar si se pueden ingresar horas extra (solo cuando progreso normal = 100%)
-  const canAddExtraHours = horasNormales === 0 || progressPercentage >= 100;
+  const canAddExtraHours = horasNormales === 0 || horasRestantesDia <= 0.01;
   // === NUEVO: bloquear checkbox Hora Corrida cuando es H2 ===
   const disableHoraCorrida = isH2 || (horasNormales === 0 && isH1);
   const disableTimeFields = dayConfigData.esDiaLibre || isHoliday;
@@ -1746,10 +1750,10 @@ const DailyTimesheet: React.FC = () => {
   const forceExtra = horasNormales === 0;
   const horasCero = horasNormales === 0;
 
-  // Lógica para H1, H1_1, H1_2: controlar checkbox Hora Extra automáticamente según progreso
-  const shouldForceExtraH1 = isH1 && !editingActivity;
-  const isH1ProgressComplete = isH1 && progressPercentage >= 100;
-  const isH1ProgressIncomplete = isH1 && progressPercentage < 100;
+  // Lógica global: controlar checkbox Hora Extra automáticamente según progreso (aplica a todos los tipos de horario)
+  const shouldForceExtra = !editingActivity;
+  const isProgressComplete = horasRestantesDia <= 0.01;
+  const isProgressIncomplete = horasRestantesDia > 0.01;
 
   // Quitar forzado de esHoraCorrida en UI para H2
 
@@ -1832,14 +1836,14 @@ const DailyTimesheet: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.horaInicio, formData.horaFin]);
 
-  // Efecto para controlar automáticamente el checkbox "Hora Extra" en H1, H1_1, H1_2
+  // Efecto global para controlar automáticamente el checkbox "Hora Extra" según progreso (aplica a todos los tipos de horario)
   React.useEffect(() => {
-    if (shouldForceExtraH1 && drawerOpen) {
+    if (shouldForceExtra && drawerOpen) {
       setFormData((prev) => {
         let needsUpdate = false;
         let newFormData = prev;
 
-        if (isH1ProgressComplete && !prev.horaExtra) {
+        if (isProgressComplete && !prev.horaExtra) {
           // Progreso completo: marcar Hora Extra y limpiar campos
           newFormData = {
             ...prev,
@@ -1850,7 +1854,7 @@ const DailyTimesheet: React.FC = () => {
             job: "", // Limpiar job seleccionado
           };
           needsUpdate = true;
-        } else if (isH1ProgressIncomplete && prev.horaExtra) {
+        } else if (isProgressIncomplete && prev.horaExtra) {
           // Progreso incompleto: desmarcar Hora Extra y limpiar campos
           newFormData = {
             ...prev,
@@ -1875,12 +1879,7 @@ const DailyTimesheet: React.FC = () => {
         return newFormData;
       });
     }
-  }, [
-    shouldForceExtraH1,
-    isH1ProgressComplete,
-    isH1ProgressIncomplete,
-    drawerOpen,
-  ]);
+  }, [shouldForceExtra, isProgressComplete, isProgressIncomplete, drawerOpen]);
 
   return (
     <Box
@@ -2235,6 +2234,69 @@ const DailyTimesheet: React.FC = () => {
           />
         </CardContent>
       </Card>
+
+      {/* Comentarios de Supervisor y RRHH (solo si fueron rechazados) */}
+      {(registroDiario?.aprobacionSupervisor === false ||
+        registroDiario?.aprobacionRrhh === false) && (
+        <Box sx={{ mb: 3 }}>
+          {registroDiario.aprobacionSupervisor === false && (
+            <Alert
+              severity="error"
+              sx={{
+                mb: 2,
+                "& .MuiAlert-message": {
+                  width: "100%",
+                },
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{ fontWeight: "bold", mb: 1, color: "error.main" }}
+              >
+                Rechazado por Supervisor
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "error.dark",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                {registroDiario.comentarioSupervisor || "Sin comentario"}
+              </Typography>
+            </Alert>
+          )}
+
+          {registroDiario.aprobacionRrhh === false && (
+            <Alert
+              severity="error"
+              sx={{
+                "& .MuiAlert-message": {
+                  width: "100%",
+                },
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{ fontWeight: "bold", mb: 1, color: "error.main" }}
+              >
+                Rechazado por RRHH
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "error.dark",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                {registroDiario.comentarioRrhh || "Sin comentario"}
+              </Typography>
+            </Alert>
+          )}
+        </Box>
+      )}
 
       {/* Progreso */}
       <Card sx={{ mb: 3, bgcolor: "background.paper" }}>
@@ -2984,7 +3046,11 @@ const DailyTimesheet: React.FC = () => {
 
             {/* Input de horas invertidas */}
             <TextField
-              disabled={readOnly || formData.horaExtra}
+              disabled={
+                readOnly ||
+                formData.horaExtra ||
+                horasDisponiblesValidacionForm <= 0
+              }
               fullWidth
               required={formData.horaExtra}
               name="horasInvertidas"
@@ -2998,12 +3064,10 @@ const DailyTimesheet: React.FC = () => {
                 formErrors.horasInvertidas ||
                 (formData.horaExtra
                   ? "Calculado automáticamente desde las horas de inicio y fin"
-                  : horasNormales === 0
-                  ? "Este día solo admite horas extra"
                   : `Horas restantes: ${Math.max(
                       0,
-                      horasNormales - workedHoursNormales
-                    ).toFixed(0)}h`)
+                      horasDisponiblesValidacionForm
+                    ).toFixed(2)}h`)
               }
               InputProps={{
                 readOnly: formData.horaExtra,
@@ -3131,20 +3195,20 @@ const DailyTimesheet: React.FC = () => {
                     readOnly ||
                     (!canAddExtraHours && !forceExtra) ||
                     forceExtra ||
-                    shouldForceExtraH1
+                    shouldForceExtra
                   }
                   name="horaExtra"
                   checked={
                     forceExtra
                       ? true
-                      : shouldForceExtraH1
-                      ? isH1ProgressComplete
+                      : shouldForceExtra
+                      ? isProgressComplete
                         ? true
                         : false
                       : formData.horaExtra
                   }
                   onChange={
-                    forceExtra || shouldForceExtraH1
+                    forceExtra || shouldForceExtra
                       ? undefined
                       : handleInputChange
                   }
@@ -3154,9 +3218,9 @@ const DailyTimesheet: React.FC = () => {
               label={`Hora Extra (fuera del horario)${
                 !canAddExtraHours && !forceExtra
                   ? " - Completa primero las horas normales"
-                  : shouldForceExtraH1 && isH1ProgressIncomplete
+                  : shouldForceExtra && isProgressIncomplete
                   ? " - Completa primero las horas normales del día"
-                  : shouldForceExtraH1 && isH1ProgressComplete
+                  : shouldForceExtra && isProgressComplete
                   ? " - Día laboral completo, solo horas extra"
                   : ""
               }`}

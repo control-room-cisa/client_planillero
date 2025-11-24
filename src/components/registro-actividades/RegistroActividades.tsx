@@ -141,8 +141,8 @@ export default function RegistroActividades() {
       const registro = await RegistroDiarioService.getByDate(dateString);
       setRegistroDiario(registro);
 
-      // Validaciones de horario
-      await loadHorarioValidations(dateString, registro);
+      // Validaciones de horario (también obtenemos el tipo de horario)
+      const tipoHorario = await loadHorarioValidations(dateString, registro);
 
       if (registro) {
         const horaEntrada = registro.horaEntrada.substring(11, 16);
@@ -156,15 +156,19 @@ export default function RegistroActividades() {
           comentarioEmpleado: registro.comentarioEmpleado || "",
         });
       } else {
-        // Defaults si no hay datos
-        setDayConfigData({
-          horaEntrada: "07:00",
-          horaSalida: "17:00",
-          jornada: "D", // CHANGED: nunca "M"
-          esDiaLibre: false,
-          esHoraCorrida: false,
-          comentarioEmpleado: "",
-        });
+        // No hay registro en BD para ese día
+        // Para H2 usamos los valores calculados por la API (establecidos en loadHorarioValidations)
+        // Para H1 y subtipos mantenemos el comportamiento actual (defaults estáticos)
+        if (tipoHorario !== "H2") {
+          setDayConfigData({
+            horaEntrada: "07:00",
+            horaSalida: "17:00",
+            jornada: "D", // CHANGED: nunca "M"
+            esDiaLibre: false,
+            esHoraCorrida: false,
+            comentarioEmpleado: "",
+          });
+        }
       }
     } catch (e) {
       console.error("Error al cargar registro diario:", e);
@@ -181,9 +185,9 @@ export default function RegistroActividades() {
   const loadHorarioValidations = async (
     fecha: string,
     registro: RegistroDiarioData | null
-  ) => {
+  ): Promise<string | undefined> => {
     try {
-      if (!user?.id) return;
+      if (!user?.id) return undefined;
       const horarioData =
         await CalculoHorasTrabajoService.getHorasNormalesTrabajo(
           user.id,
@@ -191,8 +195,9 @@ export default function RegistroActividades() {
         );
 
       const datosExistentes = Boolean(registro);
+      const tipoHorario = horarioData.horarioTrabajo.tipoHorario as string | undefined;
       const validacion = HorarioValidator.validateByTipo(
-        horarioData.horarioTrabajo.tipoHorario,
+        tipoHorario || "",
         horarioData.horarioTrabajo,
         datosExistentes
       );
@@ -209,8 +214,11 @@ export default function RegistroActividades() {
           esHoraCorrida: prev.esHoraCorrida,
         }));
       }
+
+      return tipoHorario;
     } catch (error) {
       console.error("Error al cargar validaciones de horario:", error);
+      return undefined;
     }
   };
 
@@ -219,7 +227,22 @@ export default function RegistroActividades() {
     try {
       setLoadingJobs(true);
       const jobsData = await JobService.getAll();
-      setJobs(jobsData.filter((j) => j.activo === true));
+      const jobsActivos = jobsData.filter((j) => j.activo === true);
+      const jobsFiltrados = formData.horaExtra
+        ? jobsActivos.filter((j) => !j.especial)
+        : jobsActivos;
+      setJobs(jobsFiltrados);
+
+      // Si estamos en hora extra, asegurar que no quede seleccionado un job especial
+      if (
+        formData.horaExtra &&
+        (selectedJob?.especial ||
+          (formData.job &&
+            jobsFiltrados.every((job) => job.id.toString() !== formData.job)))
+      ) {
+        setSelectedJob(null);
+        setFormData((prev) => ({ ...prev, job: "" }));
+      }
     } catch (e) {
       console.error("Error al cargar jobs:", e);
       setSnackbar({
@@ -287,18 +310,42 @@ export default function RegistroActividades() {
 
   const workedHours =
     registroDiario?.actividades?.reduce(
-      (acc, act) =>
-        acc +
-        computeHorasActividadForDisplayNum(
-          act as unknown as Activity,
-          dayConfigData.esHoraCorrida,
-          entradaHHMM,
-          salidaHHMM
-        ),
+      (acc, act) => {
+        // Para horas normales (sin horaInicio/horaFin), usar directamente duracionHoras
+        if (!act.horaInicio || !act.horaFin) {
+          return acc + (act.duracionHoras || 0);
+        }
+        // Para hora extra (con horaInicio/horaFin), calcular las horas
+        return (
+          acc +
+          computeHorasActividadForDisplayNum(
+            act as unknown as Activity,
+            dayConfigData.esHoraCorrida,
+            entradaHHMM,
+            salidaHHMM
+          )
+        );
+      },
       0
     ) || 0;
 
+  const editingHoursNormales =
+    editingActivity && !editingActivity.esExtra
+      ? (() => {
+          if (!editingActivity.horaInicio || !editingActivity.horaFin) {
+            return editingActivity.duracionHoras || 0;
+          }
+          return computeHorasActividadForDisplayNum(
+            editingActivity as unknown as Activity,
+            dayConfigData.esHoraCorrida,
+            entradaHHMM,
+            salidaHHMM
+          );
+        })()
+      : 0;
+
   const horasNormales = horarioValidado?.horasNormales || totalHours;
+  const horasDisponiblesReales = Math.max(0, horasNormales - workedHours);
   const progressPercentage = HorarioValidator.getProgressPercentage(
     workedHours,
     horasNormales
@@ -336,6 +383,17 @@ export default function RegistroActividades() {
   const handleDrawerOpen = async () => {
     setDrawerOpen(true);
     await loadJobs();
+    
+    // Para NUEVAS actividades, si no hay horas normales disponibles forzar Hora Extra
+    const sinHorasDisponibles =
+      horasNormales <= 0 || horasDisponiblesReales <= 0.01;
+
+    if (sinHorasDisponibles) {
+      setFormData((prev) => ({
+        ...prev,
+        horaExtra: true,
+      }));
+    }
   };
   const handleDrawerClose = () => {
     setDrawerOpen(false);
@@ -380,6 +438,13 @@ export default function RegistroActividades() {
       if (job) setSelectedJob(job);
     }
   }, [jobs, editingActivity]);
+
+  React.useEffect(() => {
+    if (drawerOpen) {
+      loadJobs();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.horaExtra, drawerOpen]);
 
   const handleDeleteActivity = async (index: number) => {
     if (!registroDiario?.actividades) return;
@@ -559,8 +624,29 @@ export default function RegistroActividades() {
     setFormData((prev) => {
       const next = { ...prev, [name]: type === "checkbox" ? checked : value };
 
-      // recalcular horas con almuerzo/hora corrida
-      if (name === "horaInicio" || name === "horaFin") {
+      // Si se cambia el checkbox de hora extra, limpiar campos según corresponda
+      if (name === "horaExtra") {
+        if (checked) {
+          // Activar hora extra: limpiar horasInvertidas (se calculará automáticamente)
+          next.horasInvertidas = "";
+          // Limpiar selección de job (los especiales dejan de estar disponibles)
+          if (selectedJob) {
+            setSelectedJob(null);
+          }
+          next.job = "";
+        } else {
+          // Desactivar hora extra: limpiar horaInicio/horaFin
+          next.horaInicio = "";
+          next.horaFin = "";
+          next.horasInvertidas = "";
+        }
+      }
+
+      // Recalcular horas SOLO si es hora extra y cambian horaInicio/horaFin
+      if (
+        next.horaExtra &&
+        (name === "horaInicio" || name === "horaFin")
+      ) {
         const v = computeHorasInvertidas(
           next.horaInicio,
           next.horaFin,
@@ -571,8 +657,8 @@ export default function RegistroActividades() {
         next.horasInvertidas = v;
       }
 
-      // validaciones en vivo
-      if (name === "horaInicio") {
+      // Validaciones en vivo SOLO para hora extra
+      if (next.horaExtra && name === "horaInicio") {
         const errInicio = errorOutsideRange(
           "inicio",
           next.horaInicio,
@@ -590,7 +676,7 @@ export default function RegistroActividades() {
           horaInicio: errInicio,
           horaFin: errFin,
         }));
-      } else if (name === "horaFin") {
+      } else if (next.horaExtra && name === "horaFin") {
         const errFin = computeHoraFinError(
           next.horaFin,
           next.horaInicio,
@@ -599,6 +685,12 @@ export default function RegistroActividades() {
         );
         setFormErrors((prevE) => ({ ...prevE, horaFin: errFin }));
       }
+      
+      // Limpiar error del campo cuando se edita
+      if (formErrors[name]) {
+        setFormErrors((prevE) => ({ ...prevE, [name]: "" }));
+      }
+      
       return next;
     });
   };
@@ -615,89 +707,119 @@ export default function RegistroActividades() {
 
     if (!formData.descripcion.trim())
       errors.descripcion = "La descripción es obligatoria";
-    if (!horaInicio) errors.horaInicio = "Hora inicio obligatoria";
-    if (!horaFin) errors.horaFin = "Hora fin obligatoria";
     if (!formData.job.trim()) errors.job = "El job es obligatorio";
 
-    const horasCalc = computeHorasInvertidas(
-      horaInicio,
-      horaFin,
-      dayConfigData.esHoraCorrida,
-      entradaHHMM,
-      salidaHHMM
-    );
-    if (!horasCalc) {
-      errors.horasInvertidas = "Las horas invertidas son obligatorias";
+    // Validación diferente según si es hora extra o no
+    if (formData.horaExtra) {
+      // HORA EXTRA: validar hora inicio/fin (obligatorios)
+      if (!horaInicio) errors.horaInicio = "Hora inicio obligatoria para hora extra";
+      if (!horaFin) errors.horaFin = "Hora fin obligatoria para hora extra";
+
+      // Si hay horas, calcular automáticamente
+      if (horaInicio && horaFin) {
+        const horasCalc = computeHorasInvertidas(
+          horaInicio,
+          horaFin,
+          dayConfigData.esHoraCorrida,
+          entradaHHMM,
+          salidaHHMM
+        );
+        // Actualizar el campo automáticamente
+        if (horasCalc && formData.horasInvertidas !== horasCalc) {
+          setFormData((prev) => ({ ...prev, horasInvertidas: horasCalc }));
+        }
+      } else {
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+      }
     } else {
-      const hours = parseFloat(horasCalc);
-      if (isNaN(hours) || hours <= 0)
-        errors.horasInvertidas = "Ingresa un número válido mayor a 0";
+      // HORAS NORMALES: validar solo horasInvertidas (obligatorio, editable manualmente)
+      if (!formData.horasInvertidas || formData.horasInvertidas.trim() === "") {
+        errors.horasInvertidas = "Las horas invertidas son obligatorias";
+      } else {
+        const hours = parseFloat(formData.horasInvertidas);
+        if (isNaN(hours) || hours <= 0)
+          errors.horasInvertidas = "Ingresa un número válido mayor a 0";
+      }
     }
 
-    if (!horaInicio || !horaFin) {
-      setFormErrors(errors);
-      return Object.keys(errors).length === 0;
+    // Validaciones de rango y solapamiento SOLO para hora extra
+    if (formData.horaExtra && horaInicio && horaFin) {
+      const { dayStart, dayEnd, crossesMidnight } = getBoundsFromHHMM(
+        entradaHHMM,
+        salidaHHMM
+      );
+      const s = normalizeToDaySpan(
+        timeToMinutes(horaInicio),
+        dayStart,
+        crossesMidnight
+      );
+      const e = normalizeToDaySpan(
+        timeToMinutes(horaFin),
+        dayStart,
+        crossesMidnight
+      );
+
+      if (s < dayStart || s > dayEnd) {
+        errors.horaInicio = "La hora de inicio está fuera del horario laboral";
+      }
+      if (e < dayStart || e > dayEnd) {
+        errors.horaFin = "La hora de fin está fuera del horario laboral";
+      }
+      if (
+        !crossesMidnight &&
+        timeToMinutes(horaFin) <= timeToMinutes(horaInicio)
+      ) {
+        errors.horaFin = "La hora final debe ser posterior a la inicial";
+      }
+
+      // solape con otras actividades
+      if (registroDiario?.actividades && registroDiario.actividades.length > 0) {
+        let newS = s;
+        let newE = e;
+        if (newE <= newS) newE += 1440;
+
+        const overlaps = registroDiario.actividades.some((act, idx) => {
+          if (editingActivity && idx === editingIndex) return false;
+          if (!act.horaInicio || !act.horaFin) return false;
+
+          const sHM = act.horaInicio.substring(11, 16);
+          const eHM = act.horaFin.substring(11, 16);
+          let s2 = normalizeToDaySpan(
+            timeToMinutes(sHM),
+            dayStart,
+            crossesMidnight
+          );
+          let e2 = normalizeToDaySpan(
+            timeToMinutes(eHM),
+            dayStart,
+            crossesMidnight
+          );
+          if (e2 <= s2) e2 += 1440;
+
+          return newS < e2 && s2 < newE;
+        });
+
+        if (overlaps) {
+          errors.horaInicio = "Este horario se solapa con otra actividad";
+          errors.horaFin = "Este horario se solapa con otra actividad";
+        }
+      }
     }
 
-    // rango y relación inicio/fin + solapes
-    const { dayStart, dayEnd, crossesMidnight } = getBoundsFromHHMM(
-      entradaHHMM,
-      salidaHHMM
-    );
-    const s = normalizeToDaySpan(
-      timeToMinutes(horaInicio),
-      dayStart,
-      crossesMidnight
-    );
-    const e = normalizeToDaySpan(
-      timeToMinutes(horaFin),
-      dayStart,
-      crossesMidnight
-    );
+    // Validación de horas totales: no exceder las horas laborables
+    // Solo aplica para actividades normales (no hora extra)
+    if (!formData.horaExtra && formData.horasInvertidas) {
+      const horasActuales = parseFloat(formData.horasInvertidas);
+      if (!isNaN(horasActuales) && horasActuales > 0) {
+        const horasDisponiblesValidacionForm =
+          horasDisponiblesReales + editingHoursNormales;
 
-    if (s < dayStart || s > dayEnd) {
-      errors.horaInicio = "La hora de inicio está fuera del horario laboral";
-    }
-    if (e < dayStart || e > dayEnd) {
-      errors.horaFin = "La hora de fin está fuera del horario laboral";
-    }
-    if (
-      !crossesMidnight &&
-      timeToMinutes(horaFin) <= timeToMinutes(horaInicio)
-    ) {
-      errors.horaFin = "La hora final debe ser posterior a la inicial";
-    }
-
-    // solape con otras actividades
-    if (registroDiario?.actividades && registroDiario.actividades.length > 0) {
-      let newS = s;
-      let newE = e;
-      if (newE <= newS) newE += 1440;
-
-      const overlaps = registroDiario.actividades.some((act, idx) => {
-        if (editingActivity && idx === editingIndex) return false;
-        if (!act.horaInicio || !act.horaFin) return false;
-
-        const sHM = act.horaInicio.substring(11, 16);
-        const eHM = act.horaFin.substring(11, 16);
-        let s2 = normalizeToDaySpan(
-          timeToMinutes(sHM),
-          dayStart,
-          crossesMidnight
-        );
-        let e2 = normalizeToDaySpan(
-          timeToMinutes(eHM),
-          dayStart,
-          crossesMidnight
-        );
-        if (e2 <= s2) e2 += 1440;
-
-        return newS < e2 && s2 < newE;
-      });
-
-      if (overlaps) {
-        errors.horaInicio = "Este horario se solapa con otra actividad";
-        errors.horaFin = "Este horario se solapa con otra actividad";
+        // Usar margen de error pequeño para evitar problemas de redondeo
+        if (horasActuales > horasDisponiblesValidacionForm + 0.01) {
+          const exceso = (horasActuales - horasDisponiblesValidacionForm).toFixed(1);
+          errors.horasInvertidas = `Excede las horas laborables. Disponibles: ${horasDisponiblesValidacionForm.toFixed(1)}h (te excedes por ${exceso}h)`;
+        }
       }
     }
 
@@ -712,28 +834,26 @@ export default function RegistroActividades() {
       setLoading(true);
       const dateString = currentDate.toISOString().split("T")[0];
 
-      // Construir ISO para inicio/fin (si el fin es <= inicio, poner fin al día siguiente)
-      const startM = timeToMinutes(formData.horaInicio);
-      const endM = timeToMinutes(formData.horaFin);
-      const addDay = endM <= startM ? 1 : 0;
-
-      const actividad = {
+      // Construir actividad según si es hora extra o no
+      const actividadBase: any = {
         jobId: parseInt(formData.job),
-        duracionHoras: parseFloat(
-          computeHorasInvertidas(
-            formData.horaInicio,
-            formData.horaFin,
-            dayConfigData.esHoraCorrida,
-            entradaHHMM,
-            salidaHHMM
-          )
-        ),
+        duracionHoras: parseFloat(formData.horasInvertidas),
         esExtra: formData.horaExtra,
         className: formData.class || undefined,
         descripcion: formData.descripcion,
-        horaInicio: buildISO(currentDate, formData.horaInicio, 0),
-        horaFin: buildISO(currentDate, formData.horaFin, addDay),
       };
+
+      // Solo agregar horaInicio/horaFin si es hora extra
+      if (formData.horaExtra && formData.horaInicio && formData.horaFin) {
+        const startM = timeToMinutes(formData.horaInicio);
+        const endM = timeToMinutes(formData.horaFin);
+        const addDay = endM <= startM ? 1 : 0;
+        
+        actividadBase.horaInicio = buildISO(currentDate, formData.horaInicio, 0);
+        actividadBase.horaFin = buildISO(currentDate, formData.horaFin, addDay);
+      }
+
+      const actividad = actividadBase;
 
       if (registroDiario) {
         // actividades existentes
@@ -750,11 +870,17 @@ export default function RegistroActividades() {
 
         let actividadesActualizadas;
 
-        if (editingActivity && editingIndex >= 0) {
+        // IMPORTANTE: Si estamos editando, reemplazar la actividad en el índice específico
+        // Si es nueva actividad, agregar al final
+        if (editingActivity !== null && editingIndex >= 0 && editingIndex < actividadesExistentes.length) {
+          // Modo edición: reemplazar actividad existente
           actividadesActualizadas = [...actividadesExistentes];
           actividadesActualizadas[editingIndex] = actividad;
+          console.log(`Editando actividad en índice ${editingIndex}`);
         } else {
+          // Modo creación: agregar nueva actividad
           actividadesActualizadas = [...actividadesExistentes, actividad];
+          console.log("Agregando nueva actividad");
         }
 
         const params = {
@@ -801,6 +927,11 @@ export default function RegistroActividades() {
         ? "Actividad actualizada correctamente"
         : "Actividad guardada correctamente";
       setSnackbar({ open: true, message: actionMessage, severity: "success" });
+      
+      // Limpiar estados de edición
+      setEditingActivity(null);
+      setEditingIndex(-1);
+      
       handleDrawerClose();
     } catch (e) {
       console.error("Error al guardar actividad:", e);
@@ -811,41 +942,8 @@ export default function RegistroActividades() {
     }
   };
 
-  // Recalcular horas invertidas cuando cambia hora corrida / entrada / salida
-  React.useEffect(() => {
-    setFormData((prev) => {
-      if (!prev.horaInicio || !prev.horaFin) return prev;
-      const v = computeHorasInvertidas(
-        prev.horaInicio,
-        prev.horaFin,
-        dayConfigData.esHoraCorrida,
-        entradaHHMM,
-        salidaHHMM
-      );
-      return v === prev.horasInvertidas
-        ? prev
-        : { ...prev, horasInvertidas: v };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dayConfigData.esHoraCorrida, entradaHHMM, salidaHHMM]);
-
-  // Recalcular horasInvertidas cuando cambian HH:mm
-  React.useEffect(() => {
-    const { horaInicio, horaFin } = formData;
-    if (horaInicio && horaFin) {
-      const v = computeHorasInvertidas(
-        horaInicio,
-        horaFin,
-        dayConfigData.esHoraCorrida,
-        entradaHHMM,
-        salidaHHMM
-      );
-      setFormData((prev) =>
-        prev.horasInvertidas === v ? prev : { ...prev, horasInvertidas: v }
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.horaInicio, formData.horaFin]);
+  // Nota: Los useEffect de recálculo automático se eliminaron para permitir edición manual
+  // El recálculo se hace en handleInputChange cuando cambian horaInicio/horaFin (líneas 584-594)
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: "100%" }}>
@@ -1360,54 +1458,67 @@ export default function RegistroActividades() {
               sx={{ mb: 3 }}
             />
 
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-                gap: 2,
-                mb: 3,
-              }}
-            >
-              <TextField
-                disabled={readOnly}
-                fullWidth
-                required
-                type="time"
-                name="horaInicio"
-                label="Hora inicio actividad"
-                value={formData.horaInicio}
-                onChange={handleInputChange}
-                error={!!formErrors.horaInicio}
-                helperText={formErrors.horaInicio}
-                InputLabelProps={{ shrink: true }}
-                size="small"
-              />
-              <TextField
-                disabled={readOnly}
-                fullWidth
-                required
-                type="time"
-                name="horaFin"
-                label="Hora fin actividad"
-                value={formData.horaFin}
-                onChange={handleInputChange}
-                error={!!formErrors.horaFin}
-                helperText={formErrors.horaFin}
-                InputLabelProps={{ shrink: true }}
-                size="small"
-              />
-            </Box>
+            {/* Hora Extra: mostrar hora inicio/fin */}
+            {formData.horaExtra && (
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+                  gap: 2,
+                  mb: 3,
+                }}
+              >
+                <TextField
+                  disabled={readOnly}
+                  fullWidth
+                  required
+                  type="time"
+                  name="horaInicio"
+                  label="Hora inicio actividad"
+                  value={formData.horaInicio}
+                  onChange={handleInputChange}
+                  error={!!formErrors.horaInicio}
+                  helperText={formErrors.horaInicio}
+                  InputLabelProps={{ shrink: true }}
+                  size="small"
+                />
+                <TextField
+                  disabled={readOnly}
+                  fullWidth
+                  required
+                  type="time"
+                  name="horaFin"
+                  label="Hora fin actividad"
+                  value={formData.horaFin}
+                  onChange={handleInputChange}
+                  error={!!formErrors.horaFin}
+                  helperText={formErrors.horaFin}
+                  InputLabelProps={{ shrink: true }}
+                  size="small"
+                />
+              </Box>
+            )}
 
+            {/* Campo Horas Invertidas */}
+            {/* Horas Normales: editable manualmente. Hora Extra: calculado automáticamente (readonly) */}
             <TextField
-              disabled
               fullWidth
               required
               name="horasInvertidas"
               label="Horas Invertidas"
               placeholder="Ej: 2.5"
               type="number"
-              InputProps={{ readOnly: true }}
               value={formData.horasInvertidas}
+              onChange={handleInputChange}
+              error={!!formErrors.horasInvertidas}
+              helperText={
+                formData.horaExtra
+                  ? "Calculado automáticamente para Hora Extra"
+                  : formErrors.horasInvertidas
+              }
+              InputProps={{
+                readOnly: readOnly || formData.horaExtra,
+              }}
               sx={{ mb: 3 }}
             />
 
@@ -1482,7 +1593,7 @@ export default function RegistroActividades() {
                   color="primary"
                 />
               }
-              label="Hora Extra (fuera del horario 7AM - 5PM)"
+              label={`Hora Extra (fuera del horario ${entradaHHMM} - ${salidaHHMM})`}
               sx={{ mb: 3 }}
             />
 
