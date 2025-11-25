@@ -101,7 +101,6 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
       cursor.setDate(cursor.getDate() + 1);
     }
 
-    const setReg = new Set(inRange.map((x) => x.fecha));
     const totalDays = allDates.length;
     const registeredDays = inRange.length; // Días que tienen registro
     const approvedSupervisorDays = inRange.filter(
