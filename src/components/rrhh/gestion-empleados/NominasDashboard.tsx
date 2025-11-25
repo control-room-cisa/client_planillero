@@ -661,6 +661,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
       }
 
       // Validar traslape/duplicado: consultar nóminas existentes del empleado
+      // El repositorio ya filtra por deletedAt: null, así que solo obtenemos nóminas activas
       const existentes = await NominaService.list({
         empleadoId: Number(empleado.id),
       });

@@ -59,48 +59,51 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
 
     const today = new Date();
     const day = today.getDate();
+    const year = today.getFullYear();
+    const month = today.getMonth();
 
-    // calcular fecha de inicio de corte
-    const start = new Date(today);
-    if (day >= 27) {
-      // 27–11: inicio en 27 del mes actual
-      start.setDate(27);
-    } else if (day >= 12) {
-      // 12–26: inicio en 12 del mes actual
-      start.setDate(12);
+    let start: Date;
+    let end: Date;
+
+    // Determinar el intervalo según la fecha actual
+    if (day >= 12 && day <= 26) {
+      // Intervalo: 12 del mes actual al 26 del mes actual
+      // Ejemplo: Si hoy es 14 de septiembre → intervalo 12-26 septiembre
+      start = new Date(year, month, 12);
+      end = new Date(year, month, 26);
+    } else if (day >= 27) {
+      // Intervalo: 27 del mes actual al 11 del mes siguiente
+      // Ejemplo: Si hoy es 3 de octubre → intervalo 27 septiembre - 11 octubre
+      start = new Date(year, month, 27);
+      end = new Date(year, month + 1, 11);
     } else {
-      // 1–11: inicio en 27 del mes anterior
-      const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 27);
-      start.setTime(prevMonth.getTime());
+      // day <= 11: Intervalo: 27 del mes anterior al 11 del mes actual
+      // Ejemplo: Si hoy es 3 de octubre → intervalo 27 septiembre - 11 octubre
+      start = new Date(year, month - 1, 27);
+      end = new Date(year, month, 11);
     }
 
-    const startStr = start.toISOString().split("T")[0];
-    const endStr = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate()
-    )
-      .toISOString()
-      .split("T")[0];
+    // Normalizar fechas a medianoche en UTC para comparación
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
 
+    const startStr = start.toISOString().split("T")[0];
+    const endStr = end.toISOString().split("T")[0];
+
+    // Filtrar registros que estén en el rango del intervalo completo
     const inRange = arr.filter((x) => x.fecha >= startStr && x.fecha <= endStr);
 
-    // Generar todas las fechas del rango para contar "sin registro"
+    // Generar todas las fechas del intervalo completo para contar días esperados
     const allDates: string[] = [];
     const cursor = new Date(start);
-    const endDate = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate()
-    );
-    while (cursor <= endDate) {
+    while (cursor <= end) {
       allDates.push(cursor.toISOString().split("T")[0]);
       cursor.setDate(cursor.getDate() + 1);
     }
+
     const setReg = new Set(inRange.map((x) => x.fecha));
     const totalDays = allDates.length;
-    const registeredDays =
-      totalDays - allDates.filter((d) => !setReg.has(d)).length;
+    const registeredDays = inRange.length; // Días que tienen registro
     const approvedSupervisorDays = inRange.filter(
       (x) => x.aprobacionSupervisor === true
     ).length;

@@ -195,7 +195,9 @@ export default function RegistroActividades() {
         );
 
       const datosExistentes = Boolean(registro);
-      const tipoHorario = horarioData.horarioTrabajo.tipoHorario as string | undefined;
+      const tipoHorario = horarioData.horarioTrabajo.tipoHorario as
+        | string
+        | undefined;
       const validacion = HorarioValidator.validateByTipo(
         tipoHorario || "",
         horarioData.horarioTrabajo,
@@ -309,25 +311,22 @@ export default function RegistroActividades() {
   }
 
   const workedHours =
-    registroDiario?.actividades?.reduce(
-      (acc, act) => {
-        // Para horas normales (sin horaInicio/horaFin), usar directamente duracionHoras
-        if (!act.horaInicio || !act.horaFin) {
-          return acc + (act.duracionHoras || 0);
-        }
-        // Para hora extra (con horaInicio/horaFin), calcular las horas
-        return (
-          acc +
-          computeHorasActividadForDisplayNum(
-            act as unknown as Activity,
-            dayConfigData.esHoraCorrida,
-            entradaHHMM,
-            salidaHHMM
-          )
-        );
-      },
-      0
-    ) || 0;
+    registroDiario?.actividades?.reduce((acc, act) => {
+      // Para horas normales (sin horaInicio/horaFin), usar directamente duracionHoras
+      if (!act.horaInicio || !act.horaFin) {
+        return acc + (act.duracionHoras || 0);
+      }
+      // Para hora extra (con horaInicio/horaFin), calcular las horas
+      return (
+        acc +
+        computeHorasActividadForDisplayNum(
+          act as unknown as Activity,
+          dayConfigData.esHoraCorrida,
+          entradaHHMM,
+          salidaHHMM
+        )
+      );
+    }, 0) || 0;
 
   const editingHoursNormales =
     editingActivity && !editingActivity.esExtra
@@ -383,7 +382,7 @@ export default function RegistroActividades() {
   const handleDrawerOpen = async () => {
     setDrawerOpen(true);
     await loadJobs();
-    
+
     // Para NUEVAS actividades, si no hay horas normales disponibles forzar Hora Extra
     const sinHorasDisponibles =
       horasNormales <= 0 || horasDisponiblesReales <= 0.01;
@@ -643,10 +642,7 @@ export default function RegistroActividades() {
       }
 
       // Recalcular horas SOLO si es hora extra y cambian horaInicio/horaFin
-      if (
-        next.horaExtra &&
-        (name === "horaInicio" || name === "horaFin")
-      ) {
+      if (next.horaExtra && (name === "horaInicio" || name === "horaFin")) {
         const v = computeHorasInvertidas(
           next.horaInicio,
           next.horaFin,
@@ -685,12 +681,12 @@ export default function RegistroActividades() {
         );
         setFormErrors((prevE) => ({ ...prevE, horaFin: errFin }));
       }
-      
+
       // Limpiar error del campo cuando se edita
       if (formErrors[name]) {
         setFormErrors((prevE) => ({ ...prevE, [name]: "" }));
       }
-      
+
       return next;
     });
   };
@@ -712,7 +708,8 @@ export default function RegistroActividades() {
     // Validación diferente según si es hora extra o no
     if (formData.horaExtra) {
       // HORA EXTRA: validar hora inicio/fin (obligatorios)
-      if (!horaInicio) errors.horaInicio = "Hora inicio obligatoria para hora extra";
+      if (!horaInicio)
+        errors.horaInicio = "Hora inicio obligatoria para hora extra";
       if (!horaFin) errors.horaFin = "Hora fin obligatoria para hora extra";
 
       // Si hay horas, calcular automáticamente
@@ -774,7 +771,10 @@ export default function RegistroActividades() {
       }
 
       // solape con otras actividades
-      if (registroDiario?.actividades && registroDiario.actividades.length > 0) {
+      if (
+        registroDiario?.actividades &&
+        registroDiario.actividades.length > 0
+      ) {
         let newS = s;
         let newE = e;
         if (newE <= newS) newE += 1440;
@@ -817,8 +817,12 @@ export default function RegistroActividades() {
 
         // Usar margen de error pequeño para evitar problemas de redondeo
         if (horasActuales > horasDisponiblesValidacionForm + 0.01) {
-          const exceso = (horasActuales - horasDisponiblesValidacionForm).toFixed(1);
-          errors.horasInvertidas = `Excede las horas laborables. Disponibles: ${horasDisponiblesValidacionForm.toFixed(1)}h (te excedes por ${exceso}h)`;
+          const exceso = (
+            horasActuales - horasDisponiblesValidacionForm
+          ).toFixed(1);
+          errors.horasInvertidas = `Excede las horas laborables. Disponibles: ${horasDisponiblesValidacionForm.toFixed(
+            1
+          )}h (te excedes por ${exceso}h)`;
         }
       }
     }
@@ -848,8 +852,12 @@ export default function RegistroActividades() {
         const startM = timeToMinutes(formData.horaInicio);
         const endM = timeToMinutes(formData.horaFin);
         const addDay = endM <= startM ? 1 : 0;
-        
-        actividadBase.horaInicio = buildISO(currentDate, formData.horaInicio, 0);
+
+        actividadBase.horaInicio = buildISO(
+          currentDate,
+          formData.horaInicio,
+          0
+        );
         actividadBase.horaFin = buildISO(currentDate, formData.horaFin, addDay);
       }
 
@@ -872,15 +880,17 @@ export default function RegistroActividades() {
 
         // IMPORTANTE: Si estamos editando, reemplazar la actividad en el índice específico
         // Si es nueva actividad, agregar al final
-        if (editingActivity !== null && editingIndex >= 0 && editingIndex < actividadesExistentes.length) {
+        if (
+          editingActivity !== null &&
+          editingIndex >= 0 &&
+          editingIndex < actividadesExistentes.length
+        ) {
           // Modo edición: reemplazar actividad existente
           actividadesActualizadas = [...actividadesExistentes];
           actividadesActualizadas[editingIndex] = actividad;
-          console.log(`Editando actividad en índice ${editingIndex}`);
         } else {
           // Modo creación: agregar nueva actividad
           actividadesActualizadas = [...actividadesExistentes, actividad];
-          console.log("Agregando nueva actividad");
         }
 
         const params = {
@@ -927,11 +937,11 @@ export default function RegistroActividades() {
         ? "Actividad actualizada correctamente"
         : "Actividad guardada correctamente";
       setSnackbar({ open: true, message: actionMessage, severity: "success" });
-      
+
       // Limpiar estados de edición
       setEditingActivity(null);
       setEditingIndex(-1);
-      
+
       handleDrawerClose();
     } catch (e) {
       console.error("Error al guardar actividad:", e);
