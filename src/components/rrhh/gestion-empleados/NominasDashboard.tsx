@@ -576,12 +576,25 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     }
   }, [isPrimeraQuincena]);
 
-  // Cargar deducciones de alimentación cuando se obtiene el resumen de horas
+  // Cargar deducciones de alimentación directamente desde el endpoint externo
   React.useEffect(() => {
     const cargarDeduccionAlimentacion = async () => {
-      if (!empleado?.id || !fechaInicio || !fechaFin || !rangoValido) {
+      // Necesitamos el código del empleado, no el ID
+      const codigoEmpleado = (empleado as any)?.codigo;
+      if (!codigoEmpleado || !fechaInicio || !fechaFin || !rangoValido) {
         setDetalleDeduccionAlimentacion([]);
         setModalDetalleAlimentacionOpen(false);
+        setDeduccionAlimentacion(0);
+        setInputDeduccionAlimentacion("");
+        if (!codigoEmpleado && empleado?.id) {
+          // Si no hay código pero hay empleado, mostrar error
+          setErrorAlimentacion({
+            tieneError: true,
+            mensajeError: "El empleado no tiene código asignado",
+          });
+        } else {
+          setErrorAlimentacion(null);
+        }
         return;
       }
 
@@ -589,45 +602,72 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
       setErrorAlimentacion(null);
       setModalDetalleAlimentacionOpen(false);
 
+      // Verificar formato de fechas (deben ser YYYY-MM-DD)
+      const fechaInicioFormato = fechaInicio.match(/^\d{4}-\d{2}-\d{2}$/);
+      const fechaFinFormato = fechaFin.match(/^\d{4}-\d{2}-\d{2}$/);
+      
+      console.log("[NominasDashboard] Cargando deducciones de alimentación:", {
+        codigoEmpleado,
+        fechaInicio,
+        fechaFin,
+        fechaInicioValida: !!fechaInicioFormato,
+        fechaFinValida: !!fechaFinFormato,
+        rangoValido,
+      });
+
+      if (!fechaInicioFormato || !fechaFinFormato) {
+        setErrorAlimentacion({
+          tieneError: true,
+          mensajeError: `Formato de fecha inválido. Fecha inicio: ${fechaInicio}, Fecha fin: ${fechaFin}. Se espera formato YYYY-MM-DD`,
+        });
+        setLoadingAlimentacion(false);
+        return;
+      }
+
       try {
-        const conteoHoras = await CalculoHorasTrabajoService.getConteoHoras(
-          empleado.id,
+        // Llamar directamente al endpoint externo desde el frontend
+        const t0 = Date.now();
+        const resultado = await CalculoHorasTrabajoService.getDeduccionesAlimentacion(
+          codigoEmpleado,
           fechaInicio,
           fechaFin
         );
+        const tiempoTranscurrido = Date.now() - t0;
+        console.log(`[NominasDashboard] Deducciones obtenidas en ${tiempoTranscurrido}ms:`, resultado);
 
         // Solo manejar el error específico de alimentación que viene en el objeto
-        if (conteoHoras.errorAlimentacion?.tieneError) {
-          setErrorAlimentacion(conteoHoras.errorAlimentacion);
+        if (resultado.errorAlimentacion?.tieneError) {
+          setErrorAlimentacion(resultado.errorAlimentacion);
           // Si hay error, establecer el campo en 0 y habilitar edición
           setDeduccionAlimentacion(0);
           setInputDeduccionAlimentacion("");
           setDetalleDeduccionAlimentacion([]);
         } else {
           // Si no hay error (success = true), usar el valor calculado (no editable)
-          const valorCalculado = conteoHoras.deduccionesAlimentacion ?? 0;
+          const valorCalculado = resultado.deduccionesAlimentacion ?? 0;
           setDeduccionAlimentacion(valorCalculado);
           setInputDeduccionAlimentacion(
             valorCalculado > 0 ? String(valorCalculado) : ""
           );
           setErrorAlimentacion(null);
-          setDetalleDeduccionAlimentacion(
-            conteoHoras.deduccionesAlimentacionDetalle ?? []
-          );
+          setDetalleDeduccionAlimentacion(resultado.detalle ?? []);
         }
       } catch (err: any) {
-        // Error general del cálculo de horas - NO mostrar error en el campo de alimentación
-        // Solo limpiar el estado de error de alimentación
-        setErrorAlimentacion(null);
+        // Error al obtener deducciones de alimentación
+        setErrorAlimentacion({
+          tieneError: true,
+          mensajeError: err?.message || "Error al obtener deducciones de alimentación",
+        });
+        setDeduccionAlimentacion(0);
+        setInputDeduccionAlimentacion("");
         setDetalleDeduccionAlimentacion([]);
-        // No cambiar el valor del input, mantener el valor actual
       } finally {
         setLoadingAlimentacion(false);
       }
     };
 
     cargarDeduccionAlimentacion();
-  }, [empleado?.id, fechaInicio, fechaFin, rangoValido]);
+  }, [empleado?.id, (empleado as any)?.codigo, fechaInicio, fechaFin, rangoValido]);
 
   // Crear nómina
   // Bloqueo por errores de validación (no se puede procesar la nómina)
@@ -1872,7 +1912,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
                 disabled={loadingAlimentacion}
                 helperText={
                   loadingAlimentacion
-                    ? "Cargando..."
+                    ? "Cargando datos..."
                     : errorAlimentacion?.tieneError
                     ? errorAlimentacion.mensajeError
                     : undefined

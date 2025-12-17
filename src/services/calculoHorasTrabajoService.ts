@@ -6,6 +6,7 @@ import type {
   ConteoHorasProrrateoDto,
 } from "../dtos/calculoHorasTrabajoDto";
 import api from "./api";
+import GastosAlimentacionService from "./gastosAlimentacionService";
 
 // Interfaces para el desglose de incidencias
 export interface DesgloseIncidencias {
@@ -67,6 +68,7 @@ class CalculoHorasTrabajoService {
             fechaInicio,
             fechaFin,
           },
+          timeout: 20000, // 20 segundos (duplicado del timeout por defecto)
         }
       );
       return response.data.data;
@@ -93,6 +95,124 @@ class CalculoHorasTrabajoService {
     } catch (error) {
       console.error("Error al obtener prorrateo:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Obtiene las deducciones de alimentación de un empleado en un período
+   * Llama directamente al endpoint externo desde el frontend
+   * @param codigoEmpleado Código del empleado (no ID)
+   * @param fechaInicio Fecha de inicio en formato YYYY-MM-DD
+   * @param fechaFin Fecha de fin en formato YYYY-MM-DD
+   */
+  static async getDeduccionesAlimentacion(
+    codigoEmpleado: string,
+    fechaInicio: string,
+    fechaFin: string
+  ): Promise<{
+    deduccionesAlimentacion: number;
+    detalle: Array<{
+      producto: string;
+      precio: number;
+      fecha: string;
+    }>;
+    errorAlimentacion?: { tieneError: boolean; mensajeError: string };
+  }> {
+    // Validar parámetros
+    if (!codigoEmpleado || codigoEmpleado.trim() === "") {
+      console.error("[getDeduccionesAlimentacion] codigoEmpleado vacío o inválido:", codigoEmpleado);
+      return {
+        deduccionesAlimentacion: 0,
+        detalle: [],
+        errorAlimentacion: {
+          tieneError: true,
+          mensajeError: "El código del empleado es requerido",
+        },
+      };
+    }
+
+    if (!this.validarFormatoFecha(fechaInicio)) {
+      console.error("[getDeduccionesAlimentacion] fechaInicio formato inválido:", fechaInicio);
+      return {
+        deduccionesAlimentacion: 0,
+        detalle: [],
+        errorAlimentacion: {
+          tieneError: true,
+          mensajeError: `Formato de fechaInicio inválido: ${fechaInicio}. Se espera YYYY-MM-DD`,
+        },
+      };
+    }
+
+    if (!this.validarFormatoFecha(fechaFin)) {
+      console.error("[getDeduccionesAlimentacion] fechaFin formato inválido:", fechaFin);
+      return {
+        deduccionesAlimentacion: 0,
+        detalle: [],
+        errorAlimentacion: {
+          tieneError: true,
+          mensajeError: `Formato de fechaFin inválido: ${fechaFin}. Se espera YYYY-MM-DD`,
+        },
+      };
+    }
+
+    if (!this.validarRangoFechas(fechaInicio, fechaFin)) {
+      console.error("[getDeduccionesAlimentacion] Rango de fechas inválido:", { fechaInicio, fechaFin });
+      return {
+        deduccionesAlimentacion: 0,
+        detalle: [],
+        errorAlimentacion: {
+          tieneError: true,
+          mensajeError: `La fecha de inicio (${fechaInicio}) debe ser menor o igual a la fecha de fin (${fechaFin})`,
+        },
+      };
+    }
+
+    console.log("[getDeduccionesAlimentacion] Parámetros validados:", {
+      codigoEmpleado: codigoEmpleado.trim(),
+      fechaInicio,
+      fechaFin,
+    });
+
+    try {
+      // Llamar directamente al endpoint externo desde el frontend
+      const resultado = await GastosAlimentacionService.obtenerConsumo({
+        codigoEmpleado: codigoEmpleado.trim(),
+        fechaInicio,
+        fechaFin,
+      });
+
+      if (!resultado.success) {
+        return {
+          deduccionesAlimentacion: 0,
+          detalle: [],
+          errorAlimentacion: {
+            tieneError: true,
+            mensajeError: resultado.message || "Error al obtener deducciones de alimentación",
+          },
+        };
+      }
+
+      // Calcular el total de deducciones
+      const deduccionesAlimentacion = (resultado.items || []).reduce(
+        (total, item) => total + item.precio,
+        0
+      );
+
+      return {
+        deduccionesAlimentacion,
+        detalle: resultado.items || [],
+        errorAlimentacion: undefined,
+      };
+    } catch (error: any) {
+      console.error("Error al obtener deducciones de alimentación:", error);
+      return {
+        deduccionesAlimentacion: 0,
+        detalle: [],
+        errorAlimentacion: {
+          tieneError: true,
+          mensajeError: error?.message || "Error al obtener deducciones de alimentación",
+        },
+      };
     }
   }
 
