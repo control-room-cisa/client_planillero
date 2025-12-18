@@ -91,6 +91,7 @@ class RegistroDiarioService {
         horaSalida: registroActual.horaSalida,
         jornada: registroActual.jornada,
         esDiaLibre: registroActual.esDiaLibre,
+        esIncapacidad: registroActual.esIncapacidad,
         comentarioEmpleado: registroActual.comentarioEmpleado,
         actividades: [...actividadesExistentes, actividad],
       }

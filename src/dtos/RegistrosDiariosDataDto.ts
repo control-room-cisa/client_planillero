@@ -5,6 +5,7 @@ export interface RegistroDiarioData {
   horaSalida: string; // ISO string
   jornada?: string; // M, T, N (Mañana, Tarde, Noche)
   esDiaLibre?: boolean;
+  esIncapacidad?: boolean;
   esHoraCorrida?: boolean;
   comentarioEmpleado?: string;
   aprobacionSupervisor?: boolean;
@@ -41,6 +42,7 @@ export interface UpsertRegistroDiarioParams {
   horaSalida: string; // ISO string
   jornada?: string;
   esDiaLibre?: boolean;
+  esIncapacidad?: boolean;
   esHoraCorrida?: boolean;
   comentarioEmpleado?: string;
   horasFeriado?: number; // Horas laborables asignadas a feriado cuando es día festivo

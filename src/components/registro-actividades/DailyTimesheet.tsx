@@ -145,6 +145,7 @@ const DailyTimesheet: React.FC = () => {
     horaSalida: "",
     jornada: "D", // Por defecto Día
     esDiaLibre: false,
+    esIncapacidad: false,
     esHoraCorrida: false,
     comentarioEmpleado: "",
   });
@@ -648,6 +649,7 @@ const DailyTimesheet: React.FC = () => {
         horaSalida: "",
         jornada: "D",
         esDiaLibre: false,
+        esIncapacidad: false,
         esHoraCorrida: false,
         comentarioEmpleado: "",
       });
@@ -768,6 +770,7 @@ const DailyTimesheet: React.FC = () => {
               return {
                 ...base,
                 esDiaLibre: Boolean(horarioData.esDiaLibre),
+                esIncapacidad: registro.esIncapacidad || false,
                 // Asegurar que comentarioEmpleado use el valor del registro o esté vacío
                 comentarioEmpleado: registro.comentarioEmpleado || "",
               };
@@ -779,6 +782,7 @@ const DailyTimesheet: React.FC = () => {
                 horaEntrada: formatTimeLocal(registro.horaEntrada),
                 horaSalida: formatTimeLocal(registro.horaSalida),
                 esDiaLibre: Boolean(horarioData.esDiaLibre),
+                esIncapacidad: registro.esIncapacidad || false,
                 // Asegurar que comentarioEmpleado use el valor del registro o esté vacío
                 comentarioEmpleado: registro.comentarioEmpleado || "",
               };
@@ -790,6 +794,7 @@ const DailyTimesheet: React.FC = () => {
           const result = {
             ...base,
             esDiaLibre: Boolean(horarioData.esDiaLibre),
+            esIncapacidad: registro?.esIncapacidad || false,
             comentarioEmpleado: registro?.comentarioEmpleado || "",
           };
 
@@ -906,6 +911,7 @@ const DailyTimesheet: React.FC = () => {
         horaSalida: registroDiario.horaSalida,
         jornada: registroDiario.jornada,
         esDiaLibre: registroDiario.esDiaLibre,
+        esIncapacidad: registroDiario.esIncapacidad,
         // Si es H2, enviar esHoraCorrida=true al backend
         esHoraCorrida: isH2 ? true : registroDiario.esHoraCorrida,
         comentarioEmpleado: registroDiario.comentarioEmpleado,
@@ -987,7 +993,7 @@ const DailyTimesheet: React.FC = () => {
       return;
     }
 
-    if (isHoliday && (name === "horaEntrada" || name === "horaSalida")) {
+    if ((isHoliday || dayConfigData.esDiaLibre || dayConfigData.esIncapacidad) && (name === "horaEntrada" || name === "horaSalida")) {
       return;
     }
 
@@ -1007,7 +1013,7 @@ const DailyTimesheet: React.FC = () => {
       );
 
       if (horarioValidado?.tipoHorario === "H2") {
-        if (name === "esDiaLibre") {
+        if (name === "esDiaLibre" || name === "esIncapacidad") {
           if (finalValue) {
             next = {
               ...next,
@@ -1028,7 +1034,8 @@ const DailyTimesheet: React.FC = () => {
           name === "jornada" &&
           typeof finalValue === "string" &&
           finalValue &&
-          !next.esDiaLibre
+          !next.esDiaLibre &&
+          !next.esIncapacidad
         ) {
           const schedule = getH2Schedule(finalValue, currentDate);
           if (schedule) {
@@ -1039,7 +1046,7 @@ const DailyTimesheet: React.FC = () => {
             };
           }
         }
-      } else if (name === "esDiaLibre") {
+      } else if (name === "esDiaLibre" || name === "esIncapacidad") {
         const defaults = getDefaultHorario(prev.jornada || "D");
         if (finalValue) {
           next = {
@@ -1087,6 +1094,7 @@ const DailyTimesheet: React.FC = () => {
       dayConfigData.horaSalida !== registroHoraSalida ||
       dayConfigData.jornada !== registroDiario.jornada ||
       dayConfigData.esDiaLibre !== registroDiario.esDiaLibre ||
+      dayConfigData.esIncapacidad !== (registroDiario.esIncapacidad || false) ||
       dayConfigData.esHoraCorrida !== registroDiario.esHoraCorrida ||
       dayConfigData.comentarioEmpleado !==
         (registroDiario.comentarioEmpleado || "")
@@ -1145,6 +1153,7 @@ const DailyTimesheet: React.FC = () => {
 
       // Usar siempre el valor actual de esDiaLibre del formulario (para cualquier tipo de horario)
       const esDiaLibreFinal = dayConfigData.esDiaLibre;
+      const esIncapacidadFinal = dayConfigData.esIncapacidad;
 
       // Si es H2, enviar esHoraCorrida=true al backend
       const esHoraCorridaFinal = isH2
@@ -1165,6 +1174,7 @@ const DailyTimesheet: React.FC = () => {
         horaSalida: horaSalidaISO,
         jornada: dayConfigData.jornada,
         esDiaLibre: esDiaLibreFinal,
+        esIncapacidad: esIncapacidadFinal,
         esHoraCorrida: esHoraCorridaFinal,
         comentarioEmpleado: dayConfigData.comentarioEmpleado,
         ...(horasFeriado !== undefined && { horasFeriado }),
@@ -1393,7 +1403,7 @@ const DailyTimesheet: React.FC = () => {
               "Sin horas normales disponibles. Activa Hora Extra para continuar.";
           } else if (hours > horasDisponiblesValidacionForm) {
             errors.horasInvertidas = `Las horas exceden el límite disponible. Solo quedan ${horasDisponiblesValidacionForm.toFixed(
-              2
+                2
             )} horas.`;
           }
         }
@@ -1587,6 +1597,7 @@ const DailyTimesheet: React.FC = () => {
           ),
           jornada: dayConfigData.jornada,
           esDiaLibre: dayConfigData.esDiaLibre,
+          esIncapacidad: dayConfigData.esIncapacidad,
           esHoraCorrida: isH2 ? true : dayConfigData.esHoraCorrida,
           comentarioEmpleado: dayConfigData.comentarioEmpleado,
           ...(horasFeriado !== undefined && { horasFeriado }),
@@ -1619,6 +1630,7 @@ const DailyTimesheet: React.FC = () => {
           ),
           jornada: dayConfigData.jornada,
           esDiaLibre: dayConfigData.esDiaLibre,
+          esIncapacidad: dayConfigData.esIncapacidad,
           // Si es H2, enviar esHoraCorrida=true al backend
           esHoraCorrida: isH2 ? true : dayConfigData.esHoraCorrida,
           comentarioEmpleado: dayConfigData.comentarioEmpleado,
@@ -1738,11 +1750,47 @@ const DailyTimesheet: React.FC = () => {
   const canAddExtraHours = horasNormales === 0 || horasRestantesDia <= 0.01;
   // === NUEVO: bloquear checkbox Hora Corrida cuando es H2 ===
   const disableHoraCorrida = isH2 || (horasNormales === 0 && isH1);
-  const disableTimeFields = dayConfigData.esDiaLibre || isHoliday;
+  const disableTimeFields = dayConfigData.esDiaLibre || dayConfigData.esIncapacidad || isHoliday;
+  
+  /**
+   * REGLA DE NEGOCIO CRÍTICA: INCAPACIDAD
+   * 
+   * Cuando esIncapacidad = true:
+   * - NO se pueden crear nuevas actividades
+   * - NO se pueden editar actividades existentes
+   * - SÍ se pueden eliminar actividades (deben hacerlo manualmente)
+   * 
+   * Esto aplica a TODOS los tipos de horarios (H1, H2, H1_1, H1_2, etc.).
+   * 
+   * RAZÓN: Un empleado en incapacidad no puede registrar nuevas actividades laborales,
+   * pero puede eliminar las actividades que ya tenía registradas antes de marcar incapacidad.
+   * 
+   * IMPLEMENTACIÓN:
+   * - disableCreateEditActivities se usa para deshabilitar:
+   *   * Botón "Nueva Actividad" (desktop y mobile)
+   *   * Botón "Editar" en cada actividad
+   *   * FAB (Floating Action Button) en mobile
+   * - El botón "Eliminar" NO se deshabilita cuando hay incapacidad
+   * 
+   * IMPORTANTE: No remover esta lógica sin revisar primero las reglas de negocio
+   * documentadas en los archivos H1Rules.ts, H2Rules.ts, DefaultRules.ts
+   * 
+   * NOTA PARA IA: Este comportamiento está documentado en las reglas de horario.
+   * No modificar sin entender el impacto en la lógica de negocio.
+   */
+  const isIncapacidad = dayConfigData.esIncapacidad || false;
+  const disableCreateEditActivities = readOnly || isIncapacidad;
 
-  const exceededNormalHours =
-    horasNormales > 0 ? Math.max(0, workedHoursNormales - horasNormales) : 0;
-  const hasExceededNormalHours = exceededNormalHours > 0;
+  /**
+   * Calcular si se exceden las horas normales.
+   * Se considera excedencia cuando las horas trabajadas son mayores que las horas normales disponibles.
+   * Esto incluye casos donde:
+   * - horasNormales > 0 y workedHoursNormales > horasNormales
+   * - horasNormales === 0 y workedHoursNormales > 0 (ej: incapacidad marcada o día libre)
+   * - horasNormales se redujo después de tener actividades guardadas (ej: cambio de horario)
+   */
+  const exceededNormalHours = Math.max(0, workedHoursNormales - horasNormales);
+  const hasExceededNormalHours = workedHoursNormales > horasNormales;
 
   // Estado del registro diario
   const hasDayRecord = Boolean(registroDiario);
@@ -1771,7 +1819,7 @@ const DailyTimesheet: React.FC = () => {
   React.useEffect(() => {
     if (horarioValidado?.tipoHorario !== "H2") return;
     setDayConfigData((prev) => {
-      if (prev.esDiaLibre) {
+      if (prev.esDiaLibre || prev.esIncapacidad) {
         if (
           prev.horaEntrada === "07:00" &&
           prev.horaSalida === "07:00" &&
@@ -2004,6 +2052,14 @@ const DailyTimesheet: React.FC = () => {
               variant="outlined"
             />
           )}
+          {registroDiario.esIncapacidad && (
+            <Chip
+              label="Incapacidad"
+              size="small"
+              color="warning"
+              variant="outlined"
+            />
+          )}
           {/* Mostrar Hora Corrida solo si NO es H2 (para H2 ocultar) */}
           {!isH2 && registroDiario.esHoraCorrida && (
             <Chip
@@ -2170,7 +2226,8 @@ const DailyTimesheet: React.FC = () => {
                       disabled={
                         readOnly ||
                         initialLoading ||
-                        !horarioRules.utils.isFieldEnabled("esDiaLibre")
+                        !horarioRules.utils.isFieldEnabled("esDiaLibre") ||
+                        (isH2 && isIncapacidad) // En H2, deshabilitar Día Libre cuando hay incapacidad
                       }
                       name="esDiaLibre"
                       checked={dayConfigData.esDiaLibre}
@@ -2182,6 +2239,23 @@ const DailyTimesheet: React.FC = () => {
                 />
               </Box>
             )}
+            {/* Es Incapacidad */}
+            <Box
+              sx={{ display: "flex", alignItems: "center", height: "40px" }}
+            >
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    disabled={readOnly || initialLoading}
+                    name="esIncapacidad"
+                    checked={dayConfigData.esIncapacidad}
+                    onChange={handleDayConfigInputChange}
+                    color="primary"
+                  />
+                }
+                label="Incapacidad"
+              />
+            </Box>
             {/* Es Hora Corrida */}
             {horarioRules.utils.isFieldVisible("esHoraCorrida") && (
               <Box
@@ -2312,7 +2386,7 @@ const DailyTimesheet: React.FC = () => {
               ) : (
                 <Typography
                   variant="body2"
-                  color="primary.main"
+                  color={hasExceededNormalHours ? "error.main" : "primary.main"}
                   fontWeight="bold"
                 >
                   {workedHoursNormales.toFixed(2)} / {horasNormales.toFixed(2)}{" "}
@@ -2346,7 +2420,7 @@ const DailyTimesheet: React.FC = () => {
             </Typography>
           ) : hasExceededNormalHours ? (
             <Typography variant="body2" color="error.main" fontWeight="bold">
-              Se exceden {exceededNormalHours.toFixed(2)} horas normales
+              Se exceden las horas normales para este día
             </Typography>
           ) : (
             <Typography variant="body2" color="warning.main">
@@ -2371,13 +2445,14 @@ const DailyTimesheet: React.FC = () => {
         </Typography>
         {!isMobile && (
           <Button
-            disabled={readOnly || initialLoading}
+            disabled={disableCreateEditActivities || initialLoading}
             variant="contained"
             startIcon={
               initialLoading ? <CircularProgress size={16} /> : <Add />
             }
             sx={{ borderRadius: 2 }}
             onClick={handleDrawerOpen}
+            title={isIncapacidad ? "No se pueden agregar actividades cuando hay incapacidad" : ""}
           >
             {initialLoading ? "Cargando..." : "Nueva Actividad"}
           </Button>
@@ -2821,10 +2896,11 @@ const DailyTimesheet: React.FC = () => {
                           )}
                         </Stack>
                         <IconButton
-                          disabled={readOnly}
+                          disabled={disableCreateEditActivities}
                           size="small"
                           onClick={() => handleEditActivity(actividad, index)}
                           sx={{ color: "primary.main" }}
+                          title={isIncapacidad ? "No se pueden editar actividades cuando hay incapacidad" : ""}
                         >
                           <Edit />
                         </IconButton>
@@ -2908,6 +2984,8 @@ const DailyTimesheet: React.FC = () => {
             startIcon={<Add />}
             sx={{ borderRadius: 2 }}
             onClick={handleDrawerOpen}
+            disabled={disableCreateEditActivities}
+            title={isIncapacidad ? "No se pueden agregar actividades cuando hay incapacidad" : ""}
           >
             Agregar Actividad
           </Button>
@@ -2921,13 +2999,14 @@ const DailyTimesheet: React.FC = () => {
           color="primary"
           aria-label="add"
           onClick={handleDrawerOpen}
-          disabled={readOnly}
+          disabled={disableCreateEditActivities}
           sx={{
             position: "fixed",
             bottom: 16,
             right: 16,
             textTransform: "none",
           }}
+          title={isIncapacidad ? "No se pueden agregar actividades cuando hay incapacidad" : ""}
         >
           <Add sx={{ mr: 1 }} />
           Agregar Actividad

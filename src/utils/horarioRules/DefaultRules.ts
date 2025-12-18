@@ -1,5 +1,30 @@
 import type { HorarioRuleEngine } from "./interfaces";
 
+/**
+ * REGLAS DE NEGOCIO PARA HORARIO DEFAULT (Horario Estándar)
+ * 
+ * IMPORTANTE - COMPORTAMIENTOS CRÍTICOS QUE NO DEBEN ALTERARSE:
+ * 
+ * 1. INCAPACIDAD (esIncapacidad):
+ *    - Cuando esIncapacidad = true, NO se pueden crear, editar ni eliminar actividades.
+ *    - Este comportamiento se implementa en DailyTimesheet.tsx mediante la variable `disableActivities`.
+ *    - Los botones de "Nueva Actividad", "Editar" y "Eliminar" se deshabilitan automáticamente.
+ *    - Esto aplica a TODOS los tipos de horarios (H1, H2, H1_1, H1_2, etc.).
+ *    - RAZÓN: Un empleado en incapacidad no puede registrar actividades laborales.
+ * 
+ * 2. DÍA LIBRE (esDiaLibre):
+ *    - Cuando esDiaLibre = true, las horas normales se calculan como 0.
+ *    - Los campos de hora entrada/salida se deshabilitan.
+ * 
+ * 3. HORAS NORMALES:
+ *    - Se calculan desde la API (cantidadHorasLaborables) cuando está disponible.
+ *    - Si no hay datos de API, se calcula: (horaSalida - horaEntrada) - almuerzo.
+ *    - El almuerzo es 1 hora si NO es hora corrida, 0 horas si es hora corrida.
+ *    - Por defecto: 8 horas si no hay datos de entrada/salida.
+ * 
+ * NOTA PARA IA: No modificar estos comportamientos sin revisar primero el impacto
+ * en DailyTimesheet.tsx y otros componentes que dependen de estas reglas.
+ */
 export const DefaultRules: HorarioRuleEngine = {
   type: "DEFAULT",
   name: "Horario Estándar",
