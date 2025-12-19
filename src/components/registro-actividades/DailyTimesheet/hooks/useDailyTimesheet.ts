@@ -66,6 +66,7 @@ export const useDailyTimesheet = () => {
     job: "",
     class: "",
     horaExtra: false,
+    esCompensatorio: false,
   });
   const [formErrors, setFormErrors] = React.useState<{ [key: string]: string }>(
     {}
@@ -432,6 +433,7 @@ export const useDailyTimesheet = () => {
       job: "",
       class: "",
       horaExtra: false,
+      esCompensatorio: false,
     });
     setFormErrors({});
   }, []);
@@ -452,6 +454,7 @@ export const useDailyTimesheet = () => {
         job: activity.jobId?.toString() || "",
         class: activity.className || "",
         horaExtra: activity.esExtra || false,
+        esCompensatorio: activity.esCompensatorio || false,
       });
       setDrawerOpen(true);
       await loadJobs();
@@ -1254,6 +1257,7 @@ export const useDailyTimesheet = () => {
       const actividad: any = {
         jobId: parseInt(formData.job),
         esExtra: formData.horaExtra,
+        esCompensatorio: formData.esCompensatorio,
         className: formData.class || undefined,
         descripcion: formData.descripcion,
       };
@@ -1280,6 +1284,7 @@ export const useDailyTimesheet = () => {
             jobId: act.jobId,
             duracionHoras: act.duracionHoras,
             esExtra: act.esExtra,
+            esCompensatorio: act.esCompensatorio,
             className: act.className,
             descripcion: act.descripcion,
             horaInicio: act.horaInicio,

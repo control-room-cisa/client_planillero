@@ -22,6 +22,7 @@ export interface ActividadData {
   jobId: number;
   duracionHoras: number;
   esExtra: boolean;
+  esCompensatorio?: boolean;
   className?: string | null; // Cambiado para permitir null
   descripcion: string;
   horaInicio: string;
@@ -50,6 +51,7 @@ export interface UpsertRegistroDiarioParams {
     jobId: number;
     duracionHoras: number;
     esExtra?: boolean;
+    esCompensatorio?: boolean;
     className?: string | null; // Cambiado para permitir null
     descripcion: string;
     horaInicio: string;

@@ -351,12 +351,7 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
           <FormControlLabel
             control={
               <Checkbox
-                disabled={
-                  readOnly ||
-                  (!canAddExtraHours && !forceExtra) ||
-                  forceExtra ||
-                  shouldForceExtra
-                }
+                disabled={true}
                 name="horaExtra"
                 checked={
                   forceExtra
@@ -367,9 +362,7 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
                       : false
                     : formData.horaExtra
                 }
-                onChange={
-                  forceExtra || shouldForceExtra ? undefined : handleInputChange
-                }
+                onChange={undefined}
                 color="primary"
               />
             }
@@ -385,8 +378,39 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
             sx={{ mb: 0.5 }}
           />
 
+          {/* Es Compensatorio */}
+          <Box sx={{ mb: 3 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  disabled={readOnly}
+                  name="esCompensatorio"
+                  checked={formData.esCompensatorio}
+                  onChange={handleInputChange}
+                  color="primary"
+                />
+              }
+              label={
+                formData.horaExtra
+                  ? "Devolver hora compensatoria"
+                  : "Tomar hora libre compensatoria"
+              }
+            />
+            {formData.esCompensatorio && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mt: 0.5, ml: 4 }}
+              >
+                {formData.horaExtra
+                  ? "Se suma al saldo de horas compensatorias (No se paga como extra)"
+                  : "Se resta del saldo de horas compensatorias."}
+              </Typography>
+            )}
+          </Box>
+
           {/* Botones */}
-          <Box sx={{ mt: "auto", pt: 3 }}>
+          <Box sx={{ mt: "auto", pt: 3, pb: 3 }}>
             <Divider sx={{ mb: 3 }} />
             <Box sx={{ display: "flex", gap: 2 }}>
               <Button

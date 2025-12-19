@@ -7,6 +7,7 @@ export interface ActivityData {
   job: string; // id en string para integrarse con Autocomplete
   class: string;
   horaExtra: boolean;
+  esCompensatorio: boolean;
 }
 
 /** Actividad en el registro (horas en ISO + metadatos) */
@@ -19,6 +20,7 @@ export interface Activity {
   jobId: number;
   className?: string | null;
   esExtra: boolean;
+  esCompensatorio?: boolean;
   job?: {
     nombre: string;
     codigo: string;
