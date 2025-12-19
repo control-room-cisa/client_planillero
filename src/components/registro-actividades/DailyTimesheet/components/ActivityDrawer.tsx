@@ -39,6 +39,7 @@ type ActivityDrawerProps = {
     _e: React.SyntheticEvent,
     value: JobConJerarquia | null
   ) => void;
+  handleHorasBlur: () => void;
   handleSubmit: () => void;
 };
 
@@ -60,6 +61,7 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
   isProgressIncomplete,
   handleDrawerClose,
   handleInputChange,
+  handleHorasBlur,
   handleTimeKeyDown,
   handleJobChange,
   handleSubmit,
@@ -155,7 +157,9 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
                 type="time"
                 name="horaFin"
                 label="Hora fin actividad (00:00 = fin del día)"
-                value={formData.horaFin === "24:00" ? "00:00" : formData.horaFin}
+                value={
+                  formData.horaFin === "24:00" ? "00:00" : formData.horaFin
+                }
                 onChange={handleInputChange}
                 onKeyDown={handleTimeKeyDown}
                 error={!!formErrors.horaFin}
@@ -173,6 +177,7 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
           )}
 
           {/* Input de horas invertidas */}
+          {/* Horas Normales: editable manualmente (solo múltiplos positivos de 0.25h = 15 min). Hora Extra: calculado automáticamente (readonly) */}
           <TextField
             disabled={
               readOnly ||
@@ -184,9 +189,11 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
             name="horasInvertidas"
             label="Horas Invertidas"
             placeholder={
-              formData.horaExtra ? "Calculado automáticamente" : "Ej: 2.5"
+              formData.horaExtra
+                ? "Calculado automáticamente"
+                : "Ej: 2.5 (múltiplos de 0.25h)"
             }
-            type="number"
+            type="text"
             error={!!formErrors.horasInvertidas}
             helperText={
               formErrors.horasInvertidas ||
@@ -195,7 +202,7 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
                 : `Horas restantes: ${Math.max(
                     0,
                     horasDisponiblesValidacionForm
-                  ).toFixed(2)}h`)
+                  ).toFixed(2)}h. Solo múltiplos positivos de 0.25h (15 min)`)
             }
             InputProps={{
               readOnly: formData.horaExtra,
@@ -209,6 +216,33 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
             }}
             value={formData.horasInvertidas}
             onChange={handleInputChange}
+            onBlur={handleHorasBlur}
+            onKeyDown={(e) => {
+              if (formData.horaExtra) return;
+              // Bloquear teclas no numéricas directamente para mejorar UX
+              const allowedKeys = [
+                "Backspace",
+                "Delete",
+                "Tab",
+                "Escape",
+                "Enter",
+                "ArrowLeft",
+                "ArrowRight",
+                "ArrowUp",
+                "ArrowDown",
+                "Home",
+                "End",
+                ".",
+                ",",
+              ];
+              const isNumber = /^\d$/.test(e.key);
+              const isAllowed = allowedKeys.includes(e.key);
+              const isModifier = e.ctrlKey || e.metaKey || e.altKey;
+
+              if (!isNumber && !isAllowed && !isModifier) {
+                e.preventDefault();
+              }
+            }}
             sx={{ mb: 3 }}
           />
 
@@ -289,9 +323,7 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
                     {params.group}
                   </Typography>
                   <Box component="li" sx={{ p: 0 }}>
-                    <ul style={{ padding: 0, margin: 0 }}>
-                      {params.children}
-                    </ul>
+                    <ul style={{ padding: 0, margin: 0 }}>{params.children}</ul>
                   </Box>
                 </Box>
               )}
@@ -336,9 +368,7 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
                     : formData.horaExtra
                 }
                 onChange={
-                  forceExtra || shouldForceExtra
-                    ? undefined
-                    : handleInputChange
+                  forceExtra || shouldForceExtra ? undefined : handleInputChange
                 }
                 color="primary"
               />
@@ -399,5 +429,3 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
     </Drawer>
   );
 };
-
-

@@ -71,6 +71,8 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
     exceededNormalHours,
     hasExceededNormalHours,
     hasDayRecord,
+    isIncapacidad,
+    disableCreateEditActivities,
     dayConfigHasChanges,
     forceExtra,
     horasCero,
@@ -88,6 +90,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
     handleDayConfigSubmit,
     handleTimeKeyDown,
     handleInputChange,
+    handleHorasBlur,
     handleJobChange,
     handleSubmit,
     navigateDate,
@@ -224,6 +227,14 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
               label="Día Libre"
               size="small"
               color="warning"
+              variant="outlined"
+            />
+          )}
+          {registroDiario.esIncapacidad && (
+            <Chip
+              label="Incapacidad"
+              size="small"
+              color="error"
               variant="outlined"
             />
           )}
@@ -393,7 +404,8 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                       disabled={
                         readOnly ||
                         initialLoading ||
-                        !horarioRules.utils.isFieldEnabled("esDiaLibre")
+                        !horarioRules.utils.isFieldEnabled("esDiaLibre") ||
+                        (isH2 && isIncapacidad) // En H2, deshabilitar Día Libre cuando hay incapacidad
                       }
                       name="esDiaLibre"
                       checked={dayConfigData.esDiaLibre}
@@ -405,6 +417,21 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                 />
               </Box>
             )}
+            {/* Es Incapacidad */}
+            <Box sx={{ display: "flex", alignItems: "center", height: "40px" }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    disabled={readOnly || initialLoading}
+                    name="esIncapacidad"
+                    checked={dayConfigData.esIncapacidad || false}
+                    onChange={handleDayConfigInputChange}
+                    color="primary"
+                  />
+                }
+                label="Incapacidad"
+              />
+            </Box>
             {/* Es Hora Corrida */}
             {horarioRules.utils.isFieldVisible("esHoraCorrida") && (
               <Box
@@ -535,7 +562,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
               ) : (
                 <Typography
                   variant="body2"
-                  color="primary.main"
+                  color={hasExceededNormalHours ? "error.main" : "primary.main"}
                   fontWeight="bold"
                 >
                   {workedHoursNormales.toFixed(2)} / {horasNormales.toFixed(2)}{" "}
@@ -568,9 +595,17 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
               Calculando progreso...
             </Typography>
           ) : hasExceededNormalHours ? (
-            <Typography variant="body2" color="error.main" fontWeight="bold">
-              Se exceden {exceededNormalHours.toFixed(2)} horas normales
-            </Typography>
+            <Alert severity="error" sx={{ mt: 1 }}>
+              <Typography variant="body2" fontWeight="bold">
+                {horasNormales === 0
+                  ? `Se superan las horas normales requeridas. Hay ${workedHoursNormales.toFixed(
+                      2
+                    )} horas trabajadas pero no hay horas normales disponibles para este día.`
+                  : `Se superan las horas normales requeridas. Se exceden ${exceededNormalHours.toFixed(
+                      2
+                    )} horas normales.`}
+              </Typography>
+            </Alert>
           ) : (
             <Typography variant="body2" color="warning.main">
               {horasFaltantesMessage}
@@ -594,13 +629,18 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
         </Typography>
         {!isMobile && (
           <Button
-            disabled={readOnly || initialLoading}
+            disabled={disableCreateEditActivities || initialLoading}
             variant="contained"
             startIcon={
               initialLoading ? <CircularProgress size={16} /> : <Add />
             }
             sx={{ borderRadius: 2 }}
             onClick={handleDrawerOpen}
+            title={
+              isIncapacidad
+                ? "No se pueden crear nuevas actividades cuando hay incapacidad"
+                : undefined
+            }
           >
             {initialLoading ? "Cargando..." : "Nueva Actividad"}
           </Button>
@@ -612,12 +652,16 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
         initialLoading={initialLoading}
         registroDiario={registroDiario}
         readOnly={readOnly}
+        disableCreateEditActivities={disableCreateEditActivities}
+        isIncapacidad={isIncapacidad}
         handleDrawerOpen={handleDrawerOpen}
         handleEditActivity={handleEditActivity}
         handleDeleteActivity={handleDeleteActivity}
         formatTimeLocal={formatTimeLocal}
         timeToMinutes={timeToMinutes}
-        computeHorasActividadForDisplayWrapper={computeHorasActividadForDisplayWrapper}
+        computeHorasActividadForDisplayWrapper={
+          computeHorasActividadForDisplayWrapper
+        }
       />
 
       {/* FAB */}
@@ -627,7 +671,12 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
           color="primary"
           aria-label="add"
           onClick={handleDrawerOpen}
-          disabled={readOnly}
+          disabled={disableCreateEditActivities}
+          title={
+            isIncapacidad
+              ? "No se pueden crear nuevas actividades cuando hay incapacidad"
+              : undefined
+          }
           sx={{
             position: "fixed",
             bottom: 16,
@@ -659,6 +708,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
         isProgressIncomplete={isProgressIncomplete}
         handleDrawerClose={handleDrawerClose}
         handleInputChange={handleInputChange}
+        handleHorasBlur={handleHorasBlur}
         handleTimeKeyDown={handleTimeKeyDown}
         handleJobChange={handleJobChange}
         handleSubmit={handleSubmit}

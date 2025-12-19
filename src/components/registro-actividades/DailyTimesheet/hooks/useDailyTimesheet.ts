@@ -54,7 +54,9 @@ export const useDailyTimesheet = () => {
     return new Date();
   });
   const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const [editingActivity, setEditingActivity] = React.useState<Activity | null>(null);
+  const [editingActivity, setEditingActivity] = React.useState<Activity | null>(
+    null
+  );
   const [editingIndex, setEditingIndex] = React.useState<number>(-1);
   const [formData, setFormData] = React.useState<ActivityData>({
     descripcion: "",
@@ -65,24 +67,32 @@ export const useDailyTimesheet = () => {
     class: "",
     horaExtra: false,
   });
-  const [formErrors, setFormErrors] = React.useState<{ [key: string]: string }>({});
+  const [formErrors, setFormErrors] = React.useState<{ [key: string]: string }>(
+    {}
+  );
 
   // Jobs
   const [jobs, setJobs] = React.useState<JobConJerarquia[]>([]);
   const [loadingJobs, setLoadingJobs] = React.useState(false);
-  const [selectedJob, setSelectedJob] = React.useState<JobConJerarquia | null>(null);
+  const [selectedJob, setSelectedJob] = React.useState<JobConJerarquia | null>(
+    null
+  );
 
   // Registro diario
-  const [registroDiario, setRegistroDiario] = React.useState<RegistroDiarioData | null>(null);
+  const [registroDiario, setRegistroDiario] =
+    React.useState<RegistroDiarioData | null>(null);
   const [dayConfigData, setDayConfigData] = React.useState({
     horaEntrada: "",
     horaSalida: "",
     jornada: "D",
     esDiaLibre: false,
+    esIncapacidad: false,
     esHoraCorrida: false,
     comentarioEmpleado: "",
   });
-  const [dayConfigErrors, setDayConfigErrors] = React.useState<{ [key: string]: string }>({});
+  const [dayConfigErrors, setDayConfigErrors] = React.useState<{
+    [key: string]: string;
+  }>({});
   const [loading, setLoading] = React.useState(false);
   const [initialLoading, setInitialLoading] = React.useState(true);
   const [snackbar, setSnackbar] = React.useState({
@@ -120,8 +130,12 @@ export const useDailyTimesheet = () => {
 
   // === NUEVO: bandera de horario H2 ===
   const isH2 = horarioValidado?.tipoHorario === "H2";
-  const isH1 = ["H1", "H1_1", "H1_2"].includes(horarioValidado?.tipoHorario || "");
-  const isHoliday = Boolean(horarioData?.esFestivo || horarioValidado?.esFestivo);
+  const isH1 = ["H1", "H1_1", "H1_2"].includes(
+    horarioValidado?.tipoHorario || ""
+  );
+  const isHoliday = Boolean(
+    horarioData?.esFestivo || horarioValidado?.esFestivo
+  );
 
   // ===== Helpers de tiempo =====
   const getH2Schedule = React.useCallback(
@@ -146,8 +160,10 @@ export const useDailyTimesheet = () => {
     (jornadaValue?: string | null) => {
       if (horarioValidado?.tipoHorario === "H2") {
         return (
-          getH2Schedule(jornadaValue && jornadaValue !== "" ? jornadaValue : "D", currentDate) ||
-          { horaEntrada: "07:00", horaSalida: "19:00" }
+          getH2Schedule(
+            jornadaValue && jornadaValue !== "" ? jornadaValue : "D",
+            currentDate
+          ) || { horaEntrada: "07:00", horaSalida: "19:00" }
         );
       }
       return {
@@ -155,14 +171,25 @@ export const useDailyTimesheet = () => {
         horaSalida: horarioValidado?.horaFin || "17:00",
       };
     },
-    [currentDate, getH2Schedule, horarioValidado?.horaFin, horarioValidado?.horaInicio, horarioValidado?.tipoHorario]
+    [
+      currentDate,
+      getH2Schedule,
+      horarioValidado?.horaFin,
+      horarioValidado?.horaInicio,
+      horarioValidado?.tipoHorario,
+    ]
   );
 
   // Wrappers que usan horarioRules para calcular hora de almuerzo
   const computeHorasInvertidasWrapper = React.useCallback(
     (inicioHHMM: string, finHHMM: string, isExtraHour = false): string => {
       const horaAlmuerzo = horarioRules.utils.calculateLunchHours();
-      return computeHorasInvertidas(inicioHHMM, finHHMM, isExtraHour, horaAlmuerzo);
+      return computeHorasInvertidas(
+        inicioHHMM,
+        finHHMM,
+        isExtraHour,
+        horaAlmuerzo
+      );
     },
     [horarioRules.utils]
   );
@@ -176,7 +203,8 @@ export const useDailyTimesheet = () => {
   );
 
   const computeHorasActividadForDisplayWrapper = React.useCallback(
-    (act: Activity): string => formatHours(computeHorasActividadForDisplayNumWrapper(act)),
+    (act: Activity): string =>
+      formatHours(computeHorasActividadForDisplayNumWrapper(act)),
     [computeHorasActividadForDisplayNumWrapper]
   );
 
@@ -241,7 +269,9 @@ export const useDailyTimesheet = () => {
     }
   }, [formData.horaExtra]);
 
-  const readOnly = !!(registroDiario?.aprobacionSupervisor || registroDiario?.aprobacionRrhh);
+  const readOnly = !!(
+    registroDiario?.aprobacionSupervisor || registroDiario?.aprobacionRrhh
+  );
 
   // Nueva función para cargar validaciones de horario
   const loadHorarioValidations = React.useCallback(
@@ -249,7 +279,10 @@ export const useDailyTimesheet = () => {
       try {
         if (!user?.id) return;
 
-        const horarioData = await CalculoHorasTrabajoService.getHorarioTrabajo(user.id, fecha);
+        const horarioData = await CalculoHorasTrabajoService.getHorarioTrabajo(
+          user.id,
+          fecha
+        );
 
         console.log("[DEBUG] horarioData desde API:", horarioData);
         console.log("[DEBUG] horarioData.esDiaLibre:", horarioData.esDiaLibre);
@@ -262,7 +295,8 @@ export const useDailyTimesheet = () => {
           datosExistentes
         );
 
-        let cantidadHorasLaborablesNormales = horarioData.cantidadHorasLaborables;
+        let cantidadHorasLaborablesNormales =
+          horarioData.cantidadHorasLaborables;
         if (horarioData.esFestivo) {
           const fechaObj = new Date(`${fecha}T00:00:00`);
           const diaSemana = fechaObj.getDay();
@@ -308,6 +342,7 @@ export const useDailyTimesheet = () => {
                 return {
                   ...base,
                   esDiaLibre: Boolean(horarioData.esDiaLibre),
+                  esIncapacidad: registro.esIncapacidad || false,
                   comentarioEmpleado: registro.comentarioEmpleado || "",
                 };
               } else {
@@ -316,6 +351,7 @@ export const useDailyTimesheet = () => {
                   horaEntrada: formatTimeLocal(registro.horaEntrada),
                   horaSalida: formatTimeLocal(registro.horaSalida),
                   esDiaLibre: Boolean(horarioData.esDiaLibre),
+                  esIncapacidad: registro.esIncapacidad || false,
                   comentarioEmpleado: registro.comentarioEmpleado || "",
                 };
               }
@@ -324,6 +360,7 @@ export const useDailyTimesheet = () => {
             const result = {
               ...base,
               esDiaLibre: Boolean(horarioData.esDiaLibre),
+              esIncapacidad: registro?.esIncapacidad || false,
               comentarioEmpleado: registro?.comentarioEmpleado || "",
             };
 
@@ -350,6 +387,7 @@ export const useDailyTimesheet = () => {
         horaSalida: "",
         jornada: "D",
         esDiaLibre: false,
+        esIncapacidad: false,
         esHoraCorrida: false,
         comentarioEmpleado: "",
       });
@@ -402,7 +440,9 @@ export const useDailyTimesheet = () => {
     async (activity: Activity, index: number) => {
       setEditingActivity(activity);
       setEditingIndex(index);
-      const inicio = activity.horaInicio ? formatTimeLocal(activity.horaInicio) : "";
+      const inicio = activity.horaInicio
+        ? formatTimeLocal(activity.horaInicio)
+        : "";
       const fin = activity.horaFin ? formatTimeLocal(activity.horaFin) : "";
       setFormData({
         descripcion: activity.descripcion || "",
@@ -531,18 +571,24 @@ export const useDailyTimesheet = () => {
       const { name, value, type, checked } = event.target;
       let finalValue = type === "checkbox" ? checked : value;
 
-      const horasCero = HorarioRulesFactory.calculateNormalHours(
-        horarioValidado?.tipoHorario,
-        dayConfigData,
-        horarioValidado,
-        { now: currentDate }
-      ) === 0;
+      const horasCero =
+        HorarioRulesFactory.calculateNormalHours(
+          horarioValidado?.tipoHorario,
+          dayConfigData,
+          horarioValidado,
+          { now: currentDate }
+        ) === 0;
 
       if (name === "esHoraCorrida" && horasCero) {
         return;
       }
 
-      if (isHoliday && (name === "horaEntrada" || name === "horaSalida")) {
+      if (
+        (isHoliday ||
+          dayConfigData.esDiaLibre ||
+          dayConfigData.esIncapacidad) &&
+        (name === "horaEntrada" || name === "horaSalida")
+      ) {
         return;
       }
 
@@ -554,10 +600,14 @@ export const useDailyTimesheet = () => {
       }
 
       setDayConfigData((prev) => {
-        let next = horarioRules.utils.onFieldChange(name as any, finalValue, prev);
+        let next = horarioRules.utils.onFieldChange(
+          name as any,
+          finalValue,
+          prev
+        );
 
         if (horarioValidado?.tipoHorario === "H2") {
-          if (name === "esDiaLibre") {
+          if (name === "esDiaLibre" || name === "esIncapacidad") {
             if (finalValue) {
               next = {
                 ...next,
@@ -565,6 +615,10 @@ export const useDailyTimesheet = () => {
                 horaEntrada: "07:00",
                 horaSalida: "07:00",
               };
+              // En H2, si se marca incapacidad, deshabilitar Día Libre
+              if (name === "esIncapacidad" && finalValue) {
+                next.esDiaLibre = false;
+              }
             } else {
               const schedule = getDefaultHorario(prev.jornada || "D");
               next = {
@@ -578,7 +632,8 @@ export const useDailyTimesheet = () => {
             name === "jornada" &&
             typeof finalValue === "string" &&
             finalValue &&
-            !next.esDiaLibre
+            !next.esDiaLibre &&
+            !next.esIncapacidad
           ) {
             const schedule = getH2Schedule(finalValue, currentDate);
             if (schedule) {
@@ -589,7 +644,7 @@ export const useDailyTimesheet = () => {
               };
             }
           }
-        } else if (name === "esDiaLibre") {
+        } else if (name === "esDiaLibre" || name === "esIncapacidad") {
           const defaults = getDefaultHorario(prev.jornada || "D");
           if (finalValue) {
             next = {
@@ -614,7 +669,16 @@ export const useDailyTimesheet = () => {
       if (dayConfigErrors[name])
         setDayConfigErrors((prev) => ({ ...prev, [name]: "" }));
     },
-    [horarioRules.utils, horarioValidado?.tipoHorario, isHoliday, currentDate, getDefaultHorario, getH2Schedule, dayConfigData, dayConfigErrors]
+    [
+      horarioRules.utils,
+      horarioValidado?.tipoHorario,
+      isHoliday,
+      currentDate,
+      getDefaultHorario,
+      getH2Schedule,
+      dayConfigData,
+      dayConfigErrors,
+    ]
   );
 
   const validateDayConfig = React.useCallback((): boolean => {
@@ -636,8 +700,10 @@ export const useDailyTimesheet = () => {
       dayConfigData.horaSalida !== registroHoraSalida ||
       dayConfigData.jornada !== registroDiario.jornada ||
       dayConfigData.esDiaLibre !== registroDiario.esDiaLibre ||
+      dayConfigData.esIncapacidad !== (registroDiario.esIncapacidad || false) ||
       dayConfigData.esHoraCorrida !== registroDiario.esHoraCorrida ||
-      dayConfigData.comentarioEmpleado !== (registroDiario.comentarioEmpleado || "")
+      dayConfigData.comentarioEmpleado !==
+        (registroDiario.comentarioEmpleado || "")
     );
   }, [registroDiario, dayConfigData]);
 
@@ -647,11 +713,19 @@ export const useDailyTimesheet = () => {
     try {
       setLoading(true);
       const dateString = ymdInTZ(currentDate);
-      const horaEntradaISO = buildISO(currentDate, dayConfigData.horaEntrada, 0);
+      const horaEntradaISO = buildISO(
+        currentDate,
+        dayConfigData.horaEntrada,
+        0
+      );
       const startM = timeToMinutes(dayConfigData.horaEntrada);
       const endM = timeToMinutes(dayConfigData.horaSalida);
       const addDayForEnd = endM <= startM ? 1 : 0;
-      const horaSalidaISO = buildISO(currentDate, dayConfigData.horaSalida, addDayForEnd);
+      const horaSalidaISO = buildISO(
+        currentDate,
+        dayConfigData.horaSalida,
+        addDayForEnd
+      );
 
       {
         const { intervals: newIntervals } = getBoundsFromHHMM(
@@ -682,13 +756,19 @@ export const useDailyTimesheet = () => {
       }
 
       const esDiaLibreFinal = dayConfigData.esDiaLibre;
-      const horasCero = HorarioRulesFactory.calculateNormalHours(
-        horarioValidado?.tipoHorario,
-        dayConfigData,
-        horarioValidado,
-        { now: currentDate }
-      ) === 0;
-      const esHoraCorridaFinal = isH2 ? true : horasCero ? false : dayConfigData.esHoraCorrida;
+      const esIncapacidadFinal = dayConfigData.esIncapacidad;
+      const horasCero =
+        HorarioRulesFactory.calculateNormalHours(
+          horarioValidado?.tipoHorario,
+          dayConfigData,
+          horarioValidado,
+          { now: currentDate }
+        ) === 0;
+      const esHoraCorridaFinal = isH2
+        ? true
+        : horasCero
+        ? false
+        : dayConfigData.esHoraCorrida;
 
       const horasFeriado =
         horarioData?.esFestivo && horarioData.cantidadHorasLaborablesNormales
@@ -701,6 +781,7 @@ export const useDailyTimesheet = () => {
         horaSalida: horaSalidaISO,
         jornada: dayConfigData.jornada,
         esDiaLibre: esDiaLibreFinal,
+        esIncapacidad: esIncapacidadFinal,
         esHoraCorrida: esHoraCorridaFinal,
         comentarioEmpleado: dayConfigData.comentarioEmpleado,
         ...(horasFeriado !== undefined && { horasFeriado }),
@@ -733,7 +814,15 @@ export const useDailyTimesheet = () => {
     } finally {
       setLoading(false);
     }
-  }, [validateDayConfig, currentDate, dayConfigData, registroDiario, isH2, horarioValidado, horarioData]);
+  }, [
+    validateDayConfig,
+    currentDate,
+    dayConfigData,
+    registroDiario,
+    isH2,
+    horarioValidado,
+    horarioData,
+  ]);
 
   // ===== Form actividad =====
   const handleTimeKeyDown = React.useCallback(
@@ -808,6 +897,14 @@ export const useDailyTimesheet = () => {
 
         const next = { ...prev, [name]: finalValue };
 
+        // Para horas normales: restringir a formato numérico (máx 2 enteros, 2 decimales)
+        if (!next.horaExtra && name === "horasInvertidas") {
+          const raw = (value as string).replace(",", ".");
+          // Regex: opcionalmente hasta 2 dígitos, opcionalmente punto y hasta 2 dígitos
+          const match = raw.match(/^\d{0,2}(\.\d{0,2})?/);
+          next.horasInvertidas = match ? match[0] : "";
+        }
+
         if (name === "horaExtra") {
           if (checked) {
             if (next.horaInicio && next.horaFin) {
@@ -862,11 +959,25 @@ export const useDailyTimesheet = () => {
   const handleJobChange = React.useCallback(
     (_e: React.SyntheticEvent, value: JobConJerarquia | null) => {
       setSelectedJob(value);
-      setFormData((prev) => ({ ...prev, job: value ? value.id.toString() : "" }));
+      setFormData((prev) => ({
+        ...prev,
+        job: value ? value.id.toString() : "",
+      }));
       if (formErrors.job) setFormErrors((prev) => ({ ...prev, job: "" }));
     },
     [formErrors.job]
   );
+
+  const handleHorasBlur = React.useCallback(() => {
+    if (formData.horaExtra) return;
+    const val = parseFloat(formData.horasInvertidas);
+    if (!isNaN(val) && val > 0) {
+      const rounded = Math.round(val * 4) / 4;
+      setFormData((prev) => ({ ...prev, horasInvertidas: rounded.toFixed(2) }));
+    } else {
+      setFormData((prev) => ({ ...prev, horasInvertidas: "" }));
+    }
+  }, [formData.horaExtra, formData.horasInvertidas]);
 
   // ===== Horas trabajadas / Totales & progreso =====
   const workedHoursNormales =
@@ -887,7 +998,10 @@ export const useDailyTimesheet = () => {
   const progressPercentage =
     horasNormales === 0
       ? 100
-      : HorarioValidator.getProgressPercentage(workedHoursNormales, horasNormales);
+      : HorarioValidator.getProgressPercentage(
+          workedHoursNormales,
+          horasNormales
+        );
   const horasFaltantesMessage = HorarioValidator.getHorasFaltantesMessage(
     workedHoursNormales,
     horasNormales
@@ -903,10 +1017,50 @@ export const useDailyTimesheet = () => {
 
   const canAddExtraHours = horasNormales === 0 || horasRestantesDia <= 0.01;
   const disableHoraCorrida = isH2 || (horasNormales === 0 && isH1);
-  const disableTimeFields = dayConfigData.esDiaLibre || isHoliday;
+  const disableTimeFields =
+    dayConfigData.esDiaLibre || dayConfigData.esIncapacidad || isHoliday;
 
+  /**
+   * REGLA DE NEGOCIO CRÍTICA: INCAPACIDAD
+   *
+   * Cuando esIncapacidad = true:
+   * - NO se pueden crear nuevas actividades
+   * - NO se pueden editar actividades existentes
+   * - SÍ se pueden eliminar actividades (deben hacerlo manualmente)
+   *
+   * Esto aplica a TODOS los tipos de horarios (H1, H2, H1_1, H1_2, etc.).
+   *
+   * RAZÓN: Un empleado en incapacidad no puede registrar nuevas actividades laborales,
+   * pero puede eliminar las actividades que ya tenía registradas antes de marcar incapacidad.
+   *
+   * IMPLEMENTACIÓN:
+   * - disableCreateEditActivities se usa para deshabilitar:
+   *   * Botón "Nueva Actividad" (desktop y mobile)
+   *   * Botón "Editar" en cada actividad
+   *   * FAB (Floating Action Button) en mobile
+   * - El botón "Eliminar" NO se deshabilita cuando hay incapacidad
+   *
+   * IMPORTANTE: No remover esta lógica sin revisar primero las reglas de negocio
+   * documentadas en los archivos H1Rules.ts, H2Rules.ts, DefaultRules.ts
+   *
+   * NOTA PARA IA: Este comportamiento está documentado en las reglas de horario.
+   * No modificar sin entender el impacto en la lógica de negocio.
+   */
+  const isIncapacidad = dayConfigData.esIncapacidad || false;
+  const disableCreateEditActivities = readOnly || isIncapacidad;
+
+  /**
+   * Calcular si se exceden las horas normales.
+   * Se considera excedencia cuando:
+   * - Las horas trabajadas son mayores que las horas normales disponibles (si horasNormales > 0)
+   * - O hay horas trabajadas cuando las horas normales disponibles son 0
+   */
   const exceededNormalHours =
-    horasNormales > 0 ? Math.max(0, workedHoursNormales - horasNormales) : 0;
+    horasNormales > 0
+      ? Math.max(0, workedHoursNormales - horasNormales)
+      : workedHoursNormales > 0
+      ? workedHoursNormales
+      : 0;
   const hasExceededNormalHours = exceededNormalHours > 0;
 
   const hasDayRecord = Boolean(registroDiario);
@@ -946,7 +1100,11 @@ export const useDailyTimesheet = () => {
       }
 
       if (horaInicio && horaFin) {
-        const horasCalc = computeHorasInvertidasWrapper(horaInicio, horaFin, true);
+        const horasCalc = computeHorasInvertidasWrapper(
+          horaInicio,
+          horaFin,
+          true
+        );
         if (!horasCalc || parseFloat(horasCalc) <= 0) {
           errors.horasInvertidas = "Las horas calculadas no son válidas";
         }
@@ -988,7 +1146,10 @@ export const useDailyTimesheet = () => {
         !(dayConfigData.horaEntrada === dayConfigData.horaSalida);
 
       if (shouldValidateOutside) {
-        const laborIntervalsForValidation = buildIntervals(entradaMin, salidaMin);
+        const laborIntervalsForValidation = buildIntervals(
+          entradaMin,
+          salidaMin
+        );
         const activityIntervalsForValidation = splitActivityIntervals(
           inicioMin,
           formData.horaFin === "24:00" ? 1440 : timeToMinutes(formData.horaFin)
@@ -1003,7 +1164,9 @@ export const useDailyTimesheet = () => {
 
         if (overlapsSchedule) {
           const rangoPermitido = laborIntervalsForValidation
-            .map(([start, end]) => `${minutesToHHMM(start)}-${minutesToHHMM(end)}`)
+            .map(
+              ([start, end]) => `${minutesToHHMM(start)}-${minutesToHHMM(end)}`
+            )
             .join(" y ");
           errors.horaInicio = `La hora extra debe estar fuera del horario laboral (${rangoPermitido})`;
           errors.horaFin = `La hora extra debe estar fuera del horario laboral (${rangoPermitido})`;
@@ -1017,7 +1180,10 @@ export const useDailyTimesheet = () => {
         errors.horaFin = "La hora final debe ser posterior a la inicial";
       }
 
-      if (registroDiario?.actividades && registroDiario.actividades.length > 0) {
+      if (
+        registroDiario?.actividades &&
+        registroDiario.actividades.length > 0
+      ) {
         const overlaps = registroDiario.actividades.some((act) => {
           if (editingActivity) {
             if (editingActivity.id && act.id && editingActivity.id === act.id) {
@@ -1047,7 +1213,10 @@ export const useDailyTimesheet = () => {
       }
     }
 
-    if (!formData.horaExtra && (horasNormales === 0 || horasDisponiblesValidacionForm <= 0)) {
+    if (
+      !formData.horaExtra &&
+      (horasNormales === 0 || horasDisponiblesValidacionForm <= 0)
+    ) {
       errors.horasInvertidas =
         horasNormales === 0
           ? "Este día no tiene horas normales; utiliza Hora Extra."
@@ -1091,7 +1260,11 @@ export const useDailyTimesheet = () => {
 
       if (formData.horaExtra) {
         actividad.duracionHoras = parseFloat(
-          computeHorasInvertidasWrapper(formData.horaInicio, formData.horaFin, true)
+          computeHorasInvertidasWrapper(
+            formData.horaInicio,
+            formData.horaFin,
+            true
+          )
         );
         actividad.horaInicio = buildISO(currentDate, formData.horaInicio, 0);
         actividad.horaFin = buildISO(currentDate, formData.horaFin, addDay);
@@ -1134,9 +1307,14 @@ export const useDailyTimesheet = () => {
         const params = {
           fecha: dateString,
           horaEntrada: buildISO(currentDate, dayConfigData.horaEntrada, 0),
-          horaSalida: buildISO(currentDate, dayConfigData.horaSalida, addDayForEnd),
+          horaSalida: buildISO(
+            currentDate,
+            dayConfigData.horaSalida,
+            addDayForEnd
+          ),
           jornada: dayConfigData.jornada,
           esDiaLibre: dayConfigData.esDiaLibre,
+          esIncapacidad: dayConfigData.esIncapacidad,
           esHoraCorrida: isH2 ? true : dayConfigData.esHoraCorrida,
           comentarioEmpleado: dayConfigData.comentarioEmpleado,
           ...(horasFeriado !== undefined && { horasFeriado }),
@@ -1160,9 +1338,14 @@ export const useDailyTimesheet = () => {
         const params = {
           fecha: dateString,
           horaEntrada: buildISO(currentDate, dayConfigData.horaEntrada, 0),
-          horaSalida: buildISO(currentDate, dayConfigData.horaSalida, addDayForEnd),
+          horaSalida: buildISO(
+            currentDate,
+            dayConfigData.horaSalida,
+            addDayForEnd
+          ),
           jornada: dayConfigData.jornada,
           esDiaLibre: dayConfigData.esDiaLibre,
+          esIncapacidad: dayConfigData.esIncapacidad,
           esHoraCorrida: isH2 ? true : dayConfigData.esHoraCorrida,
           comentarioEmpleado: dayConfigData.comentarioEmpleado,
           ...(horasFeriado !== undefined && { horasFeriado }),
@@ -1230,7 +1413,8 @@ export const useDailyTimesheet = () => {
   const handleDrawerOpenWithHours = React.useCallback(async () => {
     setDrawerOpen(true);
 
-    const sinHorasDisponibles = horasNormales === 0 || horasRestantesDia <= 0.01;
+    const sinHorasDisponibles =
+      horasNormales === 0 || horasRestantesDia <= 0.01;
 
     if (sinHorasDisponibles) {
       setFormData((prev) => ({
@@ -1363,7 +1547,13 @@ export const useDailyTimesheet = () => {
         return newFormData;
       });
     }
-  }, [shouldForceExtra, isProgressComplete, isProgressIncomplete, drawerOpen, loadJobs]);
+  }, [
+    shouldForceExtra,
+    isProgressComplete,
+    isProgressIncomplete,
+    drawerOpen,
+    loadJobs,
+  ]);
 
   return {
     // Estados
@@ -1404,6 +1594,8 @@ export const useDailyTimesheet = () => {
     exceededNormalHours,
     hasExceededNormalHours,
     hasDayRecord,
+    isIncapacidad,
+    disableCreateEditActivities,
     dayConfigHasChanges,
     forceExtra,
     horasCero,
@@ -1422,6 +1614,7 @@ export const useDailyTimesheet = () => {
     handleDayConfigSubmit,
     handleTimeKeyDown,
     handleInputChange,
+    handleHorasBlur,
     handleJobChange,
     validateForm,
     handleSubmit,
@@ -1442,5 +1635,3 @@ export const useDailyTimesheet = () => {
     setSnackbar,
   };
 };
-
-

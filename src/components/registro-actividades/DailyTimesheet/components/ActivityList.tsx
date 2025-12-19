@@ -18,6 +18,8 @@ type ActivityListProps = {
   initialLoading: boolean;
   registroDiario: RegistroDiarioData | null;
   readOnly: boolean;
+  disableCreateEditActivities: boolean;
+  isIncapacidad: boolean;
   handleDrawerOpen: () => void;
   handleEditActivity: (activity: Activity, index: number) => void;
   handleDeleteActivity: (index: number) => void;
@@ -30,6 +32,8 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   initialLoading,
   registroDiario,
   readOnly,
+  disableCreateEditActivities,
+  isIncapacidad,
   handleDrawerOpen,
   handleEditActivity,
   handleDeleteActivity,
@@ -90,6 +94,12 @@ export const ActivityList: React.FC<ActivityListProps> = ({
           startIcon={<Add />}
           sx={{ borderRadius: 2 }}
           onClick={handleDrawerOpen}
+          disabled={disableCreateEditActivities}
+          title={
+            isIncapacidad
+              ? "No se pueden crear nuevas actividades cuando hay incapacidad"
+              : undefined
+          }
         >
           Agregar Actividad
         </Button>
@@ -444,13 +454,18 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                     )}
                   </Stack>
                   <IconButton
-                    disabled={readOnly}
+                    disabled={disableCreateEditActivities}
                     size="small"
                     onClick={() =>
                       handleEditActivity(
                         actividad,
                         actividadIndex >= 0 ? actividadIndex : index
                       )
+                    }
+                    title={
+                      isIncapacidad
+                        ? "No se pueden editar actividades cuando hay incapacidad"
+                        : undefined
                     }
                     sx={{ color: "primary.main" }}
                   >
