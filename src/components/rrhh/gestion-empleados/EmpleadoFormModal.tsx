@@ -27,6 +27,7 @@ import type {
 import type { Departamento, Empresa } from "../../../types/auth";
 import { useEmpleadoValidation } from "../../../hooks/useEmpleadoValidation";
 import EmpleadoService from "../../../services/empleadoService";
+import { Roles } from "../../../enums/roles";
 
 interface EmpleadoFormModalProps {
   open: boolean;
@@ -73,7 +74,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     telefono: "",
     direccion: "",
     contrasena: "",
-    rolId: 1,
+    rolId: Roles.EMPLEADO,
     departamentoId: 1,
     activo: true,
     nombreUsuario: "",
@@ -170,7 +171,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         telefono: empleadoCompleto.telefono || "",
         direccion: empleadoCompleto.direccion || "",
         contrasena: "",
-        rolId: empleadoCompleto.rolId || 1,
+        rolId: empleadoCompleto.rolId || Roles.EMPLEADO,
         departamentoId, // CHANGED
         empresaId, // NEW
         activo: empleadoCompleto.activo ?? true,
@@ -214,7 +215,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       telefono: "",
       direccion: "",
       contrasena: "",
-      rolId: 1,
+      rolId: Roles.EMPLEADO,
       departamentoId: 1,
       activo: true,
       nombreUsuario: "",
@@ -569,10 +570,10 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   label="Rol *"
                   required
                 >
-                  <MenuItem value={1}>Colaborador</MenuItem>
-                  <MenuItem value={2}>Supervisor</MenuItem>
-                  <MenuItem value={3}>RRHH</MenuItem>
-                  <MenuItem value={4}>Contabilidad</MenuItem>
+                  <MenuItem value={Roles.EMPLEADO}>Colaborador</MenuItem>
+                  <MenuItem value={Roles.SUPERVISOR}>Supervisor</MenuItem>
+                  <MenuItem value={Roles.RRHH}>RRHH</MenuItem>
+                  <MenuItem value={Roles.CONTABILIDAD}>Contabilidad</MenuItem>
                 </Select>
                 {fieldErrors.rolId && (
                   <Typography

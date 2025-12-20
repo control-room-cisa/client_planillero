@@ -39,6 +39,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useNotificationCount } from "../hooks/useNotificationCount";
 import type { Empleado } from "../services/empleadoService";
+import { Roles } from "../enums/roles";
 
 const drawerWidth = 240;
 const settings = ["Cerrar Sesión"];
@@ -133,20 +134,20 @@ export default function Layout() {
     if (location.pathname !== "/") return;
     if (!user?.rolId) return; // Esperar a que el usuario esté cargado
 
-    if (user.rolId === 3) {
+    if (user.rolId === Roles.RRHH) {
       navigate("/rrhh/colaboradores", { replace: true });
-    } else if (user.rolId === 4) {
+    } else if (user.rolId === Roles.CONTABILIDAD) {
       navigate("/contabilidad", { replace: true });
-    } else if (user.rolId === 1 || user.rolId === 2) {
-      // rol 1 (colaborador) o supervisor 2 -> redirigir con fecha actual
+    } else if (user.rolId === Roles.EMPLEADO || user.rolId === Roles.SUPERVISOR) {
+      // EMPLEADO o SUPERVISOR -> redirigir con fecha actual
       navigate(`/registro-actividades/${todayDateString}`, { replace: true });
     }
   }, [location.pathname, navigate, user?.rolId, todayDateString]);
 
   // ===== Menú por rol → path
   const navItems = React.useMemo(() => {
-    // Contabilidad (rol 4)
-    if (user?.rolId === 4) {
+    // Contabilidad
+    if (user?.rolId === Roles.CONTABILIDAD) {
       return [
         {
           id: "contabilidad",
@@ -169,8 +170,8 @@ export default function Layout() {
       ];
     }
 
-    // RRHH (rol 3)  -> sin notificaciones
-    if (user?.rolId === 3) {
+    // RRHH -> sin notificaciones
+    if (user?.rolId === Roles.RRHH) {
       return [
         {
           id: "colaboradores",
@@ -199,8 +200,8 @@ export default function Layout() {
       ];
     }
 
-    // Supervisor (rol 2) -> sin notificaciones
-    if (user?.rolId === 2) {
+    // Supervisor -> sin notificaciones
+    if (user?.rolId === Roles.SUPERVISOR) {
       return [
         {
           id: "registro",

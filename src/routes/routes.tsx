@@ -5,6 +5,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import ProtectedRoute from "../components/ProtectedRoute";
 import RoleProtectedRoute from "../components/RoleProtectedRoute";
+import { Roles } from "../enums/roles";
 
 // Lazy pages (code-splitting)
 const Login = React.lazy(() => import("../components/auth/Login"));
@@ -63,11 +64,11 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       >
-        {/* Registro (colab + supervisor) */}
+        {/* Registro (EMPLEADO + SUPERVISOR) */}
         <Route
           path="registro-actividades/:fecha?"
           element={
-            <RoleProtectedRoute allowedRoles={[1, 2]}>
+            <RoleProtectedRoute allowedRoles={[Roles.EMPLEADO, Roles.SUPERVISOR]}>
               <DailyTimesheet />
             </RoleProtectedRoute>
           }
@@ -82,7 +83,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="supervision/planillas"
           element={
-            <RoleProtectedRoute allowedRoles={[2, 4]}>
+            <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR, Roles.CONTABILIDAD]}>
               <SupervisorManagement />
             </RoleProtectedRoute>
           }
@@ -90,7 +91,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="supervision/planillas/detalle"
           element={
-            <RoleProtectedRoute allowedRoles={[2, 4]}>
+            <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR, Roles.CONTABILIDAD]}>
               <SupervisorRoute />
             </RoleProtectedRoute>
           }
@@ -100,7 +101,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="rrhh/colaboradores"
           element={
-            <RoleProtectedRoute allowedRoles={[3]}>
+            <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
               <EmpleadosManagement />
             </RoleProtectedRoute>
           }
@@ -108,7 +109,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="rrhh/feriados"
           element={
-            <RoleProtectedRoute allowedRoles={[3]}>
+            <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
               <FeriadosManagement />
             </RoleProtectedRoute>
           }
@@ -116,7 +117,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="rrhh/accesos-planilla"
           element={
-            <RoleProtectedRoute allowedRoles={[3]}>
+            <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
               <PlanillaAccesoRevisionManagement />
             </RoleProtectedRoute>
           }
@@ -124,7 +125,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="rrhh/nominas"
           element={
-            <RoleProtectedRoute allowedRoles={[3]}>
+            <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
               <NominasRoute />
             </RoleProtectedRoute>
           }
@@ -132,7 +133,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="rrhh/nominas-gestion"
           element={
-            <RoleProtectedRoute allowedRoles={[3]}>
+            <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
               <NominasManagement />
             </RoleProtectedRoute>
           }
@@ -142,7 +143,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="contabilidad"
           element={
-            <RoleProtectedRoute allowedRoles={[4]}>
+            <RoleProtectedRoute allowedRoles={[Roles.CONTABILIDAD]}>
               <ContabilidadDashboard />
             </RoleProtectedRoute>
           }
@@ -150,7 +151,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="contabilidad/prorrateo"
           element={
-            <RoleProtectedRoute allowedRoles={[4]}>
+            <RoleProtectedRoute allowedRoles={[Roles.CONTABILIDAD]}>
               <ProrrateoManagement />
             </RoleProtectedRoute>
           }
@@ -158,17 +159,17 @@ const AppRoutes: React.FC = () => {
         <Route
           path="contabilidad/prorrateo/detalle"
           element={
-            <RoleProtectedRoute allowedRoles={[4]}>
+            <RoleProtectedRoute allowedRoles={[Roles.CONTABILIDAD]}>
               <ProrrateoRoute />
             </RoleProtectedRoute>
           }
         />
 
-        {/* Notificaciones (solo colaboradores) */}
+        {/* Notificaciones (solo EMPLEADO) */}
         <Route
           path="notificaciones"
           element={
-            <RoleProtectedRoute allowedRoles={[1]}>
+            <RoleProtectedRoute allowedRoles={[Roles.EMPLEADO]}>
               <NotificationsEmployee />
             </RoleProtectedRoute>
           }
