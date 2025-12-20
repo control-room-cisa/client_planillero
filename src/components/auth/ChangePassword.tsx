@@ -5,8 +5,6 @@ import {
   Button,
   Typography,
   Alert,
-  Container,
-  Paper,
   InputAdornment,
   IconButton,
   Dialog,
@@ -37,7 +35,6 @@ export default function ChangePassword({
   onSuccess,
   onError,
 }: ChangePasswordProps) {
-  const [showPassword, setShowPassword] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [error, setError] = useState<string>("");
@@ -148,7 +145,7 @@ export default function ChangePassword({
   return (
     <Dialog
       open={open}
-      onClose={(event, reason) => {
+      onClose={(_, reason) => {
         // Solo permitir cerrar con el botón Cancelar, no con clic fuera o ESC
         if (reason === "backdropClick" || reason === "escapeKeyDown") {
           return;

@@ -57,6 +57,7 @@ const NominasManagement: React.FC = () => {
   // Estados para modales
   const [openEditModal, setOpenEditModal] = useState(false);
   const [openDetailModal, setOpenDetailModal] = useState(false);
+  const [openDetailTableModal, setOpenDetailTableModal] = useState(false);
   const [currentNomina, setCurrentNomina] = useState<NominaDto | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<NominaDto>>({});
   const [errorAlimentacion, setErrorAlimentacion] = useState<{
@@ -74,6 +75,15 @@ const NominasManagement: React.FC = () => {
     open: false,
     message: "",
     severity: "success",
+  });
+
+  // Estado para diálogo de confirmación
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    nomina: NominaDto | null;
+  }>({
+    open: false,
+    nomina: null,
   });
 
   // Función para mostrar notificaciones
@@ -248,6 +258,11 @@ const NominasManagement: React.FC = () => {
     });
   };
 
+  // Formatear rango de fechas
+  const formatDateRange = (fechaInicio: string, fechaFin: string) => {
+    return `${formatDate(fechaInicio)} - ${formatDate(fechaFin)}`;
+  };
+
   // Formatear moneda
   const formatCurrency = (amount: number | null | undefined) => {
     if (amount === null || amount === undefined) return "-";
@@ -298,7 +313,7 @@ const NominasManagement: React.FC = () => {
     setCurrentNomina(nomina);
     setErrorAlimentacion(null);
     setLoadingAlimentacion(true);
-    
+
     // Obtener conteo de horas para calcular deducciones de alimentación
     try {
       const conteoHoras = await CalculoHorasTrabajoService.getConteoHoras(
@@ -306,7 +321,7 @@ const NominasManagement: React.FC = () => {
         nomina.fechaInicio,
         nomina.fechaFin
       );
-      
+
       // Si hay error en la alimentación, mostrar mensaje y permitir edición
       if (conteoHoras.errorAlimentacion?.tieneError) {
         setErrorAlimentacion(conteoHoras.errorAlimentacion);
@@ -356,7 +371,7 @@ const NominasManagement: React.FC = () => {
     } finally {
       setLoadingAlimentacion(false);
     }
-    
+
     setOpenEditModal(true);
   };
 
@@ -465,7 +480,12 @@ const NominasManagement: React.FC = () => {
       {/* Filtros */}
       <Paper sx={{ p: 2, mb: 3, flexShrink: 0 }}>
         <Box
-          sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "flex-end" }}
+          sx={{
+            display: "flex",
+            gap: 2,
+            flexWrap: "wrap",
+            alignItems: "flex-end",
+          }}
         >
           <Autocomplete
             options={empresas}
@@ -549,6 +569,16 @@ const NominasManagement: React.FC = () => {
           >
             Limpiar
           </Button>
+
+          <Button
+            variant="contained"
+            onClick={() => setOpenDetailTableModal(true)}
+            disabled={
+              !selectedEmpresaId || !codigoNominaFiltro || nominas.length === 0
+            }
+          >
+            Ver Detalles
+          </Button>
         </Box>
       </Paper>
 
@@ -584,51 +614,34 @@ const NominasManagement: React.FC = () => {
             <CircularProgress />
           </Box>
         ) : (
-          <Table stickyHeader sx={{ minWidth: 1600 }}>
+          <Table stickyHeader sx={{ minWidth: 1200 }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ minWidth: 220 }}>Período</TableCell>
                 <TableCell>Colaborador</TableCell>
-                <TableCell>Fecha Inicio</TableCell>
-                <TableCell>Fecha Fin</TableCell>
-                <TableCell align="right">Sueldo Quincenal</TableCell>
+                <TableCell>Fecha de Corte</TableCell>
                 <TableCell align="right">Subtotal</TableCell>
                 <TableCell align="right">Total Horas Extra</TableCell>
-                <TableCell align="right">Ajustes</TableCell>
                 <TableCell align="right">Total Percepciones</TableCell>
-                <TableCell align="right">Deducción IHSS</TableCell>
-                <TableCell align="right">Deducción ISR</TableCell>
-                <TableCell align="right">Deducción RAP</TableCell>
-                <TableCell align="right">Deducción Alimentación</TableCell>
-                <TableCell align="right">Préstamo</TableCell>
-                <TableCell align="right">Impuesto Vecinal</TableCell>
-                <TableCell align="right">Otros</TableCell>
                 <TableCell align="right">Total Deducciones</TableCell>
                 <TableCell align="right">Total a Pagar</TableCell>
-                <TableCell>Estado</TableCell>
                 <TableCell align="center">Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {nominas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={20} align="center">
+                  <TableCell colSpan={8} align="center">
                     No hay nóminas registradas
                   </TableCell>
                 </TableRow>
               ) : (
                 nominas.map((nomina) => (
                   <TableRow key={nomina.id} hover>
-                    <TableCell sx={{ maxWidth: 260, whiteSpace: "nowrap" }}>
-                      {nomina.nombrePeriodoNomina || "Sin nombre"}
-                    </TableCell>
                     <TableCell>
                       {getEmpleadoNombre(nomina.empleadoId)}
                     </TableCell>
-                    <TableCell>{formatDate(nomina.fechaInicio)}</TableCell>
-                    <TableCell>{formatDate(nomina.fechaFin)}</TableCell>
-                    <TableCell align="right">
-                      {formatCurrency((nomina.sueldoMensual ?? 0) / 2)}
+                    <TableCell>
+                      {formatDateRange(nomina.fechaInicio, nomina.fechaFin)}
                     </TableCell>
                     <TableCell align="right">
                       {formatCurrency(nomina.subtotalQuincena)}
@@ -637,54 +650,13 @@ const NominasManagement: React.FC = () => {
                       {formatCurrency(calcularTotalHorasExtra(nomina))}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(nomina.ajuste)}
-                    </TableCell>
-                    <TableCell align="right">
                       {formatCurrency(nomina.totalPercepciones)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(nomina.deduccionIHSS)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(nomina.deduccionISR)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(nomina.deduccionRAP)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(nomina.deduccionAlimentacion)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(nomina.cobroPrestamo)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(nomina.impuestoVecinal)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(nomina.otros)}
                     </TableCell>
                     <TableCell align="right">
                       {formatCurrency(nomina.totalDeducciones)}
                     </TableCell>
                     <TableCell align="right">
                       {formatCurrency(nomina.totalNetoPagar)}
-                    </TableCell>
-                    <TableCell>
-                      {nomina.pagado ? (
-                        <Chip
-                          icon={<CheckCircleIcon />}
-                          label="Pagado"
-                          color="success"
-                          size="small"
-                        />
-                      ) : (
-                        <Chip
-                          icon={<CancelIcon />}
-                          label="Pendiente"
-                          color="warning"
-                          size="small"
-                        />
-                      )}
                     </TableCell>
                     <TableCell align="center">
                       <IconButton
@@ -721,11 +693,8 @@ const NominasManagement: React.FC = () => {
             {nominas.length > 0 && (
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={4} sx={{ fontWeight: 600 }}>
+                  <TableCell colSpan={2} sx={{ fontWeight: 600 }}>
                     Totales
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(aggregatedTotals.sueldoQuincenal)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
                     {formatCurrency(aggregatedTotals.subtotal)}
@@ -734,22 +703,18 @@ const NominasManagement: React.FC = () => {
                     {formatCurrency(aggregatedTotals.horasExtra)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(aggregatedTotals.ajustes)}
+                    {formatCurrency(
+                      aggregatedTotals.subtotal +
+                        aggregatedTotals.ajustes +
+                        aggregatedTotals.horasExtra
+                    )}
                   </TableCell>
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
                     {formatCurrency(aggregatedTotals.totalDeducciones)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
                     {formatCurrency(aggregatedTotals.totalNeto)}
                   </TableCell>
-                  <TableCell />
                   <TableCell />
                 </TableRow>
               </TableFooter>
@@ -872,8 +837,7 @@ const NominasManagement: React.FC = () => {
                 fullWidth
                 size="small"
                 disabled={
-                  (errorAlimentacion?.tieneError !== true) ||
-                  loadingAlimentacion
+                  errorAlimentacion?.tieneError !== true || loadingAlimentacion
                 }
                 helperText={
                   loadingAlimentacion
@@ -950,6 +914,151 @@ const NominasManagement: React.FC = () => {
           <Button onClick={handleSaveEdit} variant="contained">
             Guardar
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Modal de tabla completa */}
+      <Dialog
+        open={openDetailTableModal}
+        onClose={() => setOpenDetailTableModal(false)}
+        maxWidth="xl"
+        fullWidth
+      >
+        <DialogTitle>
+          Detalles Completos de Nóminas -{" "}
+          {nominas[0]?.nombrePeriodoNomina || "Sin nombre"}
+        </DialogTitle>
+        <DialogContent>
+          <TableContainer sx={{ mt: 2, maxHeight: "70vh" }}>
+            <Table stickyHeader sx={{ minWidth: 1600 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Colaborador</TableCell>
+                  <TableCell>Fecha de Corte</TableCell>
+                  <TableCell align="right">Sueldo Quincenal</TableCell>
+                  <TableCell align="right">Subtotal</TableCell>
+                  <TableCell align="right">Total Horas Extra</TableCell>
+                  <TableCell align="right">Ajustes</TableCell>
+                  <TableCell align="right">Total Percepciones</TableCell>
+                  <TableCell align="right">Deducción IHSS</TableCell>
+                  <TableCell align="right">Deducción ISR</TableCell>
+                  <TableCell align="right">Deducción RAP</TableCell>
+                  <TableCell align="right">Deducción Alimentación</TableCell>
+                  <TableCell align="right">Préstamo</TableCell>
+                  <TableCell align="right">Impuesto Vecinal</TableCell>
+                  <TableCell align="right">Otros</TableCell>
+                  <TableCell align="right">Total Deducciones</TableCell>
+                  <TableCell align="right">Total a Pagar</TableCell>
+                  <TableCell>Estado</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {nominas.map((nomina) => (
+                  <TableRow key={nomina.id} hover>
+                    <TableCell>
+                      {getEmpleadoNombre(nomina.empleadoId)}
+                    </TableCell>
+                    <TableCell>
+                      {formatDateRange(nomina.fechaInicio, nomina.fechaFin)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency((nomina.sueldoMensual ?? 0) / 2)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.subtotalQuincena)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(calcularTotalHorasExtra(nomina))}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.ajuste)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.totalPercepciones)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.deduccionIHSS)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.deduccionISR)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.deduccionRAP)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.deduccionAlimentacion)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.cobroPrestamo)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.impuestoVecinal)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.otros)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.totalDeducciones)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.totalNetoPagar)}
+                    </TableCell>
+                    <TableCell>
+                      {nomina.pagado ? (
+                        <Chip
+                          icon={<CheckCircleIcon />}
+                          label="Pagado"
+                          color="success"
+                          size="small"
+                        />
+                      ) : (
+                        <Chip
+                          icon={<CancelIcon />}
+                          label="Pendiente"
+                          color="warning"
+                          size="small"
+                        />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={3} sx={{ fontWeight: 600 }}>
+                    Totales
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.subtotal)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.horasExtra)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.ajustes)}
+                  </TableCell>
+                  <TableCell />
+                  <TableCell />
+                  <TableCell />
+                  <TableCell />
+                  <TableCell />
+                  <TableCell />
+                  <TableCell />
+                  <TableCell />
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.totalDeducciones)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.totalNeto)}
+                  </TableCell>
+                  <TableCell />
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDetailTableModal(false)}>Cerrar</Button>
         </DialogActions>
       </Dialog>
 
