@@ -34,6 +34,7 @@ import DashboardIcon from "@mui/icons-material/Dashboard";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
 import ReceiptIcon from "@mui/icons-material/Receipt";
+import BusinessIcon from "@mui/icons-material/Business";
 
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -196,6 +197,12 @@ export default function Layout() {
           text: "Accesos de Planilla",
           icon: <LockOpenIcon />,
           path: "/rrhh/accesos-planilla",
+        },
+        {
+          id: "departamentos",
+          text: "Gestión de Departamentos",
+          icon: <BusinessIcon />,
+          path: "/rrhh/departamentos",
         },
       ];
     }
