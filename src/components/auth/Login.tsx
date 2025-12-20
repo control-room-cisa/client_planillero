@@ -9,6 +9,11 @@ import {
   Paper,
   InputAdornment,
   IconButton,
+  Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import {
   Email,
@@ -20,6 +25,7 @@ import {
 import { useAuth } from "../../hooks/useAuth";
 import type { LoginRequest } from "../../types/auth";
 import { useNavigate } from "react-router-dom";
+import ChangePassword from "./ChangePassword";
 
 export default function Login() {
   const { login, loading } = useAuth();
@@ -29,6 +35,13 @@ export default function Login() {
     correoElectronico: "",
     contrasena: "",
   });
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: "success" | "error";
+  }>({ open: false, message: "", severity: "success" });
   const navigate = useNavigate();
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,6 +74,25 @@ export default function Login() {
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
+  };
+
+  const handleCloseSnackbar = () =>
+    setSnackbar((prev) => ({ ...prev, open: false }));
+
+  const handleChangePasswordSuccess = (message: string) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: "success",
+    });
+  };
+
+  const handleChangePasswordError = (message: string) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: "error",
+    });
   };
 
   return (
@@ -183,30 +215,78 @@ export default function Login() {
               {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
 
-            {/* <>
-                <Divider sx={{ my: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    o
-                  </Typography>
-                </Divider>
-
-                <Box sx={{ textAlign: "center" }}>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    ¿No tienes cuenta?
-                  </Typography>
-                  <Button
-                    onClick={() => navigate("/register")}
-                    variant="outlined"
-                    fullWidth
-                    sx={{ textTransform: "none" }}
-                  >
-                    Crear cuenta nueva
-                  </Button>
-                </Box>
-              </> */}
+            <Box sx={{ textAlign: "center", mt: 2, display: "flex", flexDirection: "column", gap: 1 }}>
+              <Button
+                onClick={() => setChangePasswordOpen(true)}
+                variant="text"
+                sx={{ textTransform: "none" }}
+                disabled={loading}
+              >
+                Cambiar contraseña
+              </Button>
+              <Button
+                onClick={() => setForgotPasswordOpen(true)}
+                variant="text"
+                sx={{ textTransform: "none" }}
+                disabled={loading}
+              >
+                Olvidé mi contraseña
+              </Button>
+            </Box>
           </Box>
         </Paper>
       </Box>
+
+      <ChangePassword
+        open={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+        onSuccess={handleChangePasswordSuccess}
+        onError={handleChangePasswordError}
+      />
+
+      <Dialog
+        open={forgotPasswordOpen}
+        onClose={() => setForgotPasswordOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+          },
+        }}
+      >
+        <DialogTitle>
+          <Typography variant="h6" fontWeight="bold">
+            Olvidé mi contraseña
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mt: 1 }}>
+            Ponerse en contacto con el departamento de recursos humanos para
+            reestablecer su contraseña.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setForgotPasswordOpen(false)} variant="contained">
+            Entendido
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }

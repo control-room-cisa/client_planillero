@@ -1,4 +1,4 @@
-import type { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, Empleado } from '../types/auth';
+import type { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, Empleado, ChangePasswordRequest, ChangePasswordResponse } from '../types/auth';
 import { API_CONFIG } from '../config/api';
 
 class AuthService {
@@ -113,6 +113,42 @@ class AuthService {
 
   isAuthenticated(): boolean {
     return !!this.getStoredToken();
+  }
+
+  async changePassword(changePasswordData: ChangePasswordRequest): Promise<ChangePasswordResponse> {
+    try {
+      console.log('Enviando datos de cambio de contraseña:', { ...changePasswordData, contrasenaActual: '***', nuevaContrasena: '***' });
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.CHANGE_PASSWORD}`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(changePasswordData),
+      });
+
+      console.log('Respuesta del servidor:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        console.error('Error del servidor:', errorData);
+        
+        if (errorData?.message) {
+          throw new Error(errorData.message);
+        } else if (errorData?.errors) {
+          const validationErrors = errorData.errors.map((err: { field: string; message: string }) => `${err.field}: ${err.message}`).join(', ');
+          throw new Error(`Errores de validación: ${validationErrors}`);
+        } else {
+          throw new Error(`Error del servidor: ${response.status} ${response.statusText}`);
+        }
+      }
+
+      const data: ChangePasswordResponse = await response.json();
+      console.log('Datos recibidos:', data);
+      
+      return data;
+    } catch (error) {
+      console.error('Error en cambio de contraseña:', error);
+      throw error;
+    }
   }
 }
 

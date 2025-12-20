@@ -4,6 +4,7 @@ export const API_CONFIG = {
     AUTH: {
       LOGIN: "/auth/login",
       REGISTER: "/auth/register",
+      CHANGE_PASSWORD: "/auth/change-password",
     },
     EMPRESAS: {
       LIST: "/empresas",

@@ -91,6 +91,20 @@ export interface AuthState {
   loading: boolean;
 }
 
+export interface ChangePasswordRequest {
+  usuario?: string;
+  correoElectronico?: string;
+  dni?: string;
+  contrasenaActual: string;
+  nuevaContrasena: string;
+}
+
+export interface ChangePasswordResponse {
+  success: boolean;
+  message: string;
+  data: null;
+}
+
 export interface AuthContextType extends AuthState {
   login: (credentials: LoginRequest) => Promise<void>;
   register: (registerData: RegisterRequest) => Promise<void>;
