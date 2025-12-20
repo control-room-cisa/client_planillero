@@ -44,6 +44,7 @@ import EmpleadoService, { type Empleado } from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
 import type { Empresa } from "../../types/auth";
 import ConfirmDialog from "../common/ConfirmDialog";
+import { Roles } from "../../enums/roles";
 
 const PlanillaAccesoRevisionManagement: React.FC = () => {
   // Estados
@@ -158,7 +159,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
     setEmpleadosDialog([]);
   };
 
-  // Cargar supervisores por empresa
+  // Cargar supervisores por empresa (solo roles permitidos)
   const fetchSupervisores = React.useCallback(
     async (empresaId: string) => {
       if (!empresaId) {
@@ -169,7 +170,15 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
       try {
         const empresaIdNum = parseInt(empresaId);
         const data = await EmpleadoService.getAll(empresaIdNum);
-        setSupervisores(data);
+        // Filtrar solo empleados con roles permitidos para ser supervisores
+        const supervisoresPermitidos = data.filter(
+          (empleado) =>
+            empleado.rolId === Roles.SUPERVISOR ||
+            empleado.rolId === Roles.CONTABILIDAD ||
+            empleado.rolId === Roles.GERENCIA ||
+            empleado.rolId === Roles.RRHH
+        );
+        setSupervisores(supervisoresPermitidos);
       } catch (err) {
         console.error("Error al cargar supervisores:", err);
         showSnackbar("Error al cargar los supervisores", "error");
