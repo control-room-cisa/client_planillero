@@ -32,6 +32,7 @@ import departamentoService, {
 } from "../../services/departamentoService";
 import { empresaService } from "../../services/empresaService";
 import type { Empresa } from "../../types/auth";
+import ConfirmDialog from "../common/ConfirmDialog";
 
 const DepartamentosManagement: React.FC = () => {
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
@@ -44,10 +45,22 @@ const DepartamentosManagement: React.FC = () => {
   // Estados para modales
   const [openEditModal, setOpenEditModal] = useState(false);
   const [openCreateModal, setOpenCreateModal] = useState(false);
-  const [currentDepartamento, setCurrentDepartamento] = useState<Departamento | null>(null);
-  const [formData, setFormData] = useState<CreateDepartamentoDto | UpdateDepartamentoDto>({
+  const [currentDepartamento, setCurrentDepartamento] =
+    useState<Departamento | null>(null);
+  const [formData, setFormData] = useState<
+    CreateDepartamentoDto | UpdateDepartamentoDto
+  >({
     nombre: "",
     codigo: "",
+  });
+
+  // Estado para diálogo de confirmación
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    departamento: Departamento | null;
+  }>({
+    open: false,
+    departamento: null,
   });
 
   // Estado para notificaciones
@@ -178,8 +191,7 @@ const DepartamentosManagement: React.FC = () => {
       fetchDepartamentos();
     } catch (err: any) {
       console.error("Error al crear departamento:", err);
-      const errorMessage =
-        err?.message || "Error al crear el departamento";
+      const errorMessage = err?.message || "Error al crear el departamento";
       showSnackbar(errorMessage, "error");
     }
   };
@@ -209,26 +221,34 @@ const DepartamentosManagement: React.FC = () => {
     }
   };
 
-  // Eliminar departamento
-  const handleDelete = async (departamento: Departamento) => {
-    if (
-      !window.confirm(
-        `¿Está seguro que desea eliminar el departamento "${departamento.nombre || "sin nombre"}"?`
-      )
-    ) {
-      return;
-    }
+  // Abrir diálogo de confirmación para eliminar
+  const handleDelete = (departamento: Departamento) => {
+    setConfirmDialog({
+      open: true,
+      departamento,
+    });
+  };
+
+  // Confirmar eliminación
+  const handleConfirmDelete = async () => {
+    if (!confirmDialog.departamento) return;
 
     try {
-      await departamentoService.delete(departamento.id);
+      await departamentoService.delete(confirmDialog.departamento.id);
       showSnackbar("Departamento eliminado exitosamente", "success");
       fetchDepartamentos();
+      setConfirmDialog({ open: false, departamento: null });
     } catch (err: any) {
       console.error("Error al eliminar departamento:", err);
-      const errorMessage =
-        err?.message || "Error al eliminar el departamento";
+      const errorMessage = err?.message || "Error al eliminar el departamento";
       showSnackbar(errorMessage, "error");
+      setConfirmDialog({ open: false, departamento: null });
     }
+  };
+
+  // Cancelar eliminación
+  const handleCancelDelete = () => {
+    setConfirmDialog({ open: false, departamento: null });
   };
 
   const handleCloseSnackbar = () => {
@@ -253,12 +273,12 @@ const DepartamentosManagement: React.FC = () => {
       {/* Filtros */}
       <Paper sx={{ p: 2, mb: 3, flexShrink: 0 }}>
         <Box
-          sx={{ 
-            display: "flex", 
-            gap: 2, 
-            flexWrap: "wrap", 
+          sx={{
+            display: "flex",
+            gap: 2,
+            flexWrap: "wrap",
             alignItems: "flex-end",
-            justifyContent: "space-between"
+            justifyContent: "space-between",
           }}
         >
           <Autocomplete
@@ -439,6 +459,19 @@ const DepartamentosManagement: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Diálogo de confirmación */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title="Confirmar eliminación"
+        message={`¿Está seguro que desea eliminar el departamento "${
+          confirmDialog.departamento?.nombre || "sin nombre"
+        }"?`}
+        confirmText="Eliminar"
+        cancelText="Conservar"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
+
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
@@ -459,4 +492,3 @@ const DepartamentosManagement: React.FC = () => {
 };
 
 export default DepartamentosManagement;
-

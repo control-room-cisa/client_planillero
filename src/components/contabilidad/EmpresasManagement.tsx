@@ -29,6 +29,7 @@ import {
 } from "@mui/icons-material";
 import { empresaService } from "../../services/empresaService";
 import type { Empresa } from "../../types/auth";
+import ConfirmDialog from "../common/ConfirmDialog";
 
 interface EmpresaFormData {
   nombre: string;
@@ -49,6 +50,15 @@ const EmpresasManagement: React.FC = () => {
     message: string;
     severity: "success" | "error";
   }>({ open: false, message: "", severity: "success" });
+
+  // Estado para diálogo de confirmación
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    empresa: Empresa | null;
+  }>({
+    open: false,
+    empresa: null,
+  });
 
   const fetchEmpresas = useCallback(async () => {
     setLoading(true);
@@ -151,20 +161,31 @@ const EmpresasManagement: React.FC = () => {
       return;
     }
 
-    if (
-      window.confirm(
-        `¿Está seguro que desea eliminar la empresa "${empresa.nombre}"?`
-      )
-    ) {
-      try {
-        await empresaService.deleteEmpresa(empresa.id);
-        showSnackbar("Empresa eliminada exitosamente", "success");
-        fetchEmpresas();
-      } catch (error) {
-        console.error("Error al eliminar empresa:", error);
-        showSnackbar("Error al eliminar la empresa", "error");
-      }
+    setConfirmDialog({
+      open: true,
+      empresa,
+    });
+  };
+
+  // Confirmar eliminación
+  const handleConfirmDelete = async () => {
+    if (!confirmDialog.empresa) return;
+
+    try {
+      await empresaService.deleteEmpresa(confirmDialog.empresa.id);
+      showSnackbar("Empresa eliminada exitosamente", "success");
+      fetchEmpresas();
+      setConfirmDialog({ open: false, empresa: null });
+    } catch (error) {
+      console.error("Error al eliminar empresa:", error);
+      showSnackbar("Error al eliminar la empresa", "error");
+      setConfirmDialog({ open: false, empresa: null });
     }
+  };
+
+  // Cancelar eliminación
+  const handleCancelDelete = () => {
+    setConfirmDialog({ open: false, empresa: null });
   };
 
   return (
@@ -306,6 +327,17 @@ const EmpresasManagement: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Diálogo de confirmación */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title="Confirmar eliminación"
+        message={`¿Está seguro que desea eliminar la empresa "${confirmDialog.empresa?.nombre}"?`}
+        confirmText="Eliminar"
+        cancelText="Conservar"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
 
       {/* Snackbar para notificaciones */}
       <Snackbar

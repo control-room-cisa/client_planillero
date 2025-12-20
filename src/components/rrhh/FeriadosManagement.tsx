@@ -33,6 +33,7 @@ import * as React from "react";
 
 import FeriadoService from "../../services/feriadoService";
 import type { Feriado, CreateFeriadoDto } from "../../services/feriadoService";
+import ConfirmDialog from "../common/ConfirmDialog";
 
 /** Helper: interpreta "YYYY-MM-DD" como medianoche LOCAL (evita el -1 día por UTC) */
 const parseLocalDate = (s: string): Date => {
@@ -78,6 +79,15 @@ const FeriadosManagement: React.FC = () => {
     open: false,
     message: "",
     severity: "success",
+  });
+
+  // Estado para diálogo de confirmación
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    feriadoId: number | null;
+  }>({
+    open: false,
+    feriadoId: null,
   });
 
   // Función para mostrar notificaciones
@@ -198,17 +208,33 @@ const FeriadosManagement: React.FC = () => {
     }
   };
 
-  const handleDeleteFeriado = async (id: number) => {
-    if (window.confirm("¿Está seguro que desea eliminar este feriado?")) {
-      try {
-        await FeriadoService.delete(id);
-        showSnackbar("Feriado eliminado exitosamente", "success");
-        fetchFeriados();
-      } catch (err) {
-        console.error("Error al eliminar feriado:", err);
-        showSnackbar("Error al eliminar el feriado", "error");
-      }
+  // Abrir diálogo de confirmación para eliminar
+  const handleDeleteFeriado = (id: number) => {
+    setConfirmDialog({
+      open: true,
+      feriadoId: id,
+    });
+  };
+
+  // Confirmar eliminación
+  const handleConfirmDelete = async () => {
+    if (!confirmDialog.feriadoId) return;
+
+    try {
+      await FeriadoService.delete(confirmDialog.feriadoId);
+      showSnackbar("Feriado eliminado exitosamente", "success");
+      fetchFeriados();
+      setConfirmDialog({ open: false, feriadoId: null });
+    } catch (err) {
+      console.error("Error al eliminar feriado:", err);
+      showSnackbar("Error al eliminar el feriado", "error");
+      setConfirmDialog({ open: false, feriadoId: null });
     }
+  };
+
+  // Cancelar eliminación
+  const handleCancelDelete = () => {
+    setConfirmDialog({ open: false, feriadoId: null });
   };
 
   const handleCloseSnackbar = () => {
@@ -414,6 +440,17 @@ const FeriadosManagement: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Diálogo de confirmación */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title="Confirmar eliminación"
+        message="¿Está seguro que desea eliminar este feriado?"
+        confirmText="Eliminar"
+        cancelText="Conservar"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
 
       {/* Snackbar para notificaciones */}
       <Snackbar

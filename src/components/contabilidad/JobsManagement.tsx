@@ -41,6 +41,7 @@ import type {
 } from "../../services/jobService";
 import { empresaService } from "../../services/empresaService";
 import type { Empresa } from "../../types/auth";
+import ConfirmDialog from "../common/ConfirmDialog";
 
 const JobsManagement: React.FC = () => {
   // Estados
@@ -69,6 +70,15 @@ const JobsManagement: React.FC = () => {
     open: false,
     message: "",
     severity: "success",
+  });
+
+  // Estado para diálogo de confirmación
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    jobId: number | null;
+  }>({
+    open: false,
+    jobId: null,
   });
 
   // Función para mostrar notificaciones
@@ -427,24 +437,39 @@ const JobsManagement: React.FC = () => {
     }
   };
 
-  const handleDeleteJob = async (id: number) => {
-    // Verificar si el job es especial
+  // Abrir diálogo de confirmación para eliminar
+  const handleDeleteJob = (id: number) => {
     const job = jobs.find((j) => j.id === id);
     if (job?.especial) {
       showSnackbar("No se puede eliminar un job especial", "error");
       return;
     }
 
-    if (window.confirm("¿Está seguro que desea eliminar este job?")) {
-      try {
-        await JobService.delete(id);
-        showSnackbar("Job eliminado exitosamente", "success");
-        fetchJobs();
-      } catch (err) {
-        console.error("Error al eliminar job:", err);
-        showSnackbar("Error al eliminar el job", "error");
-      }
+    setConfirmDialog({
+      open: true,
+      jobId: id,
+    });
+  };
+
+  // Confirmar eliminación
+  const handleConfirmDelete = async () => {
+    if (!confirmDialog.jobId) return;
+
+    try {
+      await JobService.delete(confirmDialog.jobId);
+      showSnackbar("Job eliminado exitosamente", "success");
+      fetchJobs();
+      setConfirmDialog({ open: false, jobId: null });
+    } catch (err) {
+      console.error("Error al eliminar job:", err);
+      showSnackbar("Error al eliminar el job", "error");
+      setConfirmDialog({ open: false, jobId: null });
     }
+  };
+
+  // Cancelar eliminación
+  const handleCancelDelete = () => {
+    setConfirmDialog({ open: false, jobId: null });
   };
 
   const handleCloseSnackbar = () => {
@@ -1014,6 +1039,17 @@ const JobsManagement: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Diálogo de confirmación */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title="Confirmar eliminación"
+        message="¿Está seguro que desea eliminar este job?"
+        confirmText="Eliminar"
+        cancelText="Conservar"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
 
       {/* Snackbar para notificaciones */}
       <Snackbar

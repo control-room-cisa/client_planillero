@@ -44,6 +44,7 @@ import PlanillaAccesoRevisionService, {
 import EmpleadoService, { type Empleado } from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
 import type { Empresa } from "../../types/auth";
+import ConfirmDialog from "../common/ConfirmDialog";
 
 const PlanillaAccesoRevisionManagement: React.FC = () => {
   // Estados
@@ -401,22 +402,36 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
     }
   };
 
-  const handleDeleteAcceso = async (id: number) => {
-    if (
-      window.confirm("¿Está seguro que desea eliminar este acceso de planilla?")
-    ) {
-      try {
-        await PlanillaAccesoRevisionService.delete(id);
-        showSnackbar("Acceso de planilla eliminado exitosamente", "success");
-        fetchAccesos();
-      } catch (err: any) {
-        console.error("Error al eliminar acceso:", err);
-        showSnackbar(
-          err.message || "Error al eliminar el acceso de planilla",
-          "error"
-        );
-      }
+  // Abrir diálogo de confirmación para eliminar
+  const handleDeleteAcceso = (id: number) => {
+    setConfirmDialog({
+      open: true,
+      accesoId: id,
+    });
+  };
+
+  // Confirmar eliminación
+  const handleConfirmDelete = async () => {
+    if (!confirmDialog.accesoId) return;
+
+    try {
+      await PlanillaAccesoRevisionService.delete(confirmDialog.accesoId);
+      showSnackbar("Acceso de planilla eliminado exitosamente", "success");
+      fetchAccesos();
+      setConfirmDialog({ open: false, accesoId: null });
+    } catch (err: any) {
+      console.error("Error al eliminar acceso:", err);
+      showSnackbar(
+        err.message || "Error al eliminar el acceso de planilla",
+        "error"
+      );
+      setConfirmDialog({ open: false, accesoId: null });
     }
+  };
+
+  // Cancelar eliminación
+  const handleCancelDelete = () => {
+    setConfirmDialog({ open: false, accesoId: null });
   };
 
   const handleCloseSnackbar = () => {
@@ -971,6 +986,17 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Diálogo de confirmación */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title="Confirmar eliminación"
+        message="¿Está seguro que desea eliminar este acceso de planilla?"
+        confirmText="Eliminar"
+        cancelText="Conservar"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
 
       {/* Snackbar para notificaciones */}
       <Snackbar

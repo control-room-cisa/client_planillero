@@ -11,6 +11,7 @@ import EmpleadoFormModal from "./gestion-empleados/EmpleadoFormModal";
 import EmpleadoDetailModal from "./gestion-empleados/EmpleadoDetailModal";
 import EmpleadosFilters from "./gestion-empleados/EmpleadosFilters";
 import type { LayoutOutletCtx } from "../Layout";
+import ConfirmDialog from "../common/ConfirmDialog";
 
 const EmpleadosManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -41,6 +42,15 @@ const EmpleadosManagement: React.FC = () => {
     open: false,
     message: "",
     severity: "success",
+  });
+
+  // Estado para diálogo de confirmación
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    empleadoId: number | null;
+  }>({
+    open: false,
+    empleadoId: null,
   });
 
   // Función para mostrar notificaciones
@@ -137,18 +147,33 @@ const EmpleadosManagement: React.FC = () => {
     setOpenFormModal(true);
   };
 
-  // CRUD
-  const handleDeleteEmpleado = async (id: number) => {
-    if (window.confirm("¿Está seguro que desea eliminar este colaborador?")) {
-      try {
-        await EmpleadoService.delete(id);
-        showSnackbar("Colaborador eliminado exitosamente", "success");
-        fetchEmpleados();
-      } catch (err) {
-        console.error("Error al eliminar empleado:", err);
-        showSnackbar("Error al eliminar el colaborador", "error");
-      }
+  // Abrir diálogo de confirmación para eliminar
+  const handleDeleteEmpleado = (id: number) => {
+    setConfirmDialog({
+      open: true,
+      empleadoId: id,
+    });
+  };
+
+  // Confirmar eliminación
+  const handleConfirmDelete = async () => {
+    if (!confirmDialog.empleadoId) return;
+
+    try {
+      await EmpleadoService.delete(confirmDialog.empleadoId);
+      showSnackbar("Colaborador eliminado exitosamente", "success");
+      fetchEmpleados();
+      setConfirmDialog({ open: false, empleadoId: null });
+    } catch (err) {
+      console.error("Error al eliminar empleado:", err);
+      showSnackbar("Error al eliminar el colaborador", "error");
+      setConfirmDialog({ open: false, empleadoId: null });
     }
+  };
+
+  // Cancelar eliminación
+  const handleCancelDelete = () => {
+    setConfirmDialog({ open: false, empleadoId: null });
   };
 
   const handleFormSuccess = (message: string) => {
@@ -260,6 +285,17 @@ const EmpleadosManagement: React.FC = () => {
         onClose={handleCloseDetailModal}
         onEdit={handleEditFromDetail}
         empleado={currentEmpleado}
+      />
+
+      {/* Diálogo de confirmación */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title="Confirmar eliminación"
+        message="¿Está seguro que desea eliminar este colaborador?"
+        confirmText="Eliminar"
+        cancelText="Conservar"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
       />
 
       {/* Snackbar */}

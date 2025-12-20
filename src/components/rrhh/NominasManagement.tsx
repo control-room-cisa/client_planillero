@@ -39,6 +39,7 @@ import CalculoHorasTrabajoService from "../../services/calculoHorasTrabajoServic
 import type { Empresa } from "../../types/auth";
 import type { Empleado } from "../../services/empleadoService";
 import { Select, MenuItem, InputLabel, FormControl } from "@mui/material";
+import ConfirmDialog from "../common/ConfirmDialog";
 
 const NominasManagement: React.FC = () => {
   const [nominas, setNominas] = useState<NominaDto[]>([]);
@@ -403,8 +404,8 @@ const NominasManagement: React.FC = () => {
     }
   };
 
-  // Eliminar nómina
-  const handleDelete = async (nomina: NominaDto) => {
+  // Abrir diálogo de confirmación para eliminar
+  const handleDelete = (nomina: NominaDto) => {
     if (nomina.pagado === true) {
       showSnackbar(
         "No se puede eliminar una nómina que ya está pagada",
@@ -413,26 +414,33 @@ const NominasManagement: React.FC = () => {
       return;
     }
 
-    if (
-      !window.confirm(
-        `¿Está seguro que desea eliminar la nómina del período ${
-          nomina.nombrePeriodoNomina || "sin nombre"
-        }?`
-      )
-    ) {
-      return;
-    }
+    setConfirmDialog({
+      open: true,
+      nomina,
+    });
+  };
+
+  // Confirmar eliminación
+  const handleConfirmDelete = async () => {
+    if (!confirmDialog.nomina) return;
 
     try {
-      await NominaService.delete(nomina.id);
+      await NominaService.delete(confirmDialog.nomina.id);
       showSnackbar("Nómina eliminada exitosamente", "success");
       fetchNominas();
+      setConfirmDialog({ open: false, nomina: null });
     } catch (err: any) {
       console.error("Error al eliminar nómina:", err);
       const errorMessage =
         err?.response?.data?.message || "Error al eliminar la nómina";
       showSnackbar(errorMessage, "error");
+      setConfirmDialog({ open: false, nomina: null });
     }
+  };
+
+  // Cancelar eliminación
+  const handleCancelDelete = () => {
+    setConfirmDialog({ open: false, nomina: null });
   };
 
   const handleCloseSnackbar = () => {
@@ -1441,6 +1449,19 @@ const NominasManagement: React.FC = () => {
           <Button onClick={handleCloseDetailModal}>Cerrar</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Diálogo de confirmación */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        title="Confirmar eliminación"
+        message={`¿Está seguro que desea eliminar la nómina del período ${
+          confirmDialog.nomina?.nombrePeriodoNomina || "sin nombre"
+        }?`}
+        confirmText="Eliminar"
+        cancelText="Conservar"
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
 
       {/* Snackbar */}
       <Snackbar
