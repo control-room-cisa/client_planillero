@@ -648,6 +648,12 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                   ? normales === 0
                   : Math.abs(normales - horasNormalesEsperadas) < 0.1;
 
+              // Validación de incapacidad: no puede haber horas laborables
+              const validacionIncapacidad =
+                registro.esIncapacidad === true
+                  ? normales === 0 && extras === 0
+                  : true;
+
               // Determinar si cruza medianoche usando hora local (TZ Honduras)
               const entradaHM = formatTimeCorrectly(registro.horaEntrada); // HH:mm local
               const salidaHM = formatTimeCorrectly(registro.horaSalida); // HH:mm local
@@ -746,7 +752,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
               let actividadesOrdenadas: ActividadData[];
               if (horasNormalesEsperadas === 0) {
                 // Día sin horas normales (entrada = salida):
-                // mostrar extras ordenados y los intervalos LIBRE entre extras a lo largo del día
+                // mostrar TODAS las actividades (incluyendo normales si existen, para que se vean en la validación)
+                // y los intervalos LIBRE entre extras a lo largo del día
                 const toEndLin = (act: any): number => {
                   if (!act?.horaFin) return Number.POSITIVE_INFINITY;
                   return linearize(toMinutes(act.horaFin));
@@ -778,7 +785,10 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                   }
                   withGaps.push(curr);
                 }
-                actividadesOrdenadas = withGaps.map((x) => x.act);
+                // Incluir también las actividades normales (middle) para que se vean aunque no deberían existir
+                actividadesOrdenadas = [...withGaps, ...middle].map(
+                  (x) => x.act
+                );
               } else {
                 actividadesOrdenadas = [
                   ...extraBeforeWithGaps,
@@ -832,6 +842,14 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                               />
                             )}
                         </>
+                      )}
+                      {registro.esIncapacidad === true && (
+                        <Chip
+                          label="Incapacidad"
+                          color="error"
+                          size="small"
+                          variant="outlined"
+                        />
                       )}
                       {/* Estado de procesamiento por RRHH - alineado a la derecha */}
                       <Box sx={{ flexGrow: 1 }} />
@@ -941,37 +959,65 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                         : "-"}
                                     </TableCell>
                                     <TableCell>
-                                      <Typography
-                                        color={
-                                          (act?.job?.codigo || "").startsWith(
-                                            "E"
-                                          )
-                                            ? "error.main"
-                                            : undefined
-                                        }
-                                      >
-                                        {act.job?.nombre ?? "-"}
-                                      </Typography>
+                                      {act.esCompensatorio === true &&
+                                      act.esExtra === false ? (
+                                        <Typography color="text.secondary">
+                                          -
+                                        </Typography>
+                                      ) : (
+                                        <Typography
+                                          color={
+                                            (act?.job?.codigo || "").startsWith(
+                                              "E"
+                                            )
+                                              ? "error.main"
+                                              : undefined
+                                          }
+                                        >
+                                          {act.job?.nombre ?? "-"}
+                                        </Typography>
+                                      )}
                                     </TableCell>
                                     <TableCell>
-                                      <Typography
-                                        color={
-                                          (act?.job?.codigo || "").startsWith(
-                                            "E"
-                                          )
-                                            ? "error.main"
-                                            : undefined
-                                        }
-                                      >
-                                        {act.job?.codigo ?? "-"}
-                                      </Typography>
+                                      {act.esCompensatorio === true &&
+                                      act.esExtra === false ? (
+                                        <Typography color="text.secondary">
+                                          -
+                                        </Typography>
+                                      ) : (
+                                        <Typography
+                                          color={
+                                            (act?.job?.codigo || "").startsWith(
+                                              "E"
+                                            )
+                                              ? "error.main"
+                                              : undefined
+                                          }
+                                        >
+                                          {act.job?.codigo ?? "-"}
+                                        </Typography>
+                                      )}
                                     </TableCell>
                                     <TableCell>
                                       <Chip
-                                        label={act.esExtra ? "Extra" : "Normal"}
+                                        label={
+                                          act.esCompensatorio === true
+                                            ? act.esExtra === true
+                                              ? "Pago Compensatoria"
+                                              : "Toma Compensatoria"
+                                            : act.esExtra === true
+                                            ? "Extra"
+                                            : "Normal"
+                                        }
                                         size="small"
                                         color={
-                                          act.esExtra ? "error" : "default"
+                                          act.esCompensatorio === true
+                                            ? act.esExtra === true
+                                              ? "success"
+                                              : "warning"
+                                            : act.esExtra === true
+                                            ? "error"
+                                            : "default"
                                         }
                                       />
                                     </TableCell>
@@ -1100,43 +1146,53 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                   </Box>
                                 </Box>
 
-                                <Box>
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                  >
-                                    Job
-                                  </Typography>
-                                  <Typography
-                                    variant="body2"
-                                    color={
-                                      (act?.job?.codigo || "").startsWith("E")
-                                        ? "error.main"
-                                        : undefined
-                                    }
-                                  >
-                                    {act.job?.nombre ?? "-"}
-                                  </Typography>
-                                </Box>
+                                {!(
+                                  act.esCompensatorio === true &&
+                                  act.esExtra === false
+                                ) && (
+                                  <Box>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                    >
+                                      Job
+                                    </Typography>
+                                    <Typography
+                                      variant="body2"
+                                      color={
+                                        (act?.job?.codigo || "").startsWith("E")
+                                          ? "error.main"
+                                          : undefined
+                                      }
+                                    >
+                                      {act.job?.nombre ?? "-"}
+                                    </Typography>
+                                  </Box>
+                                )}
 
-                                <Box>
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                  >
-                                    Código
-                                  </Typography>
-                                  <Typography
-                                    variant="body2"
-                                    color={
-                                      (act?.job?.codigo || "").startsWith("E")
-                                        ? "error.main"
-                                        : undefined
-                                    }
-                                  >
-                                    {act.job?.codigo ?? "-"}
-                                  </Typography>
-                                </Box>
+                                {!(
+                                  act.esCompensatorio === true &&
+                                  act.esExtra === false
+                                ) && (
+                                  <Box>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                    >
+                                      Código
+                                    </Typography>
+                                    <Typography
+                                      variant="body2"
+                                      color={
+                                        (act?.job?.codigo || "").startsWith("E")
+                                          ? "error.main"
+                                          : undefined
+                                      }
+                                    >
+                                      {act.job?.codigo ?? "-"}
+                                    </Typography>
+                                  </Box>
+                                )}
 
                                 <Box>
                                   <Typography
@@ -1159,10 +1215,24 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                       />
                                     ) : (
                                       <Chip
-                                        label={act.esExtra ? "Extra" : "Normal"}
+                                        label={
+                                          act.esCompensatorio === true
+                                            ? act.esExtra === true
+                                              ? "Pago Compensatoria"
+                                              : "Toma Compensatoria"
+                                            : act.esExtra === true
+                                            ? "Extra"
+                                            : "Normal"
+                                        }
                                         size="small"
                                         color={
-                                          act.esExtra ? "error" : "default"
+                                          act.esCompensatorio === true
+                                            ? act.esExtra === true
+                                              ? "success"
+                                              : "warning"
+                                            : act.esExtra === true
+                                            ? "error"
+                                            : "default"
                                         }
                                       />
                                     )}
@@ -1210,7 +1280,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                     {/* Validaciones */}
                     {!isPlaceholder &&
                       (validacionHorasNormales === false ||
-                        !validacionHorasExtra.valido) && (
+                        !validacionHorasExtra.valido ||
+                        !validacionIncapacidad) && (
                         <Box sx={{ mt: 2, mb: 2 }}>
                           <Typography
                             variant="subtitle2"
@@ -1220,6 +1291,20 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                           >
                             ⚠️ Errores de validación encontrados
                           </Typography>
+
+                          {!validacionIncapacidad && (
+                            <Typography
+                              variant="body2"
+                              color="error.main"
+                              sx={{ mb: 1 }}
+                            >
+                              🏥 No pueden haber horas laborables en día de
+                              incapacidad:{" "}
+                              {normales > 0 && `${normales}h normales`}
+                              {normales > 0 && extras > 0 && " y "}
+                              {extras > 0 && `${extras}h extras`}
+                            </Typography>
+                          )}
 
                           {!validacionHorasNormales &&
                             horasNormalesEsperadas > 0 && (
@@ -1374,6 +1459,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                             disabled ||
                             !validacionHorasNormales ||
                             !validacionHorasExtra.valido ||
+                            !validacionIncapacidad ||
                             registro.aprobacionSupervisor === true
                           }
                           onClick={() => handleAprobar(registro.id!)}
