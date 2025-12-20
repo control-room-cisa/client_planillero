@@ -28,7 +28,6 @@ import {
 import type { SelectChangeEvent } from "@mui/material";
 import {
   Add as AddIcon,
-  Edit as EditIcon,
   Delete as DeleteIcon,
   Search as SearchIcon,
   SupervisorAccount as SupervisorIcon,
@@ -49,16 +48,11 @@ import ConfirmDialog from "../common/ConfirmDialog";
 const PlanillaAccesoRevisionManagement: React.FC = () => {
   // Estados
   const [accesos, setAccesos] = useState<PlanillaAccesoRevision[]>([]);
-  const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingEmpleados, setLoadingEmpleados] = useState(false);
   const [loadingSupervisores, setLoadingSupervisores] = useState(false);
   const [loadingEmpleadosDialog, setLoadingEmpleadosDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>("");
-  const [filterSupervisorId, setFilterSupervisorId] = useState<string>("");
-  const [filterEmpleadoId, setFilterEmpleadoId] = useState<string>("");
   const [openDialog, setOpenDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentAcceso, setCurrentAcceso] =
@@ -82,6 +76,15 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
     severity: "success",
   });
 
+  // Estado para diálogo de confirmación
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    accesoId: number | null;
+  }>({
+    open: false,
+    accesoId: null,
+  });
+
   // Función para mostrar notificaciones
   const showSnackbar = React.useCallback(
     (message: string, severity: "success" | "error") => {
@@ -98,19 +101,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
   const fetchAccesos = React.useCallback(async () => {
     setLoading(true);
     try {
-      const filters: {
-        supervisorId?: number;
-        empleadoId?: number;
-      } = {};
-
-      if (filterSupervisorId) {
-        filters.supervisorId = Number(filterSupervisorId);
-      }
-      if (filterEmpleadoId) {
-        filters.empleadoId = Number(filterEmpleadoId);
-      }
-
-      const data = await PlanillaAccesoRevisionService.getAll(filters);
+      const data = await PlanillaAccesoRevisionService.getAll();
       setAccesos(data);
     } catch (err) {
       console.error("Error al cargar accesos:", err);
@@ -118,25 +109,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filterSupervisorId, filterEmpleadoId, showSnackbar]);
-
-  const fetchEmpleados = React.useCallback(async () => {
-    if (!selectedEmpresaId) {
-      setEmpleados([]);
-      return;
-    }
-    setLoadingEmpleados(true);
-    try {
-      const empresaId = parseInt(selectedEmpresaId);
-      const data = await EmpleadoService.getAll(empresaId);
-      setEmpleados(data);
-    } catch (err) {
-      console.error("Error al cargar empleados:", err);
-      showSnackbar("Error al cargar los empleados", "error");
-    } finally {
-      setLoadingEmpleados(false);
-    }
-  }, [selectedEmpresaId, showSnackbar]);
+  }, [showSnackbar]);
 
   const fetchEmpresas = React.useCallback(async () => {
     try {
@@ -158,10 +131,6 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
   useEffect(() => {
     fetchEmpresas();
   }, [fetchEmpresas]);
-
-  useEffect(() => {
-    fetchEmpleados();
-  }, [fetchEmpleados]);
 
   useEffect(() => {
     fetchAccesos();
@@ -544,90 +513,8 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
         Accesos de Planilla
       </Typography>
 
-      {/* Filtros y búsqueda */}
-      <Box sx={{ display: "flex", flexWrap: "wrap", mb: 3, gap: 2 }}>
-        <FormControl sx={{ minWidth: 200 }} size="small">
-          <InputLabel>Empresa</InputLabel>
-          <Select
-            value={selectedEmpresaId}
-            label="Empresa"
-            onChange={(e) => {
-              setSelectedEmpresaId(e.target.value);
-              setFilterSupervisorId("");
-              setFilterEmpleadoId("");
-            }}
-          >
-            <MenuItem value="">
-              <em>Todas las empresas</em>
-            </MenuItem>
-            {empresas.map((empresa) => (
-              <MenuItem key={empresa.id} value={empresa.id.toString()}>
-                {empresa.nombre}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <FormControl
-          sx={{ minWidth: 200 }}
-          size="small"
-          disabled={!selectedEmpresaId || loadingEmpleados}
-        >
-          <InputLabel>Filtrar por Supervisor</InputLabel>
-          <Select
-            value={filterSupervisorId}
-            label="Filtrar por Supervisor"
-            onChange={(e) => {
-              const value = e.target.value;
-              setFilterSupervisorId(value);
-              // Si se selecciona un supervisor, limpiar el filtro de colaborador
-              if (value) {
-                setFilterEmpleadoId("");
-              }
-            }}
-          >
-            <MenuItem value="">
-              <em>Todos los supervisores</em>
-            </MenuItem>
-            {empleados.map((empleado) => (
-              <MenuItem key={empleado.id} value={empleado.id.toString()}>
-                {getEmpleadoNombre(empleado)}{" "}
-                {empleado.codigo && `(${empleado.codigo})`}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <FormControl
-          sx={{ minWidth: 200 }}
-          size="small"
-          disabled={!selectedEmpresaId || loadingEmpleados}
-        >
-          <InputLabel>Filtrar por Colaborador Supervisado</InputLabel>
-          <Select
-            value={filterEmpleadoId}
-            label="Filtrar por Colaborador Supervisado"
-            onChange={(e) => {
-              const value = e.target.value;
-              setFilterEmpleadoId(value);
-              // Si se selecciona un colaborador, limpiar el filtro de supervisor
-              if (value) {
-                setFilterSupervisorId("");
-              }
-            }}
-          >
-            <MenuItem value="">
-              <em>Todos los colaboradores</em>
-            </MenuItem>
-            {empleados.map((empleado) => (
-              <MenuItem key={empleado.id} value={empleado.id.toString()}>
-                {getEmpleadoNombre(empleado)}{" "}
-                {empleado.codigo && `(${empleado.codigo})`}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
+      {/* Búsqueda y acción */}
+      <Box sx={{ display: "flex", flexWrap: "wrap", mb: 3, gap: 2, alignItems: "center" }}>
         <TextField
           label="Buscar por nombre o código"
           variant="outlined"
@@ -661,21 +548,22 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
             <TableRow>
               <TableCell>Colaborador Supervisado</TableCell>
               <TableCell>Cargo</TableCell>
+              <TableCell>Empresa</TableCell>
+              <TableCell>Departamento</TableCell>
               <TableCell>Fecha de Creación</TableCell>
-              <TableCell>Última Actualización</TableCell>
               <TableCell align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             ) : accesosAgrupados.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   No hay accesos de planilla registrados
                 </TableCell>
               </TableRow>
@@ -693,35 +581,65 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                       },
                     }}
                   >
-                    <TableCell colSpan={5}>
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                      >
+                    <TableCell>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                         <SupervisorIcon color="primary" fontSize="medium" />
                         <Box>
-                          <Typography variant="body1" fontWeight="bold">
+                          <Typography variant="body2" fontWeight="bold">
                             {grupo.supervisor
                               ? getEmpleadoNombre(grupo.supervisor)
                               : `ID: ${grupo.supervisorId}`}
                           </Typography>
-                          {grupo.supervisor?.codigo && (
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            {grupo.supervisor?.codigo && (
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                {grupo.supervisor.codigo}
+                              </Typography>
+                            )}
                             <Typography
                               variant="caption"
                               color="text.secondary"
                             >
-                              Código: {grupo.supervisor.codigo}
+                              ({grupo.accesos.length} colaborador
+                              {grupo.accesos.length !== 1 ? "es" : ""})
                             </Typography>
-                          )}
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ ml: 1 }}
-                          >
-                            ({grupo.accesos.length} colaborador
-                            {grupo.accesos.length !== 1 ? "es" : ""})
-                          </Typography>
+                          </Box>
                         </Box>
                       </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="bold" color="text.secondary">
+                        {grupo.supervisor?.cargo || "-"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="bold" color="text.secondary">
+                        {(() => {
+                          const dept = grupo.supervisor?.departamento;
+                          if (!dept || typeof dept === "string") return "-";
+                          const empresaNombre = (dept as any)?.empresa?.nombre;
+                          return empresaNombre || "-";
+                        })()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="bold" color="text.secondary">
+                        {(() => {
+                          const dept = grupo.supervisor?.departamento;
+                          if (!dept) return "-";
+                          if (typeof dept === "string") return dept;
+                          return (dept as any)?.nombre || "-";
+                        })()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {/* Sin fecha de creación para el supervisor */}
+                    </TableCell>
+                    <TableCell align="center">
+                      {/* Sin acciones para el supervisor */}
                     </TableCell>
                   </TableRow>
                   {/* Filas de colaboradores supervisados */}
@@ -783,22 +701,32 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" color="text.secondary">
-                          {formatDate(acceso.createdAt)}
+                          {(() => {
+                            const dept = acceso.empleado?.departamento;
+                            if (!dept) return "-";
+                            if (typeof dept === "object" && (dept as any)?.empresa) {
+                              return (dept as any).empresa.nombre || "-";
+                            }
+                            return "-";
+                          })()}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" color="text.secondary">
-                          {formatDate(acceso.updatedAt)}
+                          {(() => {
+                            const dept = acceso.empleado?.departamento;
+                            if (!dept) return "-";
+                            if (typeof dept === "string") return dept;
+                            return (dept as any)?.nombre || "-";
+                          })()}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {formatDate(acceso.createdAt)}
                         </Typography>
                       </TableCell>
                       <TableCell align="center">
-                        <IconButton
-                          color="primary"
-                          onClick={() => handleOpenDialog(acceso)}
-                          size="small"
-                        >
-                          <EditIcon />
-                        </IconButton>
                         <IconButton
                           color="error"
                           onClick={() => handleDeleteAcceso(acceso.id)}
@@ -813,7 +741,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                   {grupoIndex < accesosAgrupados.length - 1 && (
                     <TableRow>
                       <TableCell
-                        colSpan={5}
+                        colSpan={6}
                         sx={{ height: 16, border: "none" }}
                       />
                     </TableRow>
