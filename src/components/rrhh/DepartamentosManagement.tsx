@@ -21,11 +21,6 @@ import {
   DialogActions,
   TextField,
   Autocomplete,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Fab,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -258,7 +253,13 @@ const DepartamentosManagement: React.FC = () => {
       {/* Filtros */}
       <Paper sx={{ p: 2, mb: 3, flexShrink: 0 }}>
         <Box
-          sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "flex-end" }}
+          sx={{ 
+            display: "flex", 
+            gap: 2, 
+            flexWrap: "wrap", 
+            alignItems: "flex-end",
+            justifyContent: "space-between"
+          }}
         >
           <Autocomplete
             options={empresas}
@@ -274,12 +275,12 @@ const DepartamentosManagement: React.FC = () => {
           />
 
           <Button
-            variant="outlined"
-            onClick={() => {
-              setSelectedEmpresaId(null);
-            }}
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleOpenCreateModal}
+            disabled={!selectedEmpresaId}
           >
-            Limpiar
+            Crear Departamento
           </Button>
         </Box>
       </Paper>
@@ -359,22 +360,6 @@ const DepartamentosManagement: React.FC = () => {
           </Table>
         )}
       </TableContainer>
-
-      {/* FAB para crear */}
-      {selectedEmpresaId && (
-        <Fab
-          color="primary"
-          aria-label="add"
-          sx={{
-            position: "fixed",
-            bottom: 24,
-            right: 24,
-          }}
-          onClick={handleOpenCreateModal}
-        >
-          <AddIcon />
-        </Fab>
-      )}
 
       {/* Modal de creación */}
       <Dialog
