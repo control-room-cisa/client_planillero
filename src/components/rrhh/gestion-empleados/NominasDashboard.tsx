@@ -36,7 +36,12 @@ import {
 } from "@mui/icons-material";
 import { ArrowBack as ArrowBackIcon } from "@mui/icons-material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import { useNavigate, useOutletContext, useLocation, useParams } from "react-router-dom";
+import {
+  useNavigate,
+  useOutletContext,
+  useLocation,
+  useParams,
+} from "react-router-dom";
 import type { Empleado } from "../../../services/empleadoService";
 import type { EmpleadoIndexItem, LayoutOutletCtx } from "../../Layout";
 import { getImageUrl } from "../../../utils/imageUtils";
@@ -153,16 +158,22 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
       // Verificar si el empleado realmente cambió para evitar actualizaciones innecesarias
       const empleadoActualCodigo = (empleado as any)?.codigo;
       const nuevoEmpleadoCodigo = (empleadoProp as any)?.codigo;
-      
-      if (empleadoActualCodigo !== nuevoEmpleadoCodigo || empleado?.id !== empleadoProp.id) {
+
+      if (
+        empleadoActualCodigo !== nuevoEmpleadoCodigo ||
+        empleado?.id !== empleadoProp.id
+      ) {
         if (DEBUG) {
-          console.debug("[NominasDashboard] empleadoProp cambió, actualizando estado", {
-            empleadoIdAnterior: empleado?.id,
-            empleadoIdNuevo: empleadoProp.id,
-            codigoEmpleadoAnterior: empleadoActualCodigo,
-            codigoEmpleadoNuevo: nuevoEmpleadoCodigo,
-            codigoEmpleadoUrl: codigoEmpleado,
-          });
+          console.debug(
+            "[NominasDashboard] empleadoProp cambió, actualizando estado",
+            {
+              empleadoIdAnterior: empleado?.id,
+              empleadoIdNuevo: empleadoProp.id,
+              codigoEmpleadoAnterior: empleadoActualCodigo,
+              codigoEmpleadoNuevo: nuevoEmpleadoCodigo,
+              codigoEmpleadoUrl: codigoEmpleado,
+            }
+          );
         }
         setEmpleado(empleadoProp);
       }
@@ -438,6 +449,24 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     return false;
   }, [fechaInicio, fechaFin]);
 
+  // Determinar si el código de nómina termina en "A" o "B"
+  // A = Primera quincena (días 27-11), B = Segunda quincena (días 12-26)
+  const codigoNominaTerminaEnA = React.useMemo(() => {
+    if (!fechaInicio || !fechaFin) return false;
+    const toDate = (s: string) =>
+      new Date(s + (s.length === 10 ? "T00:00:00" : ""));
+    const ini = toDate(fechaInicio);
+    const fin = toDate(fechaFin);
+    const diaFin = fin.getDate();
+    const diaIni = ini.getDate();
+    // Primera quincena (A): días 27-11
+    if (diaFin === 11 || diaIni === 27) return true;
+    // Segunda quincena (B): días 12-26
+    if (diaFin === 26 || diaIni === 12) return false;
+    // Fallback: si el día fin es <= 15, es primera quincena (A)
+    return diaFin <= 15;
+  }, [fechaInicio, fechaFin]);
+
   // Cálculo de RAP: 1.5% (0.015) del excedente sobre piso IHSS
   // Si Salario ≤ 11,903.13 → Base = 0
   // Si Salario > 11,903.13 → Base = (Salario - 11,903.13) * 0.015
@@ -448,23 +477,32 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   }, [sueldoMensual]);
 
   // Defaults automáticos para IHSS y RAP
-  // IHSS siempre se inicializa en 595.16
-  // RAP se calcula automáticamente según el salario mensual
+  // Solo se calculan si el código de nómina termina en "B" (segunda quincena)
+  // Si termina en "A" (primera quincena), todas las deducciones deben ser 0
   React.useEffect(() => {
     if (!fechaInicio || !fechaFin) return;
 
-    // IHSS siempre es 595.16
-    const valorIHSS = DEDUCCION_IHSS_FIJA;
-    const redondeadoIHSS = roundTo2Decimals(valorIHSS);
-    setDeduccionIHSS(redondeadoIHSS);
-    setInputDeduccionIHSS(String(redondeadoIHSS));
+    if (codigoNominaTerminaEnA) {
+      // Primera quincena (A): todas las deducciones en 0
+      setDeduccionIHSS(0);
+      setInputDeduccionIHSS("");
+      setDeduccionRAP(0);
+      setInputDeduccionRAP("");
+    } else {
+      // Segunda quincena (B): calcular deducciones normalmente
+      // IHSS siempre es 595.16
+      const valorIHSS = DEDUCCION_IHSS_FIJA;
+      const redondeadoIHSS = roundTo2Decimals(valorIHSS);
+      setDeduccionIHSS(redondeadoIHSS);
+      setInputDeduccionIHSS(String(redondeadoIHSS));
 
-    // RAP se calcula automáticamente según el salario
-    const valorRAP = deduccionRAPBase;
-    const redondeadoRAP = roundTo2Decimals(valorRAP);
-    setDeduccionRAP(redondeadoRAP);
-    setInputDeduccionRAP(valorRAP > 0 ? String(redondeadoRAP) : "");
-  }, [fechaInicio, fechaFin, deduccionRAPBase]);
+      // RAP se calcula automáticamente según el salario
+      const valorRAP = deduccionRAPBase;
+      const redondeadoRAP = roundTo2Decimals(valorRAP);
+      setDeduccionRAP(redondeadoRAP);
+      setInputDeduccionRAP(valorRAP > 0 ? String(redondeadoRAP) : "");
+    }
+  }, [fechaInicio, fechaFin, deduccionRAPBase, codigoNominaTerminaEnA]);
 
   // Sincronizar montoIncapacidadCubreEmpresa con su input string
   React.useEffect(() => {
@@ -566,41 +604,60 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     [fechaInicio, fechaFin, getNombrePeriodoNomina]
   );
 
-  // Resetear inputs al cambiar período (excepto IHSS, RAP y Alimentación que se manejan por separado)
+  // Resetear inputs al cambiar período (excepto IHSS, RAP, Alimentación y Otros)
+  // Alimentación: se carga siempre (A y B)
+  // Otros: siempre editable, no se resetea automáticamente
   React.useEffect(() => {
     setAjuste(0);
     setMontoIncapacidadCubreEmpresa(0);
     setMontoExcedenteIHSS(0);
-    setDeduccionISR(0);
-    // deduccionAlimentacion NO se resetea aquí - se carga desde el servicio
-    setCobroPrestamo(0);
-    setImpuestoVecinal(0);
-    setOtros(0);
+
+    // Si es primera quincena (A), algunas deducciones deben ser 0
+    // Alimentación y Otros son excepciones: se aplican siempre (A y B)
+    if (codigoNominaTerminaEnA) {
+      setDeduccionISR(0);
+      setCobroPrestamo(0);
+      setImpuestoVecinal(0);
+      // Otros NO se resetea - siempre editable
+      setInputDeduccionISR("");
+      setInputCobroPrestamo("");
+      setInputImpuestoVecinal("");
+      // inputOtros NO se resetea - siempre editable
+    } else {
+      // Segunda quincena (B): resetear pero permitir edición
+      setDeduccionISR(0);
+      setCobroPrestamo(0);
+      setImpuestoVecinal(0);
+      // Otros NO se resetea automáticamente - siempre editable
+      setInputDeduccionISR("");
+      setInputCobroPrestamo("");
+      setInputImpuestoVecinal("");
+      // inputOtros NO se resetea - siempre editable
+    }
+
     setComentario("");
-    // Resetear también los inputs string (excepto IHSS, RAP y Alimentación)
+    // Resetear también los inputs string (excepto IHSS, RAP, Alimentación y Otros)
     setInputAjuste("");
     setInputMontoIncapacidadEmpresa("");
     setInputMontoExcedenteIHSS("");
-    setInputDeduccionISR("");
     // inputDeduccionAlimentacion NO se resetea aquí - se carga desde el servicio
-    setInputCobroPrestamo("");
-    setInputImpuestoVecinal("");
-    setInputOtros("");
+    // inputOtros NO se resetea - siempre editable
     // Resetear error de alimentación al cambiar período
     setErrorAlimentacion(null);
-  }, [fechaInicio, fechaFin]);
+  }, [fechaInicio, fechaFin, codigoNominaTerminaEnA]);
 
   React.useEffect(() => {
     if (isPrimeraQuincena) {
       setDeduccionISR(0);
-      // deduccionAlimentacion NO se resetea - se aplica en todas las quincenas
+      // deduccionAlimentacion NO se resetea - se aplica en todas las quincenas (A y B)
       setCobroPrestamo(0);
       setImpuestoVecinal(0);
-      setOtros(0);
+      // Otros NO se resetea - siempre editable
     }
   }, [isPrimeraQuincena]);
 
   // Cargar deducciones de alimentación directamente desde el endpoint externo
+  // Alimentación se aplica siempre (tanto en A como en B)
   React.useEffect(() => {
     const cargarDeduccionAlimentacion = async () => {
       // Necesitamos el código del empleado, no el ID
@@ -629,7 +686,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
       // Verificar formato de fechas (deben ser YYYY-MM-DD)
       const fechaInicioFormato = fechaInicio.match(/^\d{4}-\d{2}-\d{2}$/);
       const fechaFinFormato = fechaFin.match(/^\d{4}-\d{2}-\d{2}$/);
-      
+
       console.log("[NominasDashboard] Cargando deducciones de alimentación:", {
         codigoEmpleado,
         fechaInicio,
@@ -651,13 +708,17 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
       try {
         // Llamar directamente al endpoint externo desde el frontend
         const t0 = Date.now();
-        const resultado = await CalculoHorasTrabajoService.getDeduccionesAlimentacion(
-          codigoEmpleado,
-          fechaInicio,
-          fechaFin
-        );
+        const resultado =
+          await CalculoHorasTrabajoService.getDeduccionesAlimentacion(
+            codigoEmpleado,
+            fechaInicio,
+            fechaFin
+          );
         const tiempoTranscurrido = Date.now() - t0;
-        console.log(`[NominasDashboard] Deducciones obtenidas en ${tiempoTranscurrido}ms:`, resultado);
+        console.log(
+          `[NominasDashboard] Deducciones obtenidas en ${tiempoTranscurrido}ms:`,
+          resultado
+        );
 
         // Solo manejar el error específico de alimentación que viene en el objeto
         if (resultado.errorAlimentacion?.tieneError) {
@@ -680,7 +741,8 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         // Error al obtener deducciones de alimentación
         setErrorAlimentacion({
           tieneError: true,
-          mensajeError: err?.message || "Error al obtener deducciones de alimentación",
+          mensajeError:
+            err?.message || "Error al obtener deducciones de alimentación",
         });
         setDeduccionAlimentacion(0);
         setInputDeduccionAlimentacion("");
@@ -691,7 +753,13 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     };
 
     cargarDeduccionAlimentacion();
-  }, [empleado?.id, (empleado as any)?.codigo, fechaInicio, fechaFin, rangoValido]);
+  }, [
+    empleado?.id,
+    (empleado as any)?.codigo,
+    fechaInicio,
+    fechaFin,
+    rangoValido,
+  ]);
 
   // Crear nómina
   // Bloqueo por errores de validación (no se puede procesar la nómina)
@@ -1118,1067 +1186,1114 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     <Fade in={!!empleado} timeout={400}>
       <Container maxWidth="lg" sx={{ height: "100%", overflowY: "auto" }}>
         <Box sx={{ py: 4 }}>
-        <Snackbar
-          open={toastOpen}
-          autoHideDuration={4000}
-          onClose={handleToastClose}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-        >
-          <Alert
+          <Snackbar
+            open={toastOpen}
+            autoHideDuration={4000}
             onClose={handleToastClose}
-            severity={toastSeverity}
-            sx={{ width: "100%" }}
+            anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
           >
-            {toastMessage}
-          </Alert>
-        </Snackbar>
-        {/* Encabezado con info + nav */}
-        <Paper
-          elevation={3}
-          sx={{
-            p: 3,
-            mb: 4,
-            background: "linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)",
-            color: "white",
-            position: "relative", // <-- necesario para botón flotante
-          }}
-        >
-          {/* Botón VOLVER flotante (75% tamaño) */}
-          <IconButton
-            onClick={goBackToList}
-            title="Volver a lista de colaboradores"
-            aria-label="Volver"
+            <Alert
+              onClose={handleToastClose}
+              severity={toastSeverity}
+              sx={{ width: "100%" }}
+            >
+              {toastMessage}
+            </Alert>
+          </Snackbar>
+          {/* Encabezado con info + nav */}
+          <Paper
+            elevation={3}
             sx={{
-              position: "absolute",
-              top: 8,
-              left: 8,
-              width: 30, // 75% de 40
-              height: 30, // 75% de 40
-              zIndex: 2,
+              p: 3,
+              mb: 4,
+              background: "linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)",
               color: "white",
-              backgroundColor: "rgba(0,0,0,0.2)",
-              "&:hover": { backgroundColor: "rgba(0,0,0,0.32)" },
-              boxShadow: 1,
+              position: "relative", // <-- necesario para botón flotante
             }}
           >
-            <ArrowBackIcon sx={{ fontSize: 15 }} /> {/* 75% de 20 */}
-          </IconButton>
-
-          <Box sx={{ display: "flex", gap: 3, alignItems: "center" }}>
-            {/* Prev */}
+            {/* Botón VOLVER flotante (75% tamaño) */}
             <IconButton
-              onClick={goPrev}
-              disabled={!(empleadosIndex?.length ? hayPrev : hasPrevious)}
+              onClick={goBackToList}
+              title="Volver a lista de colaboradores"
+              aria-label="Volver"
               sx={{
+                position: "absolute",
+                top: 8,
+                left: 8,
+                width: 30, // 75% de 40
+                height: 30, // 75% de 40
+                zIndex: 2,
                 color: "white",
-                opacity: (empleadosIndex?.length ? hayPrev : hasPrevious)
-                  ? 1
-                  : 0.5,
-                width: 20,
-                height: 48,
-                "& .MuiSvgIcon-root": { fontSize: 80 },
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-                "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.2)" },
+                backgroundColor: "rgba(0,0,0,0.2)",
+                "&:hover": { backgroundColor: "rgba(0,0,0,0.32)" },
+                boxShadow: 1,
               }}
-              title={`Anterior${
-                empleadosIndex?.length
-                  ? ` (${idx + 1}/${empleadosIndex.length})`
-                  : ""
-              }`}
             >
-              <NavigateBeforeIcon />
+              <ArrowBackIcon sx={{ fontSize: 15 }} /> {/* 75% de 20 */}
             </IconButton>
 
-            {/* Avatar + datos (25% más grande) */}
-            <Box
-              sx={{
-                display: "flex",
-                gap: 3,
-                alignItems: "center",
-                flex: 2,
-                minWidth: 0,
-                overflow: "hidden",
-              }}
-            >
-              <Avatar
-                src={getImageUrl(empleado.urlFotoPerfil)}
-                alt={`${empleado.nombre} ${empleado.apellido}`}
-                sx={{ width: 100, height: 100, border: "3px solid white" }}
+            <Box sx={{ display: "flex", gap: 3, alignItems: "center" }}>
+              {/* Prev */}
+              <IconButton
+                onClick={goPrev}
+                disabled={!(empleadosIndex?.length ? hayPrev : hasPrevious)}
+                sx={{
+                  color: "white",
+                  opacity: (empleadosIndex?.length ? hayPrev : hasPrevious)
+                    ? 1
+                    : 0.5,
+                  width: 20,
+                  height: 48,
+                  "& .MuiSvgIcon-root": { fontSize: 80 },
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                  "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.2)" },
+                }}
+                title={`Anterior${
+                  empleadosIndex?.length
+                    ? ` (${idx + 1}/${empleadosIndex.length})`
+                    : ""
+                }`}
               >
-                {empleado.nombre?.[0]}
-              </Avatar>
+                <NavigateBeforeIcon />
+              </IconButton>
 
-              <Box sx={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
-                <Typography
-                  variant="h5"
-                  gutterBottom
-                  sx={{
-                    fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2rem" },
-                    lineHeight: 1.2,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
+              {/* Avatar + datos (25% más grande) */}
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 3,
+                  alignItems: "center",
+                  flex: 2,
+                  minWidth: 0,
+                  overflow: "hidden",
+                }}
+              >
+                <Avatar
+                  src={getImageUrl(empleado.urlFotoPerfil)}
+                  alt={`${empleado.nombre} ${empleado.apellido}`}
+                  sx={{ width: 100, height: 100, border: "3px solid white" }}
                 >
-                  {empleado.nombre} {empleado.apellido}
-                </Typography>
-                {empleado.cargo && (
+                  {empleado.nombre?.[0]}
+                </Avatar>
+
+                <Box sx={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
                   <Typography
-                    variant="h6"
+                    variant="h5"
+                    gutterBottom
                     sx={{
-                      fontSize: { xs: "1rem", sm: "1.125rem" },
+                      fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2rem" },
                       lineHeight: 1.2,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {empleado.cargo}
+                    {empleado.nombre} {empleado.apellido}
                   </Typography>
-                )}
-                <Typography variant="subtitle1">
-                  {empleado.codigo || "Sin código asignado"}
+                  {empleado.cargo && (
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontSize: { xs: "1rem", sm: "1.125rem" },
+                        lineHeight: 1.2,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {empleado.cargo}
+                    </Typography>
+                  )}
+                  <Typography variant="subtitle1">
+                    {empleado.codigo || "Sin código asignado"}
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box
+                sx={{
+                  flex: 1.5,
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: 2,
+                }}
+              >
+                <FormControl size="small" sx={{ minWidth: 300 }}>
+                  <InputLabel
+                    sx={{
+                      color: "rgba(255,255,255,0.7)",
+                      fontSize: "0.875rem",
+                    }}
+                  >
+                    Período de Nómina
+                  </InputLabel>
+                  <Select
+                    value={intervaloSeleccionado}
+                    onChange={handleIntervaloChange}
+                    label="Período de Nómina"
+                    size="small"
+                    sx={{
+                      color: "white",
+                      backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "rgba(255,255,255,0.3)",
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "rgba(255,255,255,0.5)",
+                      },
+                      "& .MuiSelect-icon": { color: "white" },
+                    }}
+                    MenuProps={{
+                      PaperProps: {
+                        sx: { maxHeight: 300 },
+                      },
+                    }}
+                  >
+                    <MenuItem value="">
+                      <em>Selecciona un período</em>
+                    </MenuItem>
+                    {intervalosDisponibles.map((intervalo) => (
+                      <MenuItem key={intervalo.valor} value={intervalo.valor}>
+                        {intervalo.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Button
+                  variant="contained"
+                  disabled={!rangoValido || !empleado}
+                  onClick={() => refetch()}
+                  sx={{ ml: 1 }}
+                >
+                  Aplicar
+                </Button>
+              </Box>
+
+              {/* Next */}
+              <IconButton
+                onClick={goNext}
+                disabled={!(empleadosIndex?.length ? hayNext : hasNext)}
+                sx={{
+                  color: "white",
+                  opacity: (empleadosIndex?.length ? hayNext : hasNext)
+                    ? 1
+                    : 0.5,
+                  width: 20,
+                  height: 48,
+                  "& .MuiSvgIcon-root": { fontSize: 80 },
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                  "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.2)" },
+                }}
+                title={`Siguiente${
+                  empleadosIndex?.length
+                    ? ` (${idx + 1}/${empleadosIndex.length})`
+                    : ""
+                }`}
+              >
+                <NavigateNextIcon />
+              </IconButton>
+            </Box>
+
+            {/* Indicador de navegación */}
+            {empleadosIndex?.length > 0 && (
+              <Box sx={{ mt: 2, textAlign: "center" }}>
+                <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                  Navegación:{" "}
+                  {idx >= 0
+                    ? `${idx + 1} de ${empleadosIndex.length}`
+                    : "No encontrado"}{" "}
+                  colaboradores
                 </Typography>
               </Box>
-            </Box>
+            )}
 
-            <Box
-              sx={{
-                flex: 1.5,
-                display: "flex",
-                justifyContent: "flex-end",
-                alignItems: "center",
-                gap: 2,
-              }}
-            >
-              <FormControl size="small" sx={{ minWidth: 300 }}>
-                <InputLabel
-                  sx={{
-                    color: "rgba(255,255,255,0.7)",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  Período de Nómina
-                </InputLabel>
-                <Select
-                  value={intervaloSeleccionado}
-                  onChange={handleIntervaloChange}
-                  label="Período de Nómina"
-                  size="small"
-                  sx={{
-                    color: "white",
-                    backgroundColor: "rgba(255, 255, 255, 0.1)",
-                    "& .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "rgba(255,255,255,0.3)",
-                    },
-                    "&:hover .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "rgba(255,255,255,0.5)",
-                    },
-                    "& .MuiSelect-icon": { color: "white" },
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: { maxHeight: 300 },
-                    },
-                  }}
-                >
-                  <MenuItem value="">
-                    <em>Selecciona un período</em>
-                  </MenuItem>
-                  {intervalosDisponibles.map((intervalo) => (
-                    <MenuItem key={intervalo.valor} value={intervalo.valor}>
-                      {intervalo.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+            {!intervaloSeleccionado && (
+              <Box sx={{ mt: 2, textAlign: "center" }}>
+                <Typography variant="body2" sx={{ opacity: 0.7 }}>
+                  💡 Los períodos de nómina se calculan automáticamente en
+                  intervalos de ~15 días
+                </Typography>
+              </Box>
+            )}
+          </Paper>
 
-              <Button
-                variant="contained"
-                disabled={!rangoValido || !empleado}
-                onClick={() => refetch()}
-                sx={{ ml: 1 }}
-              >
-                Aplicar
+          {/* Error */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {/* Check if it's a validation error with specific dates */}
+              {error.response?.data?.validationErrors ? (
+                <Box>
+                  <Typography variant="h6" gutterBottom>
+                    No se puede procesar la nómina
+                  </Typography>
+                  {error.response.data.validationErrors.fechasNoAprobadas
+                    ?.length > 0 && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography
+                        variant="subtitle1"
+                        color="error"
+                        gutterBottom
+                      >
+                        📋 Fechas no aprobadas por supervisor:
+                      </Typography>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                        {error.response.data.validationErrors.fechasNoAprobadas.map(
+                          (fecha: string) => (
+                            <Typography
+                              key={fecha}
+                              variant="body2"
+                              sx={{
+                                backgroundColor: "error.light",
+                                color: "error.contrastText",
+                                px: 1,
+                                py: 0.5,
+                                borderRadius: 1,
+                                fontSize: "0.875rem",
+                              }}
+                            >
+                              {new Date(fecha + "T00:00:00").toLocaleDateString(
+                                "es-HN",
+                                {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                }
+                              )}
+                            </Typography>
+                          )
+                        )}
+                      </Box>
+                    </Box>
+                  )}
+                  {error.response.data.validationErrors.fechasSinRegistro
+                    ?.length > 0 && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography
+                        variant="subtitle1"
+                        color="error"
+                        gutterBottom
+                      >
+                        📝 Fechas sin registro diario:
+                      </Typography>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                        {error.response.data.validationErrors.fechasSinRegistro.map(
+                          (fecha: string) => (
+                            <Typography
+                              key={fecha}
+                              variant="body2"
+                              sx={{
+                                backgroundColor: "warning.light",
+                                color: "warning.contrastText",
+                                px: 1,
+                                py: 0.5,
+                                borderRadius: 1,
+                                fontSize: "0.875rem",
+                              }}
+                            >
+                              {new Date(fecha + "T00:00:00").toLocaleDateString(
+                                "es-HN",
+                                {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric",
+                                }
+                              )}
+                            </Typography>
+                          )
+                        )}
+                      </Box>
+                    </Box>
+                  )}
+                  {/* Otros errores de validación generales (empleadoId, etc.) */}
+                  {Object.entries(error.response.data.validationErrors)
+                    .filter(
+                      ([k]) =>
+                        !["fechasNoAprobadas", "fechasSinRegistro"].includes(
+                          k as string
+                        )
+                    )
+                    .map(([campo, mensajes]: any) => (
+                      <Box key={campo} sx={{ mt: 1 }}>
+                        <Typography variant="subtitle2" color="error">
+                          {campo}
+                        </Typography>
+                        {Array.isArray(mensajes) && mensajes.length > 0 && (
+                          <Box sx={{ pl: 2 }}>
+                            {mensajes.map((m: string, i: number) => (
+                              <Typography key={i} variant="body2" color="error">
+                                • {m}
+                              </Typography>
+                            ))}
+                          </Box>
+                        )}
+                      </Box>
+                    ))}
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mt: 2 }}
+                  >
+                    💡 Contacte al supervisor para aprobar los registros
+                    pendientes o complete los registros faltantes.
+                  </Typography>
+                </Box>
+              ) : (
+                // Regular error message
+                error.response?.data?.message ||
+                (error.response?.status === 404
+                  ? "No se pudo conectar con el servidor"
+                  : "Error al cargar los datos")
+              )}
+              <Button size="small" onClick={refetch} sx={{ ml: 2 }}>
+                Reintentar
               </Button>
-            </Box>
+            </Alert>
+          )}
 
-            {/* Next */}
-            <IconButton
-              onClick={goNext}
-              disabled={!(empleadosIndex?.length ? hayNext : hasNext)}
-              sx={{
-                color: "white",
-                opacity: (empleadosIndex?.length ? hayNext : hasNext) ? 1 : 0.5,
-                width: 20,
-                height: 48,
-                "& .MuiSvgIcon-root": { fontSize: 80 },
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-                "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.2)" },
-              }}
-              title={`Siguiente${
-                empleadosIndex?.length
-                  ? ` (${idx + 1}/${empleadosIndex.length})`
-                  : ""
-              }`}
-            >
-              <NavigateNextIcon />
-            </IconButton>
+          {/* Tarjetas informativas */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" },
+              gap: 3,
+            }}
+          >
+            <Card>
+              <CardContent>
+                <Typography variant="h6" color="primary" gutterBottom>
+                  Información Laboral
+                </Typography>
+                <Divider sx={{ my: 1 }} />
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Departamento:</strong>{" "}
+                    {(empleado as any).departamento?.nombre ||
+                    (typeof (empleado as any).departamento === "string"
+                      ? (empleado as any).departamento
+                      : null) ||
+                    (empleado as any).departamentoId
+                      ? `Departamento ${(empleado as any).departamentoId}`
+                      : "—"}
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Tipo de Contrato:</strong>{" "}
+                    {empleado.tipoContrato ?? "—"}
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Tipo de Horario:</strong>{" "}
+                    {empleado.tipoHorario === "H1_1"
+                      ? "Normal L-V"
+                      : empleado.tipoHorario === "H1_2"
+                      ? "Martes a Sábado"
+                      : empleado.tipoHorario === "H2"
+                      ? "Turnos 7x7"
+                      : empleado.tipoHorario ?? "—"}
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Sueldo Mensual:</strong>{" "}
+                    {empleado?.sueldoMensual != null
+                      ? formatCurrency(empleado.sueldoMensual)
+                      : "—"}
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Sueldo Quincenal:</strong>{" "}
+                    {empleado?.sueldoMensual != null
+                      ? formatCurrency(empleado.sueldoMensual / 2)
+                      : "—"}
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Sueldo por hora:</strong>{" "}
+                    {Number.isFinite(Number(empleado?.sueldoMensual))
+                      ? formatCurrency(Number(empleado!.sueldoMensual) / 240)
+                      : "—"}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <Typography variant="h6" color="primary" gutterBottom>
+                  Información Bancaria
+                </Typography>
+                <Divider sx={{ my: 1 }} />
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Banco:</strong>{" "}
+                    {empleado.banco || "No especificado"}
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Tipo de Cuenta:</strong>{" "}
+                    {empleado.tipoCuenta || "No especificado"}
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Número de Cuenta:</strong>{" "}
+                    {empleado.numeroCuenta || "No especificado"}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <Typography variant="h6" color="primary" gutterBottom>
+                  Información de Contacto
+                </Typography>
+                <Divider sx={{ my: 1 }} />
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Correo:</strong>{" "}
+                    {empleado.correoElectronico || "No especificado"}
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Teléfono:</strong>{" "}
+                    {empleado.telefono || "No especificado"}
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    <strong>Dirección:</strong>{" "}
+                    {empleado.direccion || "No especificada"}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
           </Box>
 
-          {/* Indicador de navegación */}
-          {empleadosIndex?.length > 0 && (
-            <Box sx={{ mt: 2, textAlign: "center" }}>
-              <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                Navegación:{" "}
-                {idx >= 0
-                  ? `${idx + 1} de ${empleadosIndex.length}`
-                  : "No encontrado"}{" "}
-                colaboradores
-              </Typography>
-            </Box>
-          )}
-
-          {!intervaloSeleccionado && (
-            <Box sx={{ mt: 2, textAlign: "center" }}>
-              <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                💡 Los períodos de nómina se calculan automáticamente en
-                intervalos de ~15 días
-              </Typography>
-            </Box>
-          )}
-        </Paper>
-
-        {/* Error */}
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {/* Check if it's a validation error with specific dates */}
-            {error.response?.data?.validationErrors ? (
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  No se puede procesar la nómina
-                </Typography>
-                {error.response.data.validationErrors.fechasNoAprobadas
-                  ?.length > 0 && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" color="error" gutterBottom>
-                      📋 Fechas no aprobadas por supervisor:
-                    </Typography>
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                      {error.response.data.validationErrors.fechasNoAprobadas.map(
-                        (fecha: string) => (
-                          <Typography
-                            key={fecha}
-                            variant="body2"
-                            sx={{
-                              backgroundColor: "error.light",
-                              color: "error.contrastText",
-                              px: 1,
-                              py: 0.5,
-                              borderRadius: 1,
-                              fontSize: "0.875rem",
-                            }}
-                          >
-                            {new Date(fecha + "T00:00:00").toLocaleDateString(
-                              "es-HN",
-                              {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                              }
-                            )}
-                          </Typography>
-                        )
-                      )}
-                    </Box>
-                  </Box>
-                )}
-                {error.response.data.validationErrors.fechasSinRegistro
-                  ?.length > 0 && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" color="error" gutterBottom>
-                      📝 Fechas sin registro diario:
-                    </Typography>
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                      {error.response.data.validationErrors.fechasSinRegistro.map(
-                        (fecha: string) => (
-                          <Typography
-                            key={fecha}
-                            variant="body2"
-                            sx={{
-                              backgroundColor: "warning.light",
-                              color: "warning.contrastText",
-                              px: 1,
-                              py: 0.5,
-                              borderRadius: 1,
-                              fontSize: "0.875rem",
-                            }}
-                          >
-                            {new Date(fecha + "T00:00:00").toLocaleDateString(
-                              "es-HN",
-                              {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                              }
-                            )}
-                          </Typography>
-                        )
-                      )}
-                    </Box>
-                  </Box>
-                )}
-                {/* Otros errores de validación generales (empleadoId, etc.) */}
-                {Object.entries(error.response.data.validationErrors)
-                  .filter(
-                    ([k]) =>
-                      !["fechasNoAprobadas", "fechasSinRegistro"].includes(
-                        k as string
-                      )
-                  )
-                  .map(([campo, mensajes]: any) => (
-                    <Box key={campo} sx={{ mt: 1 }}>
-                      <Typography variant="subtitle2" color="error">
-                        {campo}
-                      </Typography>
-                      {Array.isArray(mensajes) && mensajes.length > 0 && (
-                        <Box sx={{ pl: 2 }}>
-                          {mensajes.map((m: string, i: number) => (
-                            <Typography key={i} variant="body2" color="error">
-                              • {m}
-                            </Typography>
-                          ))}
-                        </Box>
-                      )}
-                    </Box>
-                  ))}
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 2 }}
-                >
-                  💡 Contacte al supervisor para aprobar los registros
-                  pendientes o complete los registros faltantes.
-                </Typography>
-              </Box>
-            ) : (
-              // Regular error message
-              error.response?.data?.message ||
-              (error.response?.status === 404
-                ? "No se pudo conectar con el servidor"
-                : "Error al cargar los datos")
-            )}
-            <Button size="small" onClick={refetch} sx={{ ml: 2 }}>
-              Reintentar
+          {/* Botón para revisar registros diarios */}
+          <Box sx={{ mt: 3, textAlign: "center" }}>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => setModalRegistrosOpen(true)}
+              disabled={!rangoValido || !empleado}
+            >
+              Revisar actividades diarias
             </Button>
-          </Alert>
-        )}
+          </Box>
 
-        {/* Tarjetas informativas */}
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" },
-            gap: 3,
-          }}
-        >
-          <Card>
-            <CardContent>
-              <Typography variant="h6" color="primary" gutterBottom>
-                Información Laboral
-              </Typography>
-              <Divider sx={{ my: 1 }} />
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body1" gutterBottom>
-                  <strong>Departamento:</strong>{" "}
-                  {(empleado as any).departamento?.nombre ||
-                  (typeof (empleado as any).departamento === "string"
-                    ? (empleado as any).departamento
-                    : null) ||
-                  (empleado as any).departamentoId
-                    ? `Departamento ${(empleado as any).departamentoId}`
-                    : "—"}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>Tipo de Contrato:</strong>{" "}
-                  {empleado.tipoContrato ?? "—"}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>Tipo de Horario:</strong>{" "}
-                  {empleado.tipoHorario === "H1_1"
-                    ? "Normal L-V"
-                    : empleado.tipoHorario === "H1_2"
-                    ? "Martes a Sábado"
-                    : empleado.tipoHorario === "H2"
-                    ? "Turnos 7x7"
-                    : empleado.tipoHorario ?? "—"}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>Sueldo Mensual:</strong>{" "}
-                  {empleado?.sueldoMensual != null
-                    ? formatCurrency(empleado.sueldoMensual)
-                    : "—"}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>Sueldo Quincenal:</strong>{" "}
-                  {empleado?.sueldoMensual != null
-                    ? formatCurrency(empleado.sueldoMensual / 2)
-                    : "—"}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>Sueldo por hora:</strong>{" "}
-                  {Number.isFinite(Number(empleado?.sueldoMensual))
-                    ? formatCurrency(Number(empleado!.sueldoMensual) / 240)
-                    : "—"}
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
+          {/* Información de días */}
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="h5" gutterBottom>
+              Registro de Incidencias
+            </Typography>
+            <Paper sx={{ p: 3, mt: 2 }}>
+              {loading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+                  <CircularProgress />
+                </Box>
+              ) : resumenHoras ? (
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr",
+                    gap: 3,
+                    mt: 2,
+                  }}
+                >
+                  {/* Columna 1 */}
+                  <Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Días laborados:</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {resumenHoras.conteoHoras.conteoDias?.diasLaborados ??
+                          0}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Vacaciones (días):</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {resumenHoras.conteoHoras.conteoDias?.vacaciones ?? 0}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Incapacidad cubre empresa (días):</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {diasIncapacidadCubreEmpresa}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Incapacidad cubre IHSS (días):</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {diasIncapacidadCubreIHSS}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Total días nómina:</strong>
+                      </Typography>
+                      <Typography variant="body1">{periodoNomina}</Typography>
+                    </Box>
+                  </Box>
 
-          <Card>
-            <CardContent>
-              <Typography variant="h6" color="primary" gutterBottom>
-                Información Bancaria
-              </Typography>
-              <Divider sx={{ my: 1 }} />
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body1" gutterBottom>
-                  <strong>Banco:</strong> {empleado.banco || "No especificado"}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>Tipo de Cuenta:</strong>{" "}
-                  {empleado.tipoCuenta || "No especificado"}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>Número de Cuenta:</strong>{" "}
-                  {empleado.numeroCuenta || "No especificado"}
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
+                  {/* Columna 2 */}
+                  <Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Monto días laborados:</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {formatCurrency(montoDiasLaborados || 0)}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Monto vacaciones:</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {formatCurrency(montoVacaciones || 0)}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Monto incapacidad cubre empresa:</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {formatCurrency(montoCubreEmpresa || 0)}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Subtotal:</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {formatCurrency(subtotalQuincena || 0)}
+                      </Typography>
+                    </Box>
+                  </Box>
 
-          <Card>
-            <CardContent>
-              <Typography variant="h6" color="primary" gutterBottom>
-                Información de Contacto
-              </Typography>
-              <Divider sx={{ my: 1 }} />
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body1" gutterBottom>
-                  <strong>Correo:</strong>{" "}
-                  {empleado.correoElectronico || "No especificado"}
+                  {/* Columna 3 */}
+                  <Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Permisos justificados:</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {resumenHoras.conteoHoras.conteoDias
+                          ?.permisoConSueldo ?? 0}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Monto por permisos justificados:</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {formatCurrency(montoPermisosJustificados || 0)}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Permisos no justificados:</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {resumenHoras.conteoHoras.conteoDias
+                          ?.permisoSinSueldo ?? 0}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Inasistencias:</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {resumenHoras.conteoHoras.conteoDias?.inasistencias ??
+                          0}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Incapacidad cubre empresa (horas):</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {horasIncapacidadCubreEmpresa.toFixed(2)}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Incapacidad cubre IHSS (horas):</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {horasIncapacidadCubreIHSS.toFixed(2)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              ) : (
+                <Typography variant="body1" color="text.secondary">
+                  Selecciona un período de nómina del selector y presiona
+                  "Aplicar" para ver la información.
                 </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>Teléfono:</strong>{" "}
-                  {empleado.telefono || "No especificado"}
-                </Typography>
-                <Typography variant="body1" gutterBottom>
-                  <strong>Dirección:</strong>{" "}
-                  {empleado.direccion || "No especificada"}
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Box>
+              )}
+            </Paper>
+          </Box>
 
-        {/* Botón para revisar registros diarios */}
-        <Box sx={{ mt: 3, textAlign: "center" }}>
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={() => setModalRegistrosOpen(true)}
-            disabled={!rangoValido || !empleado}
-          >
-            Revisar actividades diarias
-          </Button>
-        </Box>
+          {/* Registro de incidencias */}
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="h5" gutterBottom>
+              Horas Extras
+            </Typography>
+            <DesgloseIncidenciasComponent
+              desglose={resumenHoras?.desgloseIncidencias || null}
+              loading={loading}
+              extrasMontos={{
+                normal: montoHorasNormales,
+                p25: montoHoras25,
+                p50: montoHoras50,
+                p75: montoHoras75,
+                p100: montoHoras100,
+              }}
+              currencyFormatter={(n: number) => formatCurrency(n || 0)}
+              horasNormales={horasNormales}
+            />
+          </Box>
 
-        {/* Información de días */}
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h5" gutterBottom>
-            Registro de Incidencias
-          </Typography>
-          <Paper sx={{ p: 3, mt: 2 }}>
-            {loading ? (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
-                <CircularProgress />
-              </Box>
-            ) : resumenHoras ? (
+          {/* Deducciones (placeholder) */}
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="h5" gutterBottom>
+              Ajuste y Deducciones
+            </Typography>
+            <Paper sx={{ p: 3, mt: 2 }}>
+              {nombrePeriodoNomina && (
+                <Typography
+                  variant="h6"
+                  color="primary"
+                  sx={{ mb: 2, fontWeight: 700 }}
+                >
+                  {nombrePeriodoNomina}
+                </Typography>
+              )}
               <Box
                 sx={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr 1fr",
-                  gap: 3,
-                  mt: 2,
+                  gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
+                  gap: 2,
                 }}
               >
-                {/* Columna 1 */}
-                <Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Días laborados:</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {resumenHoras.conteoHoras.conteoDias?.diasLaborados ?? 0}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Vacaciones (días):</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {resumenHoras.conteoHoras.conteoDias?.vacaciones ?? 0}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Incapacidad cubre empresa (días):</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {diasIncapacidadCubreEmpresa}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Incapacidad cubre IHSS (días):</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {diasIncapacidadCubreIHSS}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Total días nómina:</strong>
-                    </Typography>
-                    <Typography variant="body1">{periodoNomina}</Typography>
-                  </Box>
-                </Box>
-
-                {/* Columna 2 */}
-                <Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Monto días laborados:</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {formatCurrency(montoDiasLaborados || 0)}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Monto vacaciones:</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {formatCurrency(montoVacaciones || 0)}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Monto incapacidad cubre empresa:</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {formatCurrency(montoCubreEmpresa || 0)}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Subtotal:</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {formatCurrency(subtotalQuincena || 0)}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                {/* Columna 3 */}
-                <Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Permisos justificados:</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {resumenHoras.conteoHoras.conteoDias?.permisoConSueldo ??
-                        0}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Monto por permisos justificados:</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {formatCurrency(montoPermisosJustificados || 0)}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Permisos no justificados:</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {resumenHoras.conteoHoras.conteoDias?.permisoSinSueldo ??
-                        0}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Inasistencias:</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {resumenHoras.conteoHoras.conteoDias?.inasistencias ?? 0}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Incapacidad cubre empresa (horas):</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {horasIncapacidadCubreEmpresa.toFixed(2)}
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="body1">
-                      <strong>Incapacidad cubre IHSS (horas):</strong>
-                    </Typography>
-                    <Typography variant="body1">
-                      {horasIncapacidadCubreIHSS.toFixed(2)}
-                    </Typography>
-                  </Box>
-                </Box>
+                {/* COLUMNA IZQUIERDA: 3 PERCEPCIONES + IHSS + RAP */}
+                <TextField
+                  label="(+) Monto Incapacidad (Empresa)"
+                  type="text"
+                  inputMode="decimal"
+                  size="small"
+                  placeholder="0"
+                  value={inputMontoIncapacidadEmpresa}
+                  onChange={(e) => {
+                    const sanitized = sanitizeDecimalInput(e.target.value);
+                    setInputMontoIncapacidadEmpresa(sanitized);
+                    setMontoIncapacidadCubreEmpresa(
+                      parseDecimalValue(sanitized)
+                    );
+                  }}
+                />
+                {/* COLUMNA DERECHA: DEDUCCIONES RESTANTES */}
+                <TextField
+                  label="(-) Deducción ISR"
+                  type="text"
+                  inputMode="decimal"
+                  size="small"
+                  placeholder="0"
+                  value={inputDeduccionISR}
+                  onChange={(e) => {
+                    const sanitized = sanitizeDecimalInput(e.target.value);
+                    setInputDeduccionISR(sanitized);
+                    setDeduccionISR(parseDecimalValue(sanitized));
+                  }}
+                  disabled={codigoNominaTerminaEnA}
+                  helperText={
+                    codigoNominaTerminaEnA
+                      ? "Primera quincena: sin deducciones"
+                      : undefined
+                  }
+                />
+                <TextField
+                  label="(+) Monto Incapacidad (IHSS)"
+                  type="text"
+                  inputMode="decimal"
+                  size="small"
+                  placeholder="0"
+                  value={inputMontoExcedenteIHSS}
+                  onChange={(e) => {
+                    const sanitized = sanitizeDecimalInput(e.target.value);
+                    setInputMontoExcedenteIHSS(sanitized);
+                    setMontoExcedenteIHSS(parseDecimalValue(sanitized));
+                  }}
+                />
+                <TextField
+                  label="(-) Deducción Alimentación"
+                  type="text"
+                  inputMode="decimal"
+                  size="small"
+                  placeholder="0"
+                  value={inputDeduccionAlimentacion}
+                  onChange={(e) => {
+                    const sanitized = sanitizeDecimalInput(e.target.value);
+                    setInputDeduccionAlimentacion(sanitized);
+                    setDeduccionAlimentacion(parseDecimalValue(sanitized));
+                  }}
+                  InputProps={{
+                    readOnly: errorAlimentacion?.tieneError !== true,
+                    endAdornment:
+                      !loadingAlimentacion &&
+                      errorAlimentacion?.tieneError !== true ? (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            aria-label="Ver detalle de deducción de alimentación"
+                            onClick={() =>
+                              setModalDetalleAlimentacionOpen(true)
+                            }
+                          >
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      ) : undefined,
+                  }}
+                  disabled={loadingAlimentacion}
+                  helperText={
+                    loadingAlimentacion
+                      ? "Cargando datos..."
+                      : errorAlimentacion?.tieneError
+                      ? errorAlimentacion.mensajeError
+                      : undefined
+                  }
+                  error={errorAlimentacion?.tieneError === true}
+                />
+                <TextField
+                  label="(+) Ajuste"
+                  type="text"
+                  inputMode="decimal"
+                  size="small"
+                  placeholder="0"
+                  value={inputAjuste}
+                  onChange={(e) => {
+                    const sanitized = sanitizeDecimalInput(e.target.value);
+                    setInputAjuste(sanitized);
+                    setAjuste(parseDecimalValue(sanitized));
+                  }}
+                />
+                <TextField
+                  label="(-) Cobro Préstamo"
+                  type="text"
+                  inputMode="decimal"
+                  size="small"
+                  placeholder="0"
+                  value={inputCobroPrestamo}
+                  onChange={(e) => {
+                    const sanitized = sanitizeDecimalInput(e.target.value);
+                    setInputCobroPrestamo(sanitized);
+                    setCobroPrestamo(parseDecimalValue(sanitized));
+                  }}
+                  disabled={codigoNominaTerminaEnA}
+                  helperText={
+                    codigoNominaTerminaEnA
+                      ? "Primera quincena: sin deducciones"
+                      : undefined
+                  }
+                />
+                <TextField
+                  label="(-) Deducción IHSS"
+                  type="text"
+                  inputMode="decimal"
+                  size="small"
+                  placeholder="0"
+                  value={inputDeduccionIHSS}
+                  onChange={(e) => {
+                    const sanitized = sanitizeDecimalInput(e.target.value);
+                    setInputDeduccionIHSS(sanitized);
+                    setDeduccionIHSS(parseDecimalValue(sanitized));
+                  }}
+                  disabled={codigoNominaTerminaEnA}
+                  helperText={
+                    codigoNominaTerminaEnA
+                      ? "Primera quincena: sin deducciones"
+                      : undefined
+                  }
+                />
+                <TextField
+                  label="(-) Impuesto Vecinal"
+                  type="text"
+                  inputMode="decimal"
+                  size="small"
+                  placeholder="0"
+                  value={inputImpuestoVecinal}
+                  onChange={(e) => {
+                    const sanitized = sanitizeDecimalInput(e.target.value);
+                    setInputImpuestoVecinal(sanitized);
+                    setImpuestoVecinal(parseDecimalValue(sanitized));
+                  }}
+                  disabled={codigoNominaTerminaEnA}
+                  helperText={
+                    codigoNominaTerminaEnA
+                      ? "Primera quincena: sin deducciones"
+                      : undefined
+                  }
+                />
+                <TextField
+                  label={`(-) Deducción RAP (1.5% excedente sobre ${formatCurrency(
+                    PISO_IHSS
+                  )})`}
+                  type="text"
+                  inputMode="decimal"
+                  size="small"
+                  placeholder="0"
+                  value={inputDeduccionRAP}
+                  onChange={(e) => {
+                    const sanitized = sanitizeDecimalInput(e.target.value);
+                    setInputDeduccionRAP(sanitized);
+                    setDeduccionRAP(parseDecimalValue(sanitized));
+                  }}
+                  disabled={codigoNominaTerminaEnA}
+                  helperText={
+                    codigoNominaTerminaEnA
+                      ? "Primera quincena: sin deducciones"
+                      : undefined
+                  }
+                />
+                <TextField
+                  label="(-) Otros"
+                  type="text"
+                  inputMode="decimal"
+                  size="small"
+                  placeholder="0"
+                  value={inputOtros}
+                  onChange={(e) => {
+                    const sanitized = sanitizeDecimalInput(e.target.value);
+                    setInputOtros(sanitized);
+                    setOtros(parseDecimalValue(sanitized));
+                  }}
+                />
               </Box>
-            ) : (
-              <Typography variant="body1" color="text.secondary">
-                Selecciona un período de nómina del selector y presiona
-                "Aplicar" para ver la información.
-              </Typography>
-            )}
-          </Paper>
-        </Box>
-
-        {/* Registro de incidencias */}
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h5" gutterBottom>
-            Horas Extras
-          </Typography>
-          <DesgloseIncidenciasComponent
-            desglose={resumenHoras?.desgloseIncidencias || null}
-            loading={loading}
-            extrasMontos={{
-              normal: montoHorasNormales,
-              p25: montoHoras25,
-              p50: montoHoras50,
-              p75: montoHoras75,
-              p100: montoHoras100,
-            }}
-            currencyFormatter={(n: number) => formatCurrency(n || 0)}
-            horasNormales={horasNormales}
-          />
-        </Box>
-
-        {/* Deducciones (placeholder) */}
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h5" gutterBottom>
-            Ajuste y Deducciones
-          </Typography>
-          <Paper sx={{ p: 3, mt: 2 }}>
-            {nombrePeriodoNomina && (
-              <Typography
-                variant="h6"
-                color="primary"
-                sx={{ mb: 2, fontWeight: 700 }}
-              >
-                {nombrePeriodoNomina}
-              </Typography>
-            )}
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
-                gap: 2,
-              }}
-            >
-              {/* COLUMNA IZQUIERDA: 3 PERCEPCIONES + IHSS + RAP */}
-              <TextField
-                label="(+) Monto Incapacidad (Empresa)"
-                type="text"
-                inputMode="decimal"
-                size="small"
-                placeholder="0"
-                value={inputMontoIncapacidadEmpresa}
-                onChange={(e) => {
-                  const sanitized = sanitizeDecimalInput(e.target.value);
-                  setInputMontoIncapacidadEmpresa(sanitized);
-                  setMontoIncapacidadCubreEmpresa(parseDecimalValue(sanitized));
-                }}
-              />
-              {/* COLUMNA DERECHA: DEDUCCIONES RESTANTES */}
-              <TextField
-                label="(-) Deducción ISR"
-                type="text"
-                inputMode="decimal"
-                size="small"
-                placeholder="0"
-                value={inputDeduccionISR}
-                onChange={(e) => {
-                  const sanitized = sanitizeDecimalInput(e.target.value);
-                  setInputDeduccionISR(sanitized);
-                  setDeduccionISR(parseDecimalValue(sanitized));
-                }}
-              />
-              <TextField
-                label="(+) Monto Incapacidad (IHSS)"
-                type="text"
-                inputMode="decimal"
-                size="small"
-                placeholder="0"
-                value={inputMontoExcedenteIHSS}
-                onChange={(e) => {
-                  const sanitized = sanitizeDecimalInput(e.target.value);
-                  setInputMontoExcedenteIHSS(sanitized);
-                  setMontoExcedenteIHSS(parseDecimalValue(sanitized));
-                }}
-              />
-              <TextField
-                label="(-) Deducción Alimentación"
-                type="text"
-                inputMode="decimal"
-                size="small"
-                placeholder="0"
-                value={inputDeduccionAlimentacion}
-                onChange={(e) => {
-                  const sanitized = sanitizeDecimalInput(e.target.value);
-                  setInputDeduccionAlimentacion(sanitized);
-                  setDeduccionAlimentacion(parseDecimalValue(sanitized));
-                }}
-                InputProps={{
-                  readOnly: errorAlimentacion?.tieneError !== true,
-                  endAdornment:
-                    !loadingAlimentacion &&
-                    errorAlimentacion?.tieneError !== true ? (
-                      <InputAdornment position="end">
-                        <IconButton
-                          size="small"
-                          aria-label="Ver detalle de deducción de alimentación"
-                          onClick={() => setModalDetalleAlimentacionOpen(true)}
-                        >
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
-                      </InputAdornment>
-                    ) : undefined,
-                }}
-                disabled={loadingAlimentacion}
-                helperText={
-                  loadingAlimentacion
-                    ? "Cargando datos..."
-                    : errorAlimentacion?.tieneError
-                    ? errorAlimentacion.mensajeError
-                    : undefined
-                }
-                error={errorAlimentacion?.tieneError === true}
-              />
-              <TextField
-                label="(+) Ajuste"
-                type="text"
-                inputMode="decimal"
-                size="small"
-                placeholder="0"
-                value={inputAjuste}
-                onChange={(e) => {
-                  const sanitized = sanitizeDecimalInput(e.target.value);
-                  setInputAjuste(sanitized);
-                  setAjuste(parseDecimalValue(sanitized));
-                }}
-              />
-              <TextField
-                label="(-) Cobro Préstamo"
-                type="text"
-                inputMode="decimal"
-                size="small"
-                placeholder="0"
-                value={inputCobroPrestamo}
-                onChange={(e) => {
-                  const sanitized = sanitizeDecimalInput(e.target.value);
-                  setInputCobroPrestamo(sanitized);
-                  setCobroPrestamo(parseDecimalValue(sanitized));
-                }}
-              />
-              <TextField
-                label="(-) Deducción IHSS"
-                type="text"
-                inputMode="decimal"
-                size="small"
-                placeholder="0"
-                value={inputDeduccionIHSS}
-                onChange={(e) => {
-                  const sanitized = sanitizeDecimalInput(e.target.value);
-                  setInputDeduccionIHSS(sanitized);
-                  setDeduccionIHSS(parseDecimalValue(sanitized));
-                }}
-              />
-              <TextField
-                label="(-) Impuesto Vecinal"
-                type="text"
-                inputMode="decimal"
-                size="small"
-                placeholder="0"
-                value={inputImpuestoVecinal}
-                onChange={(e) => {
-                  const sanitized = sanitizeDecimalInput(e.target.value);
-                  setInputImpuestoVecinal(sanitized);
-                  setImpuestoVecinal(parseDecimalValue(sanitized));
-                }}
-              />
-              <TextField
-                label={`(-) Deducción RAP (1.5% excedente sobre ${formatCurrency(
-                  PISO_IHSS
-                )})`}
-                type="text"
-                inputMode="decimal"
-                size="small"
-                placeholder="0"
-                value={inputDeduccionRAP}
-                onChange={(e) => {
-                  const sanitized = sanitizeDecimalInput(e.target.value);
-                  setInputDeduccionRAP(sanitized);
-                  setDeduccionRAP(parseDecimalValue(sanitized));
-                }}
-              />
-              <TextField
-                label="(-) Otros"
-                type="text"
-                inputMode="decimal"
-                size="small"
-                placeholder="0"
-                value={inputOtros}
-                onChange={(e) => {
-                  const sanitized = sanitizeDecimalInput(e.target.value);
-                  setInputOtros(sanitized);
-                  setOtros(parseDecimalValue(sanitized));
-                }}
-              />
-            </Box>
-            <Divider sx={{ my: 2 }} />
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
-                gap: 2,
-              }}
-            >
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="body1">
-                  <strong>Total Percepciones:</strong>
-                </Typography>
-                <Typography variant="body1">
-                  {formatCurrency(totalPercepciones)}
-                </Typography>
-              </Box>
+              <Divider sx={{ my: 2 }} />
               <Box
-                sx={{ display: "flex", justifyContent: "space-between" }}
-              ></Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="body1">
-                  <strong>Total Deducciones:</strong>
-                </Typography>
-                <Typography variant="body1">
-                  {formatCurrency(totalDeducciones)}
-                </Typography>
-              </Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="body1">
-                  <strong>Total Neto a Pagar:</strong>
-                </Typography>
-                <Typography variant="body1">
-                  {formatCurrency(totalNetoPagar)}
-                </Typography>
-              </Box>
-            </Box>
-
-            {/* Campo de comentario */}
-            <Box sx={{ mt: 3 }}>
-              <TextField
-                label="Comentario"
-                multiline
-                rows={3}
-                fullWidth
-                placeholder="Agregar comentario adicional (máximo 200 caracteres)"
-                value={comentario}
-                onChange={(e) =>
-                  setComentario(e.target.value.substring(0, 200))
-                }
-                inputProps={{ maxLength: 200 }}
-                helperText={`${comentario.length}/200 caracteres`}
-              />
-            </Box>
-
-            <Box sx={{ mt: 2, textAlign: "right" }}>
-              <Button
-                variant="contained"
-                color="primary"
-                disabled={crearNominaDisabled}
-                onClick={handleGenerarNomina}
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
+                  gap: 2,
+                }}
               >
-                Generar Nómina
-              </Button>
-            </Box>
-          </Paper>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="body1">
+                    <strong>Total Percepciones:</strong>
+                  </Typography>
+                  <Typography variant="body1">
+                    {formatCurrency(totalPercepciones)}
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{ display: "flex", justifyContent: "space-between" }}
+                ></Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="body1">
+                    <strong>Total Deducciones:</strong>
+                  </Typography>
+                  <Typography variant="body1">
+                    {formatCurrency(totalDeducciones)}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="body1">
+                    <strong>Total Neto a Pagar:</strong>
+                  </Typography>
+                  <Typography variant="body1">
+                    {formatCurrency(totalNetoPagar)}
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Campo de comentario */}
+              <Box sx={{ mt: 3 }}>
+                <TextField
+                  label="Comentario"
+                  multiline
+                  rows={3}
+                  fullWidth
+                  placeholder="Agregar comentario adicional (máximo 200 caracteres)"
+                  value={comentario}
+                  onChange={(e) =>
+                    setComentario(e.target.value.substring(0, 200))
+                  }
+                  inputProps={{ maxLength: 200 }}
+                  helperText={`${comentario.length}/200 caracteres`}
+                />
+              </Box>
+
+              <Box sx={{ mt: 2, textAlign: "right" }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={crearNominaDisabled}
+                  onClick={handleGenerarNomina}
+                >
+                  Generar Nómina
+                </Button>
+              </Box>
+            </Paper>
+          </Box>
         </Box>
-      </Box>
-      {/* Modal de detalle de registros diarios */}
-      <DetalleRegistrosDiariosModal
-        open={modalRegistrosOpen}
-        onClose={() => setModalRegistrosOpen(false)}
-        empleadoId={Number(empleado.id)}
-        fechaInicio={fechaInicio}
-        fechaFin={fechaFin}
-      />
-      <Dialog
-        open={modalDetalleAlimentacionOpen}
-        onClose={() => setModalDetalleAlimentacionOpen(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>Detalle de deducción de alimentación</DialogTitle>
-        <DialogContent dividers>
-          {detalleDeduccionAlimentacion.length > 0 ? (
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Tipo</TableCell>
-                  <TableCell>Fecha</TableCell>
-                  <TableCell align="right">Costo</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {detalleDeduccionAlimentacion.map((item, index) => (
-                  <TableRow key={`${item.fecha}-${index}`}>
-                    <TableCell>{item.producto || "N/D"}</TableCell>
-                    <TableCell>
-                      {new Date(item.fecha).toLocaleDateString("es-HN", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                      })}
+        {/* Modal de detalle de registros diarios */}
+        <DetalleRegistrosDiariosModal
+          open={modalRegistrosOpen}
+          onClose={() => setModalRegistrosOpen(false)}
+          empleadoId={Number(empleado.id)}
+          fechaInicio={fechaInicio}
+          fechaFin={fechaFin}
+        />
+        <Dialog
+          open={modalDetalleAlimentacionOpen}
+          onClose={() => setModalDetalleAlimentacionOpen(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Detalle de deducción de alimentación</DialogTitle>
+          <DialogContent dividers>
+            {detalleDeduccionAlimentacion.length > 0 ? (
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Tipo</TableCell>
+                    <TableCell>Fecha</TableCell>
+                    <TableCell align="right">Costo</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {detalleDeduccionAlimentacion.map((item, index) => (
+                    <TableRow key={`${item.fecha}-${index}`}>
+                      <TableCell>{item.producto || "N/D"}</TableCell>
+                      <TableCell>
+                        {new Date(item.fecha).toLocaleDateString("es-HN", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}
+                      </TableCell>
+                      <TableCell align="right">
+                        {formatCurrency(item.precio || 0)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow>
+                    <TableCell colSpan={2}>
+                      <Typography variant="subtitle2" fontWeight={600}>
+                        Total
+                      </Typography>
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(item.precio || 0)}
+                      <Typography variant="subtitle2" fontWeight={600}>
+                        {formatCurrency(totalDetalleAlimentacion)}
+                      </Typography>
                     </TableCell>
                   </TableRow>
-                ))}
-                <TableRow>
-                  <TableCell colSpan={2}>
-                    <Typography variant="subtitle2" fontWeight={600}>
-                      Total
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="subtitle2" fontWeight={600}>
-                      {formatCurrency(totalDetalleAlimentacion)}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              No se registran consumos de alimentación para este período.
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setModalDetalleAlimentacionOpen(false)}>
-            Cerrar
-          </Button>
-        </DialogActions>
-      </Dialog>
+                </TableBody>
+              </Table>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                No se registran consumos de alimentación para este período.
+              </Typography>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setModalDetalleAlimentacionOpen(false)}>
+              Cerrar
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </Fade>
   );
