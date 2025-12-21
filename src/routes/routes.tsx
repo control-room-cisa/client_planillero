@@ -110,6 +110,14 @@ const AppRoutes: React.FC = () => {
           }
         />
         <Route
+          path="rrhh/colaboradores/nomina/:codigoEmpleado"
+          element={
+            <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
+              <NominasRoute />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
           path="rrhh/feriados"
           element={
             <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
@@ -122,14 +130,6 @@ const AppRoutes: React.FC = () => {
           element={
             <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
               <PlanillaAccesoRevisionManagement />
-            </RoleProtectedRoute>
-          }
-        />
-        <Route
-          path="rrhh/nominas"
-          element={
-            <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
-              <NominasRoute />
             </RoleProtectedRoute>
           }
         />

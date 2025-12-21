@@ -190,13 +190,19 @@ const EmpleadosManagement: React.FC = () => {
     // Persistir índice y empleado seleccionado en contexto
     setEmpleadosIndex(empleadosIndexList);
     setSelectedEmpleado(empleado);
-    // Navegar a nóminas manteniendo filtros (empresa y búsqueda)
-    navigate("/rrhh/nominas", {
-      state: {
-        selectedEmpresaId,
-        searchTerm,
-      },
-    });
+    // Navegar a nóminas con el código del empleado en la URL, manteniendo filtros
+    if (empleado.codigo) {
+      navigate(`/rrhh/colaboradores/nomina/${empleado.codigo}`, {
+        state: {
+          selectedEmpresaId,
+          searchTerm,
+        },
+      });
+    } else {
+      // Si no tiene código, mostrar error o usar ID como fallback
+      console.error("El empleado no tiene código asignado");
+      // Opcional: mostrar un snackbar de error
+    }
   };
 
   const handleCloseSnackbar = (): void => {

@@ -28,6 +28,7 @@ import {
   TableBody,
   TableRow,
   TableCell,
+  Fade,
 } from "@mui/material";
 import {
   NavigateBefore as NavigateBeforeIcon,
@@ -35,7 +36,7 @@ import {
 } from "@mui/icons-material";
 import { ArrowBack as ArrowBackIcon } from "@mui/icons-material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
-import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
+import { useNavigate, useOutletContext, useLocation, useParams } from "react-router-dom";
 import type { Empleado } from "../../../services/empleadoService";
 import type { EmpleadoIndexItem, LayoutOutletCtx } from "../../Layout";
 import { getImageUrl } from "../../../utils/imageUtils";
@@ -109,6 +110,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation() as any;
+  const { codigoEmpleado } = useParams<{ codigoEmpleado?: string }>();
   const { selectedEmpleado, empleadosIndex: empleadosIndexCtx } =
     useOutletContext<LayoutOutletCtx>();
 
@@ -144,6 +146,28 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     () => indiceEntrante ?? [],
     [indiceEntrante]
   );
+
+  // Sincronizar empleado cuando cambia empleadoProp
+  React.useEffect(() => {
+    if (empleadoProp) {
+      // Verificar si el empleado realmente cambió para evitar actualizaciones innecesarias
+      const empleadoActualCodigo = (empleado as any)?.codigo;
+      const nuevoEmpleadoCodigo = (empleadoProp as any)?.codigo;
+      
+      if (empleadoActualCodigo !== nuevoEmpleadoCodigo || empleado?.id !== empleadoProp.id) {
+        if (DEBUG) {
+          console.debug("[NominasDashboard] empleadoProp cambió, actualizando estado", {
+            empleadoIdAnterior: empleado?.id,
+            empleadoIdNuevo: empleadoProp.id,
+            codigoEmpleadoAnterior: empleadoActualCodigo,
+            codigoEmpleadoNuevo: nuevoEmpleadoCodigo,
+            codigoEmpleadoUrl: codigoEmpleado,
+          });
+        }
+        setEmpleado(empleadoProp);
+      }
+    }
+  }, [empleadoProp?.id, (empleadoProp as any)?.codigo]); // Solo dependencias del empleadoProp, no del estado interno
 
   React.useEffect(() => {
     if (DEBUG) {
@@ -997,7 +1021,17 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     if (empleadosIndex?.length && hayPrev) {
       const prev = empleadosIndex[idx - 1];
       if (DEBUG) console.debug("[NominasDashboard] goPrev ->", prev);
-      cargarEmpleadoCompleto(prev.id);
+      // Si hay código, navegar a la nueva ruta; si no, cargar directamente
+      if (prev.codigo) {
+        navigate(`/rrhh/colaboradores/nomina/${prev.codigo}`, {
+          state: {
+            selectedEmpresaId,
+            searchTerm,
+          },
+        });
+      } else {
+        cargarEmpleadoCompleto(prev.id);
+      }
     } else if (onPrevious) {
       if (DEBUG) console.debug("[NominasDashboard] goPrev -> onPrevious()");
       onPrevious();
@@ -1019,7 +1053,17 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     if (empleadosIndex?.length && hayNext) {
       const next = empleadosIndex[idx + 1];
       if (DEBUG) console.debug("[NominasDashboard] goNext ->", next);
-      cargarEmpleadoCompleto(next.id);
+      // Si hay código, navegar a la nueva ruta; si no, cargar directamente
+      if (next.codigo) {
+        navigate(`/rrhh/colaboradores/nomina/${next.codigo}`, {
+          state: {
+            selectedEmpresaId,
+            searchTerm,
+          },
+        });
+      } else {
+        cargarEmpleadoCompleto(next.id);
+      }
     } else if (onNext) {
       if (DEBUG) console.debug("[NominasDashboard] goNext -> onNext()");
       onNext();
@@ -1071,8 +1115,9 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   }
 
   return (
-    <Container maxWidth="lg" sx={{ height: "100%", overflowY: "auto" }}>
-      <Box sx={{ py: 4 }}>
+    <Fade in={!!empleado} timeout={400}>
+      <Container maxWidth="lg" sx={{ height: "100%", overflowY: "auto" }}>
+        <Box sx={{ py: 4 }}>
         <Snackbar
           open={toastOpen}
           autoHideDuration={4000}
@@ -2134,7 +2179,8 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+      </Container>
+    </Fade>
   );
 };
 
