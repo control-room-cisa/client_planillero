@@ -182,14 +182,10 @@ export const ActivityList: React.FC<ActivityListProps> = ({
       tipo: "libre",
       horaInicio: `${Math.floor(horaInicioMin / 60)
         .toString()
-        .padStart(2, "0")}:${(horaInicioMin % 60)
-        .toString()
-        .padStart(2, "0")}`,
+        .padStart(2, "0")}:${(horaInicioMin % 60).toString().padStart(2, "0")}`,
       horaFin: `${Math.floor(horaFinMin / 60)
         .toString()
-        .padStart(2, "0")}:${(horaFinMin % 60)
-        .toString()
-        .padStart(2, "0")}`,
+        .padStart(2, "0")}:${(horaFinMin % 60).toString().padStart(2, "0")}`,
     };
   };
 
@@ -382,7 +378,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   }
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={2} sx={{ pb: { xs: 10, sm: 2 } }}>
       {actividadesConLibres.map((item, index) => {
         // Si es un espacio libre, renderizar card especial
         if (item.tipo === "libre") {
@@ -409,9 +405,10 @@ export const ActivityList: React.FC<ActivityListProps> = ({
 
         // Si es una actividad normal, renderizar como antes
         const actividad = item;
-        const actividadIndex = registroDiario.actividades?.findIndex(
-          (a) => a.id === actividad.id || a === actividad
-        ) ?? -1;
+        const actividadIndex =
+          registroDiario.actividades?.findIndex(
+            (a) => a.id === actividad.id || a === actividad
+          ) ?? -1;
         return (
           <Card
             key={actividad.id || index}
@@ -425,72 +422,128 @@ export const ActivityList: React.FC<ActivityListProps> = ({
             }}
           >
             <CardContent>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  mb: 2,
-                }}
-              >
-                <Typography
-                  variant="h6"
-                  component="h3"
-                  sx={{ fontWeight: "medium", flex: 1 }}
+              <Box sx={{ mb: 2 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                  }}
                 >
-                  {actividad.job?.nombre || `Job ID: ${actividad.jobId}`}
-                </Typography>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Stack direction="row" spacing={1}>
-                    <Chip
-                      label={`${computeHorasActividadForDisplayWrapper(
-                        actividad
-                      )}h`}
-                      size="small"
-                      color="primary"
-                    />
-                    {actividad.esExtra && (
-                      <Chip label="Extra" size="small" color="warning" />
-                    )}
-                  </Stack>
-                  <IconButton
-                    disabled={disableCreateEditActivities}
-                    size="small"
-                    onClick={() =>
-                      handleEditActivity(
-                        actividad,
-                        actividadIndex >= 0 ? actividadIndex : index
-                      )
-                    }
-                    title={
-                      isIncapacidad
-                        ? "No se pueden editar actividades cuando hay incapacidad"
-                        : undefined
-                    }
-                    sx={{ color: "primary.main" }}
+                  <Typography
+                    variant="h6"
+                    component="h3"
+                    sx={{ fontWeight: "medium", flex: 1, mr: 1 }}
                   >
-                    <Edit />
-                  </IconButton>
-                  <IconButton
-                    disabled={readOnly}
-                    size="small"
-                    onClick={() =>
-                      handleDeleteActivity(
-                        actividadIndex >= 0 ? actividadIndex : index
-                      )
-                    }
-                    sx={{ color: "error.main" }}
+                    {actividad.esCompensatorio && !actividad.esExtra
+                      ? "Tiempo compensatorio tomado"
+                      : actividad.job?.nombre || `Job ID: ${actividad.jobId}`}
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: { xs: "column", sm: "row" },
+                      alignItems: { xs: "flex-end", sm: "center" },
+                      gap: 1,
+                      flexShrink: 0,
+                    }}
                   >
-                    <Delete />
-                  </IconButton>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                      }}
+                    >
+                      {/* Chips compensatorios - inline solo en pantallas grandes */}
+                      {actividad.esCompensatorio && !actividad.esExtra && (
+                        <Chip
+                          label="Compensatorio tomado"
+                          size="small"
+                          color="warning"
+                          sx={{ display: { xs: "none", sm: "flex" } }}
+                        />
+                      )}
+                      {actividad.esCompensatorio && actividad.esExtra && (
+                        <Chip
+                          label="Compensatorio devuelto"
+                          size="small"
+                          color="success"
+                          sx={{ display: { xs: "none", sm: "flex" } }}
+                        />
+                      )}
+                      {actividad.esExtra && !actividad.esCompensatorio && (
+                        <Chip label="Extra" size="small" color="warning" />
+                      )}
+                      <Chip
+                        label={`${computeHorasActividadForDisplayWrapper(
+                          actividad
+                        )}h`}
+                        size="small"
+                        color="primary"
+                      />
+                      <IconButton
+                        disabled={disableCreateEditActivities}
+                        size="small"
+                        onClick={() =>
+                          handleEditActivity(
+                            actividad,
+                            actividadIndex >= 0 ? actividadIndex : index
+                          )
+                        }
+                        title={
+                          isIncapacidad
+                            ? "No se pueden editar actividades cuando hay incapacidad"
+                            : undefined
+                        }
+                        sx={{ color: "primary.main" }}
+                      >
+                        <Edit />
+                      </IconButton>
+                      <IconButton
+                        disabled={readOnly}
+                        size="small"
+                        onClick={() =>
+                          handleDeleteActivity(
+                            actividadIndex >= 0 ? actividadIndex : index
+                          )
+                        }
+                        sx={{ color: "error.main" }}
+                      >
+                        <Delete />
+                      </IconButton>
+                    </Box>
+                    {/* Chips compensatorios - debajo de horas y botones en pantallas pequeñas */}
+                    {(actividad.esCompensatorio && !actividad.esExtra) ||
+                    (actividad.esCompensatorio && actividad.esExtra) ? (
+                      <Box
+                        sx={{
+                          display: { xs: "block", sm: "none" },
+                        }}
+                      >
+                        <Stack direction="row" spacing={1}>
+                          {actividad.esCompensatorio && !actividad.esExtra && (
+                            <Chip
+                              label="Compensatorio tomado"
+                              size="small"
+                              color="warning"
+                            />
+                          )}
+                          {actividad.esCompensatorio && actividad.esExtra && (
+                            <Chip
+                              label="Compensatorio devuelto"
+                              size="small"
+                              color="success"
+                            />
+                          )}
+                        </Stack>
+                      </Box>
+                    ) : null}
+                  </Box>
                 </Box>
               </Box>
 
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ mb: 1 }}
-              >
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                 <strong>Job:</strong> {actividad.job?.codigo || actividad.jobId}
               </Typography>
 
@@ -528,4 +581,3 @@ export const ActivityList: React.FC<ActivityListProps> = ({
     </Stack>
   );
 };
-

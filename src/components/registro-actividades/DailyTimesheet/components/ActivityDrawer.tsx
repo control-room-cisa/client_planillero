@@ -247,93 +247,109 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
           />
 
           {/* Job */}
-          <Box sx={{ mb: 3 }}>
-            <Autocomplete
-              options={jobs}
-              getOptionLabel={(o) => (o ? `${o.codigo} - ${o.nombre}` : "")}
-              value={selectedJob}
-              onChange={handleJobChange}
-              loading={loadingJobs}
-              disabled={loadingJobs || readOnly}
-              isOptionEqualToValue={(o, v) =>
-                !!o && !!v ? o.id === v.id : false
-              }
-              groupBy={(option) =>
-                option?.mostrarEmpresaId && option?.empresa?.nombre
-                  ? option.empresa.nombre
-                  : "— Especiales —"
-              }
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Job"
-                  required
-                  error={!!formErrors.job}
-                  helperText={formErrors.job}
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {loadingJobs ? (
-                          <CircularProgress color="inherit" size={20} />
-                        ) : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                />
-              )}
-              renderOption={(props, option) => (
-                <Box component="li" {...props}>
-                  <Box sx={{ pl: (option?.indentLevel ?? 0) * 4 }}>
-                    <Typography
-                      variant="body2"
-                      fontWeight="bold"
-                      color={
-                        option?.mostrarEmpresaId && option?.empresa?.nombre
-                          ? "text.primary"
-                          : "error.main"
+          {/* Excepción: deshabilitar job cuando es compensatorio en hora normal (Tomar hora libre compensatoria) */}
+          {(() => {
+            const esCompensatorioHoraNormal =
+              formData.esCompensatorio && !formData.horaExtra;
+            return (
+              <Box sx={{ mb: 3 }}>
+                <Autocomplete
+                  options={jobs}
+                  getOptionLabel={(o) => (o ? `${o.codigo} - ${o.nombre}` : "")}
+                  value={selectedJob}
+                  onChange={handleJobChange}
+                  loading={loadingJobs}
+                  disabled={
+                    loadingJobs || readOnly || esCompensatorioHoraNormal
+                  }
+                  isOptionEqualToValue={(o, v) =>
+                    !!o && !!v ? o.id === v.id : false
+                  }
+                  groupBy={(option) =>
+                    option?.mostrarEmpresaId && option?.empresa?.nombre
+                      ? option.empresa.nombre
+                      : "— Especiales —"
+                  }
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Job"
+                      required={!esCompensatorioHoraNormal}
+                      error={!!formErrors.job}
+                      helperText={
+                        formErrors.job ||
+                        (esCompensatorioHoraNormal
+                          ? "No requerido para hora libre compensatoria"
+                          : undefined)
                       }
-                    >
-                      {option?.codigo} - {option?.nombre}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {option?.descripcion || "Sin descripción"}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
-              renderGroup={(params) => (
-                <Box key={params.key}>
-                  <Typography
-                    variant="subtitle2"
-                    sx={{
-                      fontWeight: 600,
-                      color:
-                        params.group === "— Especiales —"
-                          ? "error.main"
-                          : "primary.main",
-                      backgroundColor: "background.paper",
-                      px: 2,
-                      py: 1,
-                      borderBottom: "1px solid",
-                      borderColor: "divider",
-                    }}
-                  >
-                    {params.group}
-                  </Typography>
-                  <Box component="li" sx={{ p: 0 }}>
-                    <ul style={{ padding: 0, margin: 0 }}>{params.children}</ul>
-                  </Box>
-                </Box>
-              )}
-              noOptionsText={
-                loadingJobs
-                  ? "Cargando jobs..."
-                  : "No hay jobs activos disponibles"
-              }
-            />
-          </Box>
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {loadingJobs ? (
+                              <CircularProgress color="inherit" size={20} />
+                            ) : null}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props}>
+                      <Box sx={{ pl: (option?.indentLevel ?? 0) * 4 }}>
+                        <Typography
+                          variant="body2"
+                          fontWeight="bold"
+                          color={
+                            option?.mostrarEmpresaId && option?.empresa?.nombre
+                              ? "text.primary"
+                              : "error.main"
+                          }
+                        >
+                          {option?.codigo} - {option?.nombre}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option?.descripcion || "Sin descripción"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                  renderGroup={(params) => (
+                    <Box key={params.key}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{
+                          fontWeight: 600,
+                          color:
+                            params.group === "— Especiales —"
+                              ? "error.main"
+                              : "primary.main",
+                          backgroundColor: "background.paper",
+                          px: 2,
+                          py: 1,
+                          borderBottom: "1px solid",
+                          borderColor: "divider",
+                        }}
+                      >
+                        {params.group}
+                      </Typography>
+                      <Box component="li" sx={{ p: 0 }}>
+                        <ul style={{ padding: 0, margin: 0 }}>
+                          {params.children}
+                        </ul>
+                      </Box>
+                    </Box>
+                  )}
+                  noOptionsText={
+                    loadingJobs
+                      ? "Cargando jobs..."
+                      : "No hay jobs activos disponibles"
+                  }
+                />
+              </Box>
+            );
+          })()}
 
           {/* Class (opcional) */}
           <TextField

@@ -929,6 +929,15 @@ export const useDailyTimesheet = () => {
           }
         }
 
+        // Limpiar job cuando se activa compensatorio en hora normal (excepción: no requiere job)
+        if (name === "esCompensatorio" && checked && !next.horaExtra) {
+          setSelectedJob(null);
+          next.job = "";
+          if (formErrors.job) {
+            setFormErrors((prev) => ({ ...prev, job: "" }));
+          }
+        }
+
         if ((name === "horaInicio" || name === "horaFin") && next.horaExtra) {
           if (next.horaInicio && next.horaFin) {
             const v = computeHorasInvertidasWrapper(
@@ -937,6 +946,15 @@ export const useDailyTimesheet = () => {
               true
             );
             next.horasInvertidas = v;
+          }
+        }
+
+        // Limpiar job cuando se activa compensatorio en hora normal (excepción: no requiere job)
+        if (name === "esCompensatorio" && checked && !next.horaExtra) {
+          setSelectedJob(null);
+          next.job = "";
+          if (formErrors.job) {
+            setFormErrors((prev) => ({ ...prev, job: "" }));
           }
         }
 
@@ -1082,7 +1100,14 @@ export const useDailyTimesheet = () => {
 
     if (!formData.descripcion.trim())
       errors.descripcion = "La descripción es obligatoria";
-    if (!formData.job.trim()) errors.job = "El job es obligatorio";
+
+    // Excepción: job NO es obligatorio cuando es compensatorio en hora normal (Tomar hora libre compensatoria)
+    // En todos los demás casos, el job es obligatorio
+    const esCompensatorioHoraNormal =
+      formData.esCompensatorio && !formData.horaExtra;
+    if (!esCompensatorioHoraNormal && !formData.job.trim()) {
+      errors.job = "El job es obligatorio";
+    }
 
     if (formData.horaExtra && !canAddExtraHours) {
       errors.horaExtra =
@@ -1254,8 +1279,11 @@ export const useDailyTimesheet = () => {
         formData.horaFin === "24:00" ? 1440 : timeToMinutes(formData.horaFin);
       const addDay = endM <= startM ? 1 : 0;
 
+      // Excepción: jobId no es necesario cuando es compensatorio en hora normal
+      const esCompensatorioHoraNormal =
+        formData.esCompensatorio && !formData.horaExtra;
       const actividad: any = {
-        jobId: parseInt(formData.job),
+        jobId: esCompensatorioHoraNormal ? undefined : parseInt(formData.job),
         esExtra: formData.horaExtra,
         esCompensatorio: formData.esCompensatorio,
         className: formData.class || undefined,

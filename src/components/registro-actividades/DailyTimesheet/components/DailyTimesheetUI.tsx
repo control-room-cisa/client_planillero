@@ -302,7 +302,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+              gridTemplateColumns: { xs: "1fr 1fr", md: "1fr 1fr" },
               gap: 2,
               mb: 3,
             }}
@@ -357,16 +357,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
               }}
               placeholder={initialLoading ? "Cargando..." : ""}
             />
-          </Box>
 
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
-              gap: 2,
-              mb: 3,
-            }}
-          >
             {/* Jornada según reglas */}
             {horarioRules.utils.isFieldVisible("jornada") && (
               <FormControl fullWidth size="small">
@@ -392,7 +383,6 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                 </Select>
               </FormControl>
             )}
-
             {/* Es Día Libre */}
             {horarioRules.utils.isFieldVisible("esDiaLibre") && (
               <Box

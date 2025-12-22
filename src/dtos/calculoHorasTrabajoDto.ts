@@ -48,8 +48,11 @@ export interface ConteoHorasTrabajadasDto {
     libre: number; // 0 del valor de la hora normal
     almuerzo: number; // 0 del valor de la hora normal
     // Variantes por jobs especiales en horas NORMALES
-    incapacidadCubreEmpresaHoras?: number; // E01 primeros 3 días consecutivos
-    incapacidadCubreIHSSHoras?: number; // E01 del día 4 en adelante
+    incapacidadEmpresa?: number; // E01 primeros 3 días consecutivos (alias: incapacidadCubreEmpresaHoras)
+    incapacidadIHSS?: number; // E01 del día 4 en adelante (alias: incapacidadCubreIHSSHoras)
+    // Aliases para compatibilidad con código existente
+    incapacidadCubreEmpresaHoras?: number; // Alias de incapacidadEmpresa
+    incapacidadCubreIHSSHoras?: number; // Alias de incapacidadIHSS
     vacaciones?: number; // E02
     permisoConSueldo?: number; // E03
     permisoConSueldoHoras?: number; // E03 (alias para compatibilidad)
@@ -57,6 +60,9 @@ export interface ConteoHorasTrabajadasDto {
     inasistencias?: number; // E05
     llegadasTarde?: number; // E05
     compensatorio?: number; // E06 y E07
+    // Horas compensatorias (actividades con esCompensatorio=true)
+    horasCompensatoriasTomadas?: number; // Horas normales compensatorias (no se cuentan como normales)
+    horasCompensatoriasPagadas?: number; // Horas extras compensatorias (no se cuentan como extras, se suman al saldo)
   };
   /**
    * Conteo agregado en días para el período. Base 15 días por período.
@@ -69,8 +75,11 @@ export interface ConteoHorasTrabajadasDto {
     permisoConSueldo: number; // E03 horas / 8
     permisoSinSueldo: number; // E04 horas / 8
     inasistencias: number; // E05 horas / 8
-    incapacidadCubreEmpresaDias?: number; // E01 primeros 3 días consecutivos
-    incapacidadCubreIHSSDias?: number; // E01 del día 4 en adelante
+    incapacidadEmpresa?: number; // E01 primeros 3 días consecutivos (alias: incapacidadCubreEmpresaDias)
+    incapacidadIHSS?: number; // E01 del día 4 en adelante (alias: incapacidadCubreIHSSDias)
+    // Aliases para compatibilidad con código existente
+    incapacidadCubreEmpresaDias?: number; // Alias de incapacidadEmpresa
+    incapacidadCubreIHSSDias?: number; // Alias de incapacidadIHSS
   };
   /**
    * Deducciones de alimentación calculadas
