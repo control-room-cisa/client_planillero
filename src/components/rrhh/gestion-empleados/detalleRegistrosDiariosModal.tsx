@@ -25,7 +25,10 @@ import {
   TableBody,
   TableContainer,
 } from "@mui/material";
-import { Close as CloseIcon } from "@mui/icons-material";
+import {
+  Close as CloseIcon,
+  DarkMode as DarkModeIcon,
+} from "@mui/icons-material";
 import Swal from "sweetalert2";
 import type { RegistroDiarioData } from "../../../dtos/RegistrosDiariosDataDto";
 import RegistroDiarioService from "../../../services/registroDiarioService";
@@ -251,6 +254,72 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
     return Math.max(0, horasTrabajo - horaAlmuerzo);
   };
 
+  const validarHorasExtra = (
+    registro: RegistroDiarioData
+  ): { valido: boolean; errores: string[] } => {
+    if (registro.esDiaLibre) return { valido: true, errores: [] };
+
+    const errores: string[] = [];
+    const actividadesExtra =
+      registro.actividades?.filter((a) => a.esExtra) || [];
+
+    if (actividadesExtra.length === 0) return { valido: true, errores: [] };
+
+    const entrada = parseHNT(registro.horaEntrada);
+    const salida = parseHNT(registro.horaSalida);
+    if (!entrada || !salida) return { valido: true, errores: [] };
+
+    const entradaMin = entrada.getHours() * 60 + entrada.getMinutes();
+    let salidaMin = salida.getHours() * 60 + salida.getMinutes();
+    if (entradaMin > salidaMin) salidaMin += 24 * 60;
+
+    // Si entrada === salida, no hay horario laboral, no validar traslape
+    const hayHorarioLaboral = entradaMin !== salidaMin;
+
+    for (const act of actividadesExtra) {
+      if (!act.horaInicio || !act.horaFin) {
+        errores.push(
+          `Actividad extra "${act.descripcion}" no tiene horas de inicio/fin`
+        );
+        continue;
+      }
+
+      const inicio = parseHNT(act.horaInicio);
+      const fin = parseHNT(act.horaFin);
+      if (!inicio || !fin) {
+        errores.push(
+          `Actividad extra "${act.descripcion}" tiene horas inválidas`
+        );
+        continue;
+      }
+
+      const inicioMin = inicio.getHours() * 60 + inicio.getMinutes();
+      let finMin = fin.getHours() * 60 + fin.getMinutes();
+      if (finMin <= inicioMin) finMin += 24 * 60;
+      // Validar que la duración coincide con diferencia de tiempos
+      const duracionCalculada = (finMin - inicioMin) / 60;
+      if (Math.abs(act.duracionHoras - duracionCalculada) > 0.01) {
+        errores.push(
+          `Actividad extra "${
+            act.descripcion
+          }" debe durar ${duracionCalculada.toFixed(2)}h (fin - inicio)`
+        );
+      }
+
+      // Solo validar traslape con horario laboral si existe horario laboral
+      if (hayHorarioLaboral) {
+        const estaFuera = finMin <= entradaMin || inicioMin >= salidaMin;
+        if (!estaFuera) {
+          errores.push(
+            `Actividad extra "${act.descripcion}" se traslapa con el horario laboral`
+          );
+        }
+      }
+    }
+
+    return { valido: errores.length === 0, errores };
+  };
+
   return (
     <Dialog
       open={open}
@@ -303,10 +372,18 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
               const total = normales + extras;
 
               const horasNormalesEsperadas = calcularHorasNormales(registro);
+              const validacionHorasExtra = validarHorasExtra(registro);
+              // Si no hay horas normales esperadas, solo validar que no haya horas normales registradas
               const validacionHorasNormales =
                 horasNormalesEsperadas === 0
                   ? normales === 0
                   : Math.abs(normales - horasNormalesEsperadas) < 0.1;
+
+              // Validación de incapacidad: no puede haber horas laborables
+              const validacionIncapacidad =
+                registro.esIncapacidad === true
+                  ? normales === 0 && extras === 0
+                  : true;
 
               const entradaHM = formatTimeCorrectly(registro.horaEntrada);
               const salidaHM = formatTimeCorrectly(registro.horaSalida);
@@ -449,9 +526,7 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                           ? formatDateInSpanish(registro.fecha)
                           : "Fecha no disponible"}
                       </Typography>
-                      {registro.esDiaLibre ? (
-                        <Chip label="Día libre" color="info" size="small" />
-                      ) : (
+                      {!registro.esDiaLibre && (
                         <>
                           <Typography variant="body2">
                             Entrada: {formatTimeCorrectly(registro.horaEntrada)}
@@ -459,23 +534,42 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                           <Typography variant="body2">
                             Salida: {formatTimeCorrectly(registro.horaSalida)}
                           </Typography>
-                          {esTurnoNocturno && (
-                            <Chip
-                              label="Jornada Nocturna"
-                              color="secondary"
-                              size="small"
-                            />
-                          )}
-                          {registro.esHoraCorrida && (
-                            <Chip
-                              label="Hora Corrida"
-                              color="warning"
-                              size="small"
-                            />
-                          )}
                         </>
                       )}
                       <Box sx={{ flexGrow: 1 }} />
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        alignItems="center"
+                        flexWrap="wrap"
+                      >
+                        {registro.esDiaLibre && (
+                          <Chip label="Día libre" color="info" size="small" />
+                        )}
+                        {!registro.esDiaLibre && registro.esHoraCorrida && (
+                          <Chip
+                            label="Hora Corrida"
+                            color="warning"
+                            size="small"
+                          />
+                        )}
+                        {registro.esIncapacidad && (
+                          <Chip
+                            label="Incapacidad"
+                            color="error"
+                            size="small"
+                          />
+                        )}
+                        {!registro.esDiaLibre &&
+                          (esTurnoNocturno || registro.jornada === "N") && (
+                            <Chip
+                              icon={<DarkModeIcon />}
+                              label="Noche"
+                              color="primary"
+                              size="small"
+                            />
+                          )}
+                      </Stack>
                       {/* Indicadores de aprobación */}
                       {registro.aprobacionSupervisor === true && (
                         <Chip
@@ -594,29 +688,57 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                                         : "-"}
                                     </TableCell>
                                     <TableCell>
-                                      <Typography
-                                        color={
-                                          isSpecial ? "error.main" : undefined
-                                        }
-                                      >
-                                        {act.job?.nombre ?? "-"}
-                                      </Typography>
+                                      {act.esCompensatorio === true &&
+                                      act.esExtra === false ? (
+                                        <Typography color="text.secondary">
+                                          -
+                                        </Typography>
+                                      ) : (
+                                        <Typography
+                                          color={
+                                            isSpecial ? "error.main" : undefined
+                                          }
+                                        >
+                                          {act.job?.nombre ?? "-"}
+                                        </Typography>
+                                      )}
                                     </TableCell>
                                     <TableCell>
-                                      <Typography
-                                        color={
-                                          isSpecial ? "error.main" : undefined
-                                        }
-                                      >
-                                        {act.job?.codigo ?? "-"}
-                                      </Typography>
+                                      {act.esCompensatorio === true &&
+                                      act.esExtra === false ? (
+                                        <Typography color="text.secondary">
+                                          -
+                                        </Typography>
+                                      ) : (
+                                        <Typography
+                                          color={
+                                            isSpecial ? "error.main" : undefined
+                                          }
+                                        >
+                                          {act.job?.codigo ?? "-"}
+                                        </Typography>
+                                      )}
                                     </TableCell>
                                     <TableCell>
                                       <Chip
-                                        label={act.esExtra ? "Extra" : "Normal"}
+                                        label={
+                                          act.esCompensatorio === true
+                                            ? act.esExtra === true
+                                              ? "Pago Compensatoria"
+                                              : "Toma Compensatoria"
+                                            : act.esExtra === true
+                                            ? "Extra"
+                                            : "Normal"
+                                        }
                                         size="small"
                                         color={
-                                          act.esExtra ? "error" : "default"
+                                          act.esCompensatorio === true
+                                            ? act.esExtra === true
+                                              ? "success"
+                                              : "warning"
+                                            : act.esExtra === true
+                                            ? "error"
+                                            : "default"
                                         }
                                       />
                                     </TableCell>
@@ -712,38 +834,44 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                                       )}
                                     </Box>
                                   </Box>
-                                  <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Job
-                                    </Typography>
-                                    <Typography
-                                      variant="body2"
-                                      color={
-                                        isSpecial ? "error.main" : undefined
-                                      }
-                                    >
-                                      {act.job?.nombre ?? "-"}
-                                    </Typography>
-                                  </Box>
-                                  <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Código
-                                    </Typography>
-                                    <Typography
-                                      variant="body2"
-                                      color={
-                                        isSpecial ? "error.main" : undefined
-                                      }
-                                    >
-                                      {act.job?.codigo ?? "-"}
-                                    </Typography>
-                                  </Box>
+                                  {!(act.esCompensatorio === true &&
+                                    act.esExtra === false) && (
+                                    <Box>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                      >
+                                        Job
+                                      </Typography>
+                                      <Typography
+                                        variant="body2"
+                                        color={
+                                          isSpecial ? "error.main" : undefined
+                                        }
+                                      >
+                                        {act.job?.nombre ?? "-"}
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                  {!(act.esCompensatorio === true &&
+                                    act.esExtra === false) && (
+                                    <Box>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                      >
+                                        Código
+                                      </Typography>
+                                      <Typography
+                                        variant="body2"
+                                        color={
+                                          isSpecial ? "error.main" : undefined
+                                        }
+                                      >
+                                        {act.job?.codigo ?? "-"}
+                                      </Typography>
+                                    </Box>
+                                  )}
                                   <Box>
                                     <Typography
                                       variant="caption"
@@ -766,11 +894,23 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                                       ) : (
                                         <Chip
                                           label={
-                                            act.esExtra ? "Extra" : "Normal"
+                                            act.esCompensatorio === true
+                                              ? act.esExtra === true
+                                                ? "Pago Compensatoria"
+                                                : "Toma Compensatoria"
+                                              : act.esExtra === true
+                                              ? "Extra"
+                                              : "Normal"
                                           }
                                           size="small"
                                           color={
-                                            act.esExtra ? "error" : "default"
+                                            act.esCompensatorio === true
+                                              ? act.esExtra === true
+                                                ? "success"
+                                                : "warning"
+                                              : act.esExtra === true
+                                              ? "error"
+                                              : "default"
                                           }
                                         />
                                       )}
@@ -799,6 +939,85 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                       </Alert>
                     )}
 
+                    {/* Validaciones */}
+                    {registro.id &&
+                      (validacionHorasNormales === false ||
+                        !validacionHorasExtra.valido ||
+                        !validacionIncapacidad) && (
+                        <Box sx={{ mt: 2, mb: 2 }}>
+                          <Typography
+                            variant="subtitle2"
+                            color="error.main"
+                            gutterBottom
+                            sx={{ fontWeight: "bold" }}
+                          >
+                            ⚠️ Errores de validación encontrados
+                          </Typography>
+
+                          {!validacionIncapacidad && (
+                            <Typography
+                              variant="body2"
+                              color="error.main"
+                              sx={{ mb: 1 }}
+                            >
+                              🏥 No pueden haber horas laborables en día de
+                              incapacidad:{" "}
+                              {normales > 0 && `${normales}h normales`}
+                              {normales > 0 && extras > 0 && " y "}
+                              {extras > 0 && `${extras}h extras`}
+                            </Typography>
+                          )}
+
+                          {!validacionHorasNormales &&
+                            horasNormalesEsperadas > 0 && (
+                              <Typography
+                                variant="body2"
+                                color="error.main"
+                                sx={{ mb: 1 }}
+                              >
+                                📊 Horas normales no coinciden: Registradas:{" "}
+                                {normales}h | Esperadas:{" "}
+                                {horasNormalesEsperadas.toFixed(2)}h
+                              </Typography>
+                            )}
+
+                          {!validacionHorasNormales &&
+                            horasNormalesEsperadas === 0 &&
+                            normales > 0 && (
+                              <Typography
+                                variant="body2"
+                                color="error.main"
+                                sx={{ mb: 1 }}
+                              >
+                                📊 No debería haber horas normales registradas
+                                (horaEntrada = horaSalida)
+                              </Typography>
+                            )}
+
+                          {!validacionHorasExtra.valido && (
+                            <>
+                              <Typography
+                                variant="body2"
+                                color="error.main"
+                                sx={{ mb: 1 }}
+                              >
+                                🕐 Problemas con horas extra:
+                              </Typography>
+                              {validacionHorasExtra.errores.map((error, i) => (
+                                <Typography
+                                  key={i}
+                                  variant="body2"
+                                  color="error.main"
+                                  sx={{ ml: 2, mb: 0.5 }}
+                                >
+                                  • {error}
+                                </Typography>
+                              ))}
+                            </>
+                          )}
+                        </Box>
+                      )}
+
                     {/* Resumen de horas */}
                     {!registro.esDiaLibre && (
                       <Box sx={{ mt: 2, mb: 2 }}>
@@ -809,6 +1028,7 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                           direction={{ xs: "column", md: "row" }}
                           spacing={2}
                           alignItems={{ xs: "flex-start", md: "center" }}
+                          sx={{ flexWrap: "wrap" }}
                         >
                           <Stack
                             direction="row"
@@ -855,6 +1075,13 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                                 color="error"
                                 variant="outlined"
                               />
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ ml: 1 }}
+                              >
+                                {!validacionHorasExtra.valido && "(con errores)"}
+                              </Typography>
                             </Stack>
                           )}
 

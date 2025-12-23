@@ -29,7 +29,10 @@ import {
   useMediaQuery,
   TableContainer,
 } from "@mui/material";
-import { Edit as EditIcon } from "@mui/icons-material";
+import {
+  Edit as EditIcon,
+  DarkMode as DarkModeIcon,
+} from "@mui/icons-material";
 import Swal from "sweetalert2";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -816,9 +819,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                           ? formatDateInSpanish(registro.fecha)
                           : "Fecha no disponible"}
                       </Typography>
-                      {registro.esDiaLibre ? (
-                        <Chip label="Día libre" color="info" size="small" />
-                      ) : (
+                      {!registro.esDiaLibre && (
                         <>
                           <Typography variant="body2">
                             Entrada: {formatTimeCorrectly(registro.horaEntrada)}
@@ -826,33 +827,44 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                           <Typography variant="body2">
                             Salida: {formatTimeCorrectly(registro.horaSalida)}
                           </Typography>
-                          {esTurnoNocturno && (
+                        </>
+                      )}
+                      <Box sx={{ flexGrow: 1 }} />
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        alignItems="center"
+                        flexWrap="wrap"
+                      >
+                        {registro.esDiaLibre && (
+                          <Chip label="Día libre" color="info" size="small" />
+                        )}
+                        {!registro.esDiaLibre &&
+                          horariosByFecha[registro.fecha ?? ""] !== "H2" &&
+                          registro.esHoraCorrida && (
                             <Chip
-                              label="Jornada Nocturna"
-                              color="secondary"
+                              label="Hora Corrida"
+                              color="warning"
                               size="small"
                             />
                           )}
-                          {horariosByFecha[registro.fecha ?? ""] !== "H2" &&
-                            registro.esHoraCorrida && (
-                              <Chip
-                                label="Hora Corrida"
-                                color="warning"
-                                size="small"
-                              />
-                            )}
-                        </>
-                      )}
-                      {registro.esIncapacidad === true && (
-                        <Chip
-                          label="Incapacidad"
-                          color="error"
-                          size="small"
-                          variant="outlined"
-                        />
-                      )}
-                      {/* Estado de procesamiento por RRHH - alineado a la derecha */}
-                      <Box sx={{ flexGrow: 1 }} />
+                        {registro.esIncapacidad && (
+                          <Chip
+                            label="Incapacidad"
+                            color="error"
+                            size="small"
+                          />
+                        )}
+                        {!registro.esDiaLibre &&
+                          (esTurnoNocturno || registro.jornada === "N") && (
+                            <Chip
+                              icon={<DarkModeIcon />}
+                              label="Noche"
+                              color="primary"
+                              size="small"
+                            />
+                          )}
+                      </Stack>
                       {registro.aprobacionRrhh === true && (
                         <Chip
                           label="Procesado"
