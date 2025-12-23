@@ -391,7 +391,7 @@ const FeriadosManagement: React.FC = () => {
         fullWidth
       >
         <DialogTitle>
-          {isEditing ? "Editar Feriado" : "Crear Nuevo Feriado"}
+          {isEditing ? "Editar Feriado" : "Crear Feriado"}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>

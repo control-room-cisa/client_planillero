@@ -523,7 +523,15 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
       </Typography>
 
       {/* Búsqueda y acción */}
-      <Box sx={{ display: "flex", flexWrap: "wrap", mb: 3, gap: 2, alignItems: "center" }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexWrap: "wrap",
+          mb: 3,
+          gap: 2,
+          alignItems: "center",
+        }}
+      >
         <TextField
           label="Buscar por nombre o código"
           variant="outlined"
@@ -591,7 +599,9 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                     }}
                   >
                     <TableCell>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
                         <SupervisorIcon color="primary" fontSize="medium" />
                         <Box>
                           <Typography variant="body2" fontWeight="bold">
@@ -599,7 +609,13 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                               ? getEmpleadoNombre(grupo.supervisor)
                               : `ID: ${grupo.supervisorId}`}
                           </Typography>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
                             {grupo.supervisor?.codigo && (
                               <Typography
                                 variant="caption"
@@ -620,12 +636,20 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" fontWeight="bold" color="text.secondary">
+                      <Typography
+                        variant="body2"
+                        fontWeight="bold"
+                        color="text.secondary"
+                      >
                         {grupo.supervisor?.cargo || "-"}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" fontWeight="bold" color="text.secondary">
+                      <Typography
+                        variant="body2"
+                        fontWeight="bold"
+                        color="text.secondary"
+                      >
                         {(() => {
                           const dept = grupo.supervisor?.departamento;
                           if (!dept || typeof dept === "string") return "-";
@@ -635,7 +659,11 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" fontWeight="bold" color="text.secondary">
+                      <Typography
+                        variant="body2"
+                        fontWeight="bold"
+                        color="text.secondary"
+                      >
                         {(() => {
                           const dept = grupo.supervisor?.departamento;
                           if (!dept) return "-";
@@ -713,7 +741,10 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
                           {(() => {
                             const dept = acceso.empleado?.departamento;
                             if (!dept) return "-";
-                            if (typeof dept === "object" && (dept as any)?.empresa) {
+                            if (
+                              typeof dept === "object" &&
+                              (dept as any)?.empresa
+                            ) {
                               return (dept as any).empresa.nombre || "-";
                             }
                             return "-";
@@ -770,9 +801,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
         fullWidth
       >
         <DialogTitle>
-          {isEditing
-            ? "Editar Acceso de Planilla"
-            : "Crear Nuevo Acceso de Planilla"}
+          {isEditing ? "Editar Acceso de Planilla" : "Crear Acceso de Planilla"}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>

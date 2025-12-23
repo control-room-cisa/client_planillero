@@ -119,7 +119,10 @@ class CalculoHorasTrabajoService {
   }> {
     // Validar parámetros
     if (!codigoEmpleado || codigoEmpleado.trim() === "") {
-      console.error("[getDeduccionesAlimentacion] codigoEmpleado vacío o inválido:", codigoEmpleado);
+      console.error(
+        "[getDeduccionesAlimentacion] codigoEmpleado vacío o inválido:",
+        codigoEmpleado
+      );
       return {
         deduccionesAlimentacion: 0,
         detalle: [],
@@ -131,7 +134,10 @@ class CalculoHorasTrabajoService {
     }
 
     if (!this.validarFormatoFecha(fechaInicio)) {
-      console.error("[getDeduccionesAlimentacion] fechaInicio formato inválido:", fechaInicio);
+      console.error(
+        "[getDeduccionesAlimentacion] fechaInicio formato inválido:",
+        fechaInicio
+      );
       return {
         deduccionesAlimentacion: 0,
         detalle: [],
@@ -143,7 +149,10 @@ class CalculoHorasTrabajoService {
     }
 
     if (!this.validarFormatoFecha(fechaFin)) {
-      console.error("[getDeduccionesAlimentacion] fechaFin formato inválido:", fechaFin);
+      console.error(
+        "[getDeduccionesAlimentacion] fechaFin formato inválido:",
+        fechaFin
+      );
       return {
         deduccionesAlimentacion: 0,
         detalle: [],
@@ -155,7 +164,10 @@ class CalculoHorasTrabajoService {
     }
 
     if (!this.validarRangoFechas(fechaInicio, fechaFin)) {
-      console.error("[getDeduccionesAlimentacion] Rango de fechas inválido:", { fechaInicio, fechaFin });
+      console.error("[getDeduccionesAlimentacion] Rango de fechas inválido:", {
+        fechaInicio,
+        fechaFin,
+      });
       return {
         deduccionesAlimentacion: 0,
         detalle: [],
@@ -174,15 +186,17 @@ class CalculoHorasTrabajoService {
 
     try {
       // Llamar al endpoint del backend
-      const response = await api.get<ApiResponse<{
-        deduccionesAlimentacion: number;
-        detalle: Array<{
-          producto: string;
-          precio: number;
-          fecha: string;
-        }>;
-        errorAlimentacion?: { tieneError: boolean; mensajeError: string };
-      }>>("/deduccion-alimentacion", {
+      const response = await api.get<
+        ApiResponse<{
+          deduccionesAlimentacion: number;
+          detalle: Array<{
+            producto: string;
+            precio: number;
+            fecha: string;
+          }>;
+          errorAlimentacion?: { tieneError: boolean; mensajeError: string };
+        }>
+      >("/deduccion-alimentacion", {
         params: {
           codigoEmpleado: codigoEmpleado.trim(),
           fechaInicio,
@@ -197,7 +211,9 @@ class CalculoHorasTrabajoService {
           detalle: [],
           errorAlimentacion: {
             tieneError: true,
-            mensajeError: response.data.message || "Error al obtener deducciones de alimentación",
+            mensajeError:
+              response.data.message ||
+              "Error al obtener deducciones de alimentación",
           },
         };
       }
@@ -209,7 +225,7 @@ class CalculoHorasTrabajoService {
       };
     } catch (error: any) {
       console.error("Error al obtener deducciones de alimentación:", error);
-      
+
       // Manejar errores de respuesta del backend
       if (error?.response?.data) {
         const errorData = error.response.data;
@@ -218,7 +234,9 @@ class CalculoHorasTrabajoService {
           detalle: [],
           errorAlimentacion: {
             tieneError: true,
-            mensajeError: errorData.message || "Error al obtener deducciones de alimentación",
+            mensajeError:
+              errorData.message ||
+              "Error al obtener deducciones de alimentación",
           },
         };
       }
@@ -228,7 +246,8 @@ class CalculoHorasTrabajoService {
         detalle: [],
         errorAlimentacion: {
           tieneError: true,
-          mensajeError: error?.message || "Error al obtener deducciones de alimentación",
+          mensajeError:
+            error?.message || "Error al obtener deducciones de alimentación",
         },
       };
     }

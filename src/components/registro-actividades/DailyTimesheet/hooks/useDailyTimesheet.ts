@@ -334,14 +334,11 @@ export const useDailyTimesheet = () => {
               datosExistentes
             );
 
-            console.log("[DEBUG] base from processApiDefaults:", base);
-            console.log("[DEBUG] prev esDiaLibre:", prev.esDiaLibre);
-            console.log("[DEBUG] base esDiaLibre:", base.esDiaLibre);
-
             if (datosExistentes && registro) {
               if (["H1", "H1_1", "H1_2"].includes(horarioData.tipoHorario)) {
                 return {
                   ...base,
+                  jornada: registro.jornada || base.jornada,
                   esDiaLibre: Boolean(horarioData.esDiaLibre),
                   esIncapacidad: registro.esIncapacidad || false,
                   comentarioEmpleado: registro.comentarioEmpleado || "",
@@ -349,6 +346,7 @@ export const useDailyTimesheet = () => {
               } else {
                 return {
                   ...base,
+                  jornada: registro.jornada || base.jornada,
                   horaEntrada: formatTimeLocal(registro.horaEntrada),
                   horaSalida: formatTimeLocal(registro.horaSalida),
                   esDiaLibre: Boolean(horarioData.esDiaLibre),
@@ -362,11 +360,12 @@ export const useDailyTimesheet = () => {
               ...base,
               esDiaLibre: Boolean(horarioData.esDiaLibre),
               esIncapacidad: registro?.esIncapacidad || false,
-              comentarioEmpleado: registro?.comentarioEmpleado || "",
+              comentarioEmpleado:
+                registro?.comentarioEmpleado ||
+                (horarioData.esFestivo && horarioData.nombreDiaFestivo
+                  ? horarioData.nombreDiaFestivo
+                  : ""),
             };
-
-            console.log("[DEBUG] Final result esDiaLibre:", result.esDiaLibre);
-            console.log("[DEBUG] Final result:", result);
 
             return result;
           });

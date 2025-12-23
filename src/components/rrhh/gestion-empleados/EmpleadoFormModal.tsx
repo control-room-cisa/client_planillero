@@ -338,7 +338,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        {isEditing ? "Editar Colaborador" : "Crear Nuevo Colaborador"}
+        {isEditing ? "Editar Colaborador" : "Agregar Colaborador"}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3, mt: 2 }}>

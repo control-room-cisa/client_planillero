@@ -950,9 +950,7 @@ const JobsManagement: React.FC = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>
-          {isEditing ? "Editar Job" : "Crear Nuevo Job"}
-        </DialogTitle>
+        <DialogTitle>{isEditing ? "Editar Job" : "Crear Job"}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
             <TextField
