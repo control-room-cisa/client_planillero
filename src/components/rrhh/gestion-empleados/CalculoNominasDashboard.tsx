@@ -706,7 +706,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
       }
 
       try {
-        // Llamar directamente al endpoint externo desde el frontend
+        // Llamar al endpoint del backend que a su vez llama a la API externa
         const t0 = Date.now();
         const resultado =
           await CalculoHorasTrabajoService.getDeduccionesAlimentacion(

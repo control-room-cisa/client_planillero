@@ -6,7 +6,6 @@ import type {
   ConteoHorasProrrateoDto,
 } from "../dtos/calculoHorasTrabajoDto";
 import api from "./api";
-import GastosAlimentacionService from "./gastosAlimentacionService";
 
 // Interfaces para el desglose de incidencias
 export interface DesgloseIncidencias {
@@ -100,7 +99,7 @@ class CalculoHorasTrabajoService {
 
   /**
    * Obtiene las deducciones de alimentación de un empleado en un período
-   * Llama directamente al endpoint externo desde el frontend
+   * Llama al endpoint del backend que a su vez llama a la API externa
    * @param codigoEmpleado Código del empleado (no ID)
    * @param fechaInicio Fecha de inicio en formato YYYY-MM-DD
    * @param fechaFin Fecha de fin en formato YYYY-MM-DD
@@ -174,37 +173,56 @@ class CalculoHorasTrabajoService {
     });
 
     try {
-      // Llamar directamente al endpoint externo desde el frontend
-      const resultado = await GastosAlimentacionService.obtenerConsumo({
-        codigoEmpleado: codigoEmpleado.trim(),
-        fechaInicio,
-        fechaFin,
+      // Llamar al endpoint del backend
+      const response = await api.get<ApiResponse<{
+        deduccionesAlimentacion: number;
+        detalle: Array<{
+          producto: string;
+          precio: number;
+          fecha: string;
+        }>;
+        errorAlimentacion?: { tieneError: boolean; mensajeError: string };
+      }>>("/deduccion-alimentacion", {
+        params: {
+          codigoEmpleado: codigoEmpleado.trim(),
+          fechaInicio,
+          fechaFin,
+        },
+        timeout: 30000, // 30 segundos
       });
 
-      if (!resultado.success) {
+      if (!response.data.success) {
         return {
           deduccionesAlimentacion: 0,
           detalle: [],
           errorAlimentacion: {
             tieneError: true,
-            mensajeError: resultado.message || "Error al obtener deducciones de alimentación",
+            mensajeError: response.data.message || "Error al obtener deducciones de alimentación",
           },
         };
       }
 
-      // Calcular el total de deducciones
-      const deduccionesAlimentacion = (resultado.items || []).reduce(
-        (total, item) => total + item.precio,
-        0
-      );
-
       return {
-        deduccionesAlimentacion,
-        detalle: resultado.items || [],
-        errorAlimentacion: undefined,
+        deduccionesAlimentacion: response.data.data.deduccionesAlimentacion,
+        detalle: response.data.data.detalle || [],
+        errorAlimentacion: response.data.data.errorAlimentacion,
       };
     } catch (error: any) {
       console.error("Error al obtener deducciones de alimentación:", error);
+      
+      // Manejar errores de respuesta del backend
+      if (error?.response?.data) {
+        const errorData = error.response.data;
+        return {
+          deduccionesAlimentacion: 0,
+          detalle: [],
+          errorAlimentacion: {
+            tieneError: true,
+            mensajeError: errorData.message || "Error al obtener deducciones de alimentación",
+          },
+        };
+      }
+
       return {
         deduccionesAlimentacion: 0,
         detalle: [],
