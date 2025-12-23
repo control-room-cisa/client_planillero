@@ -9,7 +9,7 @@ import type { Empleado } from "../../services/empleadoService";
 
 const NominasRoute: React.FC = () => {
   const { codigoEmpleado } = useParams<{ codigoEmpleado: string }>();
-  const { selectedEmpleado, empleadosIndex } = useOutletContext<LayoutOutletCtx>();
+  const { empleadosIndex } = useOutletContext<LayoutOutletCtx>();
   const [empleado, setEmpleado] = React.useState<Empleado | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [isTransitioning, setIsTransitioning] = React.useState(false);
@@ -41,7 +41,9 @@ const NominasRoute: React.FC = () => {
           );
           if (empleadoEncontrado) {
             // Cargar empleado completo por ID
-            const empleadoCompleto = await EmpleadoService.getById(empleadoEncontrado.id);
+            const empleadoCompleto = await EmpleadoService.getById(
+              empleadoEncontrado.id
+            );
             setEmpleado(empleadoCompleto);
             setLoading(false);
             // Delay adicional para suavizar la transición
@@ -52,14 +54,16 @@ const NominasRoute: React.FC = () => {
 
         // Si no está en el índice, intentar buscar por código
         // Necesitamos listar empleados y buscar por código
-        const empleados = await EmpleadoService.list();
+        const empleados = await EmpleadoService.getAll();
         const empleadoEncontrado = empleados.find(
-          (e) => e.codigo === codigoEmpleado
+          (e: Empleado) => e.codigo === codigoEmpleado
         );
-        
+
         if (empleadoEncontrado) {
           // Cargar empleado completo por ID
-          const empleadoCompleto = await EmpleadoService.getById(empleadoEncontrado.id);
+          const empleadoCompleto = await EmpleadoService.getById(
+            empleadoEncontrado.id
+          );
           setEmpleado(empleadoCompleto);
         } else {
           setEmpleado(null);

@@ -15,7 +15,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  DialogContentText,
   IconButton,
+  TextField,
   useTheme,
   useMediaQuery,
   Table,
@@ -29,7 +31,6 @@ import {
   Close as CloseIcon,
   DarkMode as DarkModeIcon,
 } from "@mui/icons-material";
-import Swal from "sweetalert2";
 import type { RegistroDiarioData } from "../../../dtos/RegistrosDiariosDataDto";
 import RegistroDiarioService from "../../../services/registroDiarioService";
 
@@ -58,6 +59,14 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
     message: string;
     severity: "success" | "error";
   }>({ open: false, message: "", severity: "success" });
+
+  // Estados para el diálogo de rechazo
+  const [rechazoDialogOpen, setRechazoDialogOpen] = useState(false);
+  const [registroIdRechazar, setRegistroIdRechazar] = useState<number | null>(
+    null
+  );
+  const [comentarioRechazo, setComentarioRechazo] = useState("");
+  const [errorComentario, setErrorComentario] = useState("");
 
   const fetchRegistros = useCallback(async () => {
     if (!fechaInicio || !fechaFin) {
@@ -137,42 +146,50 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
     setSnackbar((prev) => ({ ...prev, open: false }));
 
   const handleRechazar = (id: number) => {
-    Swal.fire({
-      title: "Rechazar registro",
-      input: "text",
-      inputLabel: "Comentario",
-      inputPlaceholder: "Ingrese motivo de rechazo",
-      showCancelButton: true,
-      confirmButtonText: "Rechazar",
-      cancelButtonText: "Cancelar",
-      inputValidator: (value) =>
-        !value?.trim() ? "Comentario obligatorio" : null,
-    }).then((result) => {
-      if (result.isConfirmed && result.value) {
-        RegistroDiarioService.aprobarRrhh(
-          id,
-          false,
-          undefined,
-          result.value.trim()
-        )
-          .then(() => {
-            setSnackbar({
-              open: true,
-              message: "Registro rechazado por RRHH",
-              severity: "success",
-            });
-            fetchRegistros();
-          })
-          .catch((err) => {
-            console.error("Reject error:", err);
-            setSnackbar({
-              open: true,
-              message: "Error al rechazar",
-              severity: "error",
-            });
-          });
-      }
-    });
+    setRegistroIdRechazar(id);
+    setComentarioRechazo("");
+    setErrorComentario("");
+    setRechazoDialogOpen(true);
+  };
+
+  const handleCloseRechazoDialog = () => {
+    setRechazoDialogOpen(false);
+    setRegistroIdRechazar(null);
+    setComentarioRechazo("");
+    setErrorComentario("");
+  };
+
+  const handleConfirmarRechazo = () => {
+    if (!comentarioRechazo.trim()) {
+      setErrorComentario("El comentario es obligatorio");
+      return;
+    }
+
+    if (!registroIdRechazar) return;
+
+    RegistroDiarioService.aprobarRrhh(
+      registroIdRechazar,
+      false,
+      undefined,
+      comentarioRechazo.trim()
+    )
+      .then(() => {
+        setSnackbar({
+          open: true,
+          message: "Registro rechazado por RRHH",
+          severity: "success",
+        });
+        fetchRegistros();
+        handleCloseRechazoDialog();
+      })
+      .catch((err) => {
+        console.error("Reject error:", err);
+        setSnackbar({
+          open: true,
+          message: "Error al rechazar",
+          severity: "error",
+        });
+      });
   };
 
   const TZ = "America/Tegucigalpa";
@@ -834,8 +851,10 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                                       )}
                                     </Box>
                                   </Box>
-                                  {!(act.esCompensatorio === true &&
-                                    act.esExtra === false) && (
+                                  {!(
+                                    act.esCompensatorio === true &&
+                                    act.esExtra === false
+                                  ) && (
                                     <Box>
                                       <Typography
                                         variant="caption"
@@ -853,8 +872,10 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                                       </Typography>
                                     </Box>
                                   )}
-                                  {!(act.esCompensatorio === true &&
-                                    act.esExtra === false) && (
+                                  {!(
+                                    act.esCompensatorio === true &&
+                                    act.esExtra === false
+                                  ) && (
                                     <Box>
                                       <Typography
                                         variant="caption"
@@ -1080,7 +1101,8 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                                 color="text.secondary"
                                 sx={{ ml: 1 }}
                               >
-                                {!validacionHorasExtra.valido && "(con errores)"}
+                                {!validacionHorasExtra.valido &&
+                                  "(con errores)"}
                               </Typography>
                             </Stack>
                           )}
@@ -1152,6 +1174,51 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Diálogo de rechazo */}
+      <Dialog
+        open={rechazoDialogOpen}
+        onClose={handleCloseRechazoDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Rechazar registro</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Ingrese el motivo de rechazo del registro. Este comentario será
+            visible para el empleado.
+          </DialogContentText>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            rows={4}
+            label="Comentario"
+            placeholder="Ingrese motivo de rechazo"
+            value={comentarioRechazo}
+            onChange={(e) => {
+              setComentarioRechazo(e.target.value);
+              if (errorComentario) setErrorComentario("");
+            }}
+            error={!!errorComentario}
+            helperText={errorComentario}
+            required
+          />
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: "space-between", px: 3 }}>
+          <Button onClick={handleCloseRechazoDialog} color="inherit">
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleConfirmarRechazo}
+            color="error"
+            variant="contained"
+            disabled={!comentarioRechazo.trim()}
+          >
+            Rechazar registro
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 };
