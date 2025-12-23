@@ -139,7 +139,10 @@ export default function Layout() {
       navigate("/rrhh/colaboradores", { replace: true });
     } else if (user.rolId === Roles.CONTABILIDAD) {
       navigate("/contabilidad", { replace: true });
-    } else if (user.rolId === Roles.EMPLEADO || user.rolId === Roles.SUPERVISOR) {
+    } else if (
+      user.rolId === Roles.EMPLEADO ||
+      user.rolId === Roles.SUPERVISOR
+    ) {
       // EMPLEADO o SUPERVISOR -> redirigir con fecha actual
       navigate(`/registro-actividades/${todayDateString}`, { replace: true });
     }

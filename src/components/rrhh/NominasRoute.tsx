@@ -3,7 +3,7 @@ import * as React from "react";
 import { Navigate, useOutletContext, useParams } from "react-router-dom";
 import { Fade, Box, CircularProgress } from "@mui/material";
 import type { LayoutOutletCtx } from "../Layout";
-import NominasDashboard from "./gestion-empleados/NominasDashboard";
+import CalculoNominas from "./gestion-empleados/CalculoNominasDashboard";
 import EmpleadoService from "../../services/empleadoService";
 import type { Empleado } from "../../services/empleadoService";
 
@@ -128,7 +128,7 @@ const NominasRoute: React.FC = () => {
               height: "100%", // Permitir que el Container interno maneje el scroll
             }}
           >
-            <NominasDashboard
+            <CalculoNominas
               empleado={empleadoAMostrar}
               empleadosIndex={empleadosIndex}
             />

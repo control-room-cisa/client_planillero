@@ -55,7 +55,7 @@ import CalculoHorasTrabajoService from "../../../services/calculoHorasTrabajoSer
 import DetalleRegistrosDiariosModal from "./detalleRegistrosDiariosModal";
 import type { DeduccionAlimentacionDetalleDto } from "../../../dtos/calculoHorasTrabajoDto";
 
-interface NominasDashboardProps {
+interface CalculoNominasProps {
   empleado?: Empleado;
   empleadosIndex?: EmpleadoIndexItem[];
   onPrevious?: () => void;
@@ -105,7 +105,7 @@ const parseDecimalValue = (value: string): number => {
   return roundTo2Decimals(num);
 };
 
-const NominasDashboard: React.FC<NominasDashboardProps> = ({
+const CalculoNominas: React.FC<CalculoNominasProps> = ({
   empleado: empleadoProp,
   empleadosIndex: empleadosIndexProp,
   onPrevious,
@@ -165,7 +165,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
       ) {
         if (DEBUG) {
           console.debug(
-            "[NominasDashboard] empleadoProp cambió, actualizando estado",
+            "[CalculoNominas] empleadoProp cambió, actualizando estado",
             {
               empleadoIdAnterior: empleado?.id,
               empleadoIdNuevo: empleadoProp.id,
@@ -182,7 +182,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
 
   React.useEffect(() => {
     if (DEBUG) {
-      console.debug("[NominasDashboard] mount", {
+      console.debug("[CalculoNominas] mount", {
         empleadoInicialId: empleadoInicial?.id,
         indiceEntranteLen: indiceEntrante?.length ?? 0,
         empleadosIndexCtxLen: empleadosIndexCtx?.length ?? 0,
@@ -687,7 +687,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
       const fechaInicioFormato = fechaInicio.match(/^\d{4}-\d{2}-\d{2}$/);
       const fechaFinFormato = fechaFin.match(/^\d{4}-\d{2}-\d{2}$/);
 
-      console.log("[NominasDashboard] Cargando deducciones de alimentación:", {
+      console.log("[CalculoNominas] Cargando deducciones de alimentación:", {
         codigoEmpleado,
         fechaInicio,
         fechaFin,
@@ -716,7 +716,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
           );
         const tiempoTranscurrido = Date.now() - t0;
         console.log(
-          `[NominasDashboard] Deducciones obtenidas en ${tiempoTranscurrido}ms:`,
+          `[CalculoNominas] Deducciones obtenidas en ${tiempoTranscurrido}ms:`,
           resultado
         );
 
@@ -891,7 +891,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     if (empleado && rangoValido) {
       if (DEBUG)
         console.debug(
-          "[NominasDashboard] empleado cambió → refetch",
+          "[CalculoNominas] empleado cambió → refetch",
           empleado.id
         );
       refetch();
@@ -913,7 +913,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   // Índice actual robusto
   const getCurrentIdx = React.useCallback(() => {
     if (DEBUG) {
-      console.debug("[NominasDashboard] getCurrentIdx llamado", {
+      console.debug("[CalculoNominas] getCurrentIdx llamado", {
         empleadoId: empleado?.id,
         empleadoCodigo: (empleado as any)?.codigo,
         empleadosIndexLength: empleadosIndex?.length,
@@ -925,7 +925,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
 
     let i = empleadosIndex.findIndex((x) => eq(x.id, (empleado as any).id));
     if (DEBUG)
-      console.debug("[NominasDashboard] búsqueda por ID:", {
+      console.debug("[CalculoNominas] búsqueda por ID:", {
         i,
         empleadoId: empleado.id,
       });
@@ -936,7 +936,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         x.codigo ? eq(x.codigo, (empleado as any).codigo) : false
       );
       if (DEBUG)
-        console.debug("[NominasDashboard] búsqueda por código:", {
+        console.debug("[CalculoNominas] búsqueda por código:", {
           i,
           empleadoCodigo: (empleado as any).codigo,
         });
@@ -950,7 +950,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
       (x) => (x.nombreCompleto || "").trim() === nombreCompletoActual
     );
     if (DEBUG)
-      console.debug("[NominasDashboard] búsqueda por nombre:", {
+      console.debug("[CalculoNominas] búsqueda por nombre:", {
         i,
         nombreCompletoActual,
       });
@@ -975,7 +975,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         const target = empleadosIndex[j];
         const { nombre, apellido } = splitNombre(target.nombreCompleto);
         if (DEBUG)
-          console.debug("[NominasDashboard] realineado por código →", target);
+          console.debug("[CalculoNominas] realineado por código →", target);
         setEmpleado(
           (prevEmp) =>
             ({
@@ -994,7 +994,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     const { nombre, apellido } = splitNombre(first.nombreCompleto);
     if (DEBUG)
       console.debug(
-        "[NominasDashboard] realineado al primero del índice →",
+        "[CalculoNominas] realineado al primero del índice →",
         first
       );
     setEmpleado(
@@ -1013,7 +1013,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
     if (DEBUG) {
       const prevDisabled = !(empleadosIndex?.length ? hayPrev : hasPrevious);
       const nextDisabled = !(empleadosIndex?.length ? hayNext : hasNext);
-      console.debug("[NominasDashboard] estado navegación", {
+      console.debug("[CalculoNominas] estado navegación", {
         empleadosIndexLen: empleadosIndex.length,
         empleadoId: empleado?.id,
         idx,
@@ -1043,18 +1043,15 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
       try {
         if (DEBUG)
           console.debug(
-            "[NominasDashboard] Cargando empleado completo:",
+            "[CalculoNominas] Cargando empleado completo:",
             empleadoId
           );
         const empleadoCompleto = await EmpleadoService.getById(empleadoId);
         setEmpleado(empleadoCompleto);
         if (DEBUG)
-          console.debug(
-            "[NominasDashboard] Empleado cargado:",
-            empleadoCompleto
-          );
+          console.debug("[CalculoNominas] Empleado cargado:", empleadoCompleto);
       } catch (error) {
-        console.error("[NominasDashboard] Error al cargar empleado:", error);
+        console.error("[CalculoNominas] Error al cargar empleado:", error);
         const empleadoIndex = empleadosIndex.find((e) => e.id === empleadoId);
         if (empleadoIndex) {
           const { nombre, apellido } = splitNombre(
@@ -1078,7 +1075,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
 
   const goPrev = () => {
     if (DEBUG) {
-      console.debug("[NominasDashboard] goPrev llamado", {
+      console.debug("[CalculoNominas] goPrev llamado", {
         empleadosIndexLength: empleadosIndex?.length,
         hayPrev,
         idx,
@@ -1088,7 +1085,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
 
     if (empleadosIndex?.length && hayPrev) {
       const prev = empleadosIndex[idx - 1];
-      if (DEBUG) console.debug("[NominasDashboard] goPrev ->", prev);
+      if (DEBUG) console.debug("[CalculoNominas] goPrev ->", prev);
       // Si hay código, navegar a la nueva ruta; si no, cargar directamente
       if (prev.codigo) {
         navigate(`/rrhh/colaboradores/nomina/${prev.codigo}`, {
@@ -1101,16 +1098,16 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         cargarEmpleadoCompleto(prev.id);
       }
     } else if (onPrevious) {
-      if (DEBUG) console.debug("[NominasDashboard] goPrev -> onPrevious()");
+      if (DEBUG) console.debug("[CalculoNominas] goPrev -> onPrevious()");
       onPrevious();
     } else if (DEBUG) {
-      console.debug("[NominasDashboard] goPrev disabled");
+      console.debug("[CalculoNominas] goPrev disabled");
     }
   };
 
   const goNext = () => {
     if (DEBUG) {
-      console.debug("[NominasDashboard] goNext llamado", {
+      console.debug("[CalculoNominas] goNext llamado", {
         empleadosIndexLength: empleadosIndex?.length,
         hayNext,
         idx,
@@ -1120,7 +1117,7 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
 
     if (empleadosIndex?.length && hayNext) {
       const next = empleadosIndex[idx + 1];
-      if (DEBUG) console.debug("[NominasDashboard] goNext ->", next);
+      if (DEBUG) console.debug("[CalculoNominas] goNext ->", next);
       // Si hay código, navegar a la nueva ruta; si no, cargar directamente
       if (next.codigo) {
         navigate(`/rrhh/colaboradores/nomina/${next.codigo}`, {
@@ -1133,10 +1130,10 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
         cargarEmpleadoCompleto(next.id);
       }
     } else if (onNext) {
-      if (DEBUG) console.debug("[NominasDashboard] goNext -> onNext()");
+      if (DEBUG) console.debug("[CalculoNominas] goNext -> onNext()");
       onNext();
     } else if (DEBUG) {
-      console.debug("[NominasDashboard] goNext disabled");
+      console.debug("[CalculoNominas] goNext disabled");
     }
   };
 
@@ -2299,4 +2296,4 @@ const NominasDashboard: React.FC<NominasDashboardProps> = ({
   );
 };
 
-export default NominasDashboard;
+export default CalculoNominas;

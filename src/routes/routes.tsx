@@ -71,7 +71,9 @@ const AppRoutes: React.FC = () => {
         <Route
           path="registro-actividades/:fecha?"
           element={
-            <RoleProtectedRoute allowedRoles={[Roles.EMPLEADO, Roles.SUPERVISOR]}>
+            <RoleProtectedRoute
+              allowedRoles={[Roles.EMPLEADO, Roles.SUPERVISOR]}
+            >
               <DailyTimesheet />
             </RoleProtectedRoute>
           }
@@ -86,7 +88,9 @@ const AppRoutes: React.FC = () => {
         <Route
           path="supervision/planillas"
           element={
-            <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR, Roles.CONTABILIDAD]}>
+            <RoleProtectedRoute
+              allowedRoles={[Roles.SUPERVISOR, Roles.CONTABILIDAD]}
+            >
               <SupervisorManagement />
             </RoleProtectedRoute>
           }
@@ -94,7 +98,9 @@ const AppRoutes: React.FC = () => {
         <Route
           path="supervision/planillas/detalle"
           element={
-            <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR, Roles.CONTABILIDAD]}>
+            <RoleProtectedRoute
+              allowedRoles={[Roles.SUPERVISOR, Roles.CONTABILIDAD]}
+            >
               <SupervisorRoute />
             </RoleProtectedRoute>
           }
