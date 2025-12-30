@@ -9,7 +9,6 @@ import {
   Paper,
   InputAdornment,
   IconButton,
-  Snackbar,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -226,7 +225,10 @@ export default function Login() {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setForgotPasswordOpen(false)} variant="contained">
+          <Button
+            onClick={() => setForgotPasswordOpen(false)}
+            variant="contained"
+          >
             Entendido
           </Button>
         </DialogActions>
