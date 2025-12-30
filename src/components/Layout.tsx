@@ -41,9 +41,12 @@ import { useAuth } from "../hooks/useAuth";
 import { useNotificationCount } from "../hooks/useNotificationCount";
 import type { Empleado } from "../services/empleadoService";
 import { Roles } from "../enums/roles";
+import ChangePassword from "./auth/ChangePassword";
+import { Snackbar, Alert } from "@mui/material";
+import LockResetIcon from "@mui/icons-material/LockReset";
+import LogoutIcon from "@mui/icons-material/Logout";
 
 const drawerWidth = 240;
-const settings = ["Cerrar Sesión"];
 
 const DrawerHeader = styled("div")(({ theme }) => ({
   display: "flex",
@@ -105,6 +108,12 @@ export default function Layout() {
   const [empleadosIndex, _setEmpleadosIndex] = React.useState<
     EmpleadoIndexItem[]
   >([]);
+  const [changePasswordOpen, setChangePasswordOpen] = React.useState(false);
+  const [snackbar, setSnackbar] = React.useState<{
+    open: boolean;
+    message: string;
+    severity: "success" | "error";
+  }>({ open: false, message: "", severity: "success" });
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -257,6 +266,32 @@ export default function Layout() {
     handleCloseUserMenu();
     navigate("/login");
   };
+  const handleChangePassword = () => {
+    setChangePasswordOpen(true);
+    handleCloseUserMenu();
+  };
+  const handleChangePasswordSuccess = (message: string) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: "success",
+    });
+  };
+  const handleChangePasswordError = (message: string) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity: "error",
+    });
+  };
+  const handleCloseSnackbar = () =>
+    setSnackbar((prev) => ({ ...prev, open: false }));
+
+  // Obtener el identificador del usuario (email o DNI)
+  const getUserIdentifier = (): string => {
+    if (!user) return "";
+    return user.correoElectronico || user.dni || "";
+  };
 
   const isItemSelected = (path: string) => location.pathname === path;
 
@@ -295,18 +330,40 @@ export default function Layout() {
               open={Boolean(anchorElUser)}
               onClose={handleCloseUserMenu}
             >
-              {settings.map((setting) => (
-                <MenuItem
-                  key={setting}
-                  onClick={
-                    setting === "Cerrar Sesión"
-                      ? handleLogout
-                      : handleCloseUserMenu
-                  }
+              {/* Información del empleado (sin acción) */}
+              <MenuItem disabled>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    width: "100%",
+                  }}
                 >
-                  <Typography textAlign="center">{setting}</Typography>
-                </MenuItem>
-              ))}
+                  <Typography variant="body2" fontWeight="bold">
+                    {user?.nombre} {user?.apellido}
+                  </Typography>
+                  {user?.codigo && (
+                    <Typography variant="caption" color="text.secondary">
+                      Código: {user.codigo}
+                    </Typography>
+                  )}
+                </Box>
+              </MenuItem>
+              <Divider />
+              {/* Cambiar contraseña */}
+              <MenuItem onClick={handleChangePassword}>
+                <ListItemIcon>
+                  <LockResetIcon fontSize="small" />
+                </ListItemIcon>
+                <Typography textAlign="center">Cambiar Contraseña</Typography>
+              </MenuItem>
+              {/* Cerrar sesión */}
+              <MenuItem onClick={handleLogout}>
+                <ListItemIcon>
+                  <LogoutIcon fontSize="small" />
+                </ListItemIcon>
+                <Typography textAlign="center">Cerrar Sesión</Typography>
+              </MenuItem>
             </Menu>
           </Box>
         </Toolbar>
@@ -408,6 +465,31 @@ export default function Layout() {
           />
         </Box>
       </Box>
+
+      {/* Dialog de cambio de contraseña */}
+      <ChangePassword
+        open={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+        onSuccess={handleChangePasswordSuccess}
+        onError={handleChangePasswordError}
+        userIdentifier={getUserIdentifier()}
+      />
+
+      {/* Snackbar para notificaciones */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

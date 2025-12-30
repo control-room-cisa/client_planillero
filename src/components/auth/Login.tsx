@@ -25,7 +25,6 @@ import {
 import { useAuth } from "../../hooks/useAuth";
 import type { LoginRequest } from "../../types/auth";
 import { useNavigate } from "react-router-dom";
-import ChangePassword from "./ChangePassword";
 
 export default function Login() {
   const { login, loading } = useAuth();
@@ -35,13 +34,7 @@ export default function Login() {
     correoElectronico: "",
     contrasena: "",
   });
-  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: "success" | "error";
-  }>({ open: false, message: "", severity: "success" });
   const navigate = useNavigate();
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,25 +67,6 @@ export default function Login() {
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
-  };
-
-  const handleCloseSnackbar = () =>
-    setSnackbar((prev) => ({ ...prev, open: false }));
-
-  const handleChangePasswordSuccess = (message: string) => {
-    setSnackbar({
-      open: true,
-      message,
-      severity: "success",
-    });
-  };
-
-  const handleChangePasswordError = (message: string) => {
-    setSnackbar({
-      open: true,
-      message,
-      severity: "error",
-    });
   };
 
   return (
@@ -215,15 +189,7 @@ export default function Login() {
               {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
 
-            <Box sx={{ textAlign: "center", mt: 2, display: "flex", flexDirection: "column", gap: 1 }}>
-              <Button
-                onClick={() => setChangePasswordOpen(true)}
-                variant="text"
-                sx={{ textTransform: "none" }}
-                disabled={loading}
-              >
-                Cambiar contraseña
-              </Button>
+            <Box sx={{ textAlign: "center", mt: 2 }}>
               <Button
                 onClick={() => setForgotPasswordOpen(true)}
                 variant="text"
@@ -236,13 +202,6 @@ export default function Login() {
           </Box>
         </Paper>
       </Box>
-
-      <ChangePassword
-        open={changePasswordOpen}
-        onClose={() => setChangePasswordOpen(false)}
-        onSuccess={handleChangePasswordSuccess}
-        onError={handleChangePasswordError}
-      />
 
       <Dialog
         open={forgotPasswordOpen}
@@ -272,21 +231,6 @@ export default function Login() {
           </Button>
         </DialogActions>
       </Dialog>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          sx={{ width: "100%" }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Container>
   );
 }
