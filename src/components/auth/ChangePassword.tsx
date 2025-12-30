@@ -27,6 +27,7 @@ interface ChangePasswordProps {
   onClose: () => void;
   onSuccess?: (message: string) => void;
   onError?: (message: string) => void;
+  userIdentifier?: string; // Email o DNI del usuario autenticado
 }
 
 export default function ChangePassword({
@@ -34,6 +35,7 @@ export default function ChangePassword({
   onClose,
   onSuccess,
   onError,
+  userIdentifier,
 }: ChangePasswordProps) {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -46,6 +48,32 @@ export default function ChangePassword({
     contrasenaActual: "",
     nuevaContrasena: "",
   });
+
+  // Pre-llenar el identificador del usuario si se proporciona
+  React.useEffect(() => {
+    if (open) {
+      if (userIdentifier) {
+        setFormData((prev) => ({
+          ...prev,
+          usuario: userIdentifier,
+          correoElectronico: userIdentifier,
+          dni: userIdentifier,
+          contrasenaActual: "",
+          nuevaContrasena: "",
+        }));
+      } else {
+        // Si no hay userIdentifier, limpiar todo
+        setFormData({
+          usuario: "",
+          correoElectronico: "",
+          dni: "",
+          contrasenaActual: "",
+          nuevaContrasena: "",
+        });
+      }
+      setError("");
+    }
+  }, [userIdentifier, open]);
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -99,14 +127,24 @@ export default function ChangePassword({
       if (onSuccess) {
         onSuccess(successMessage);
       }
-      // Limpiar formulario y cerrar
-      setFormData({
-        usuario: "",
-        correoElectronico: "",
-        dni: "",
-        contrasenaActual: "",
-        nuevaContrasena: "",
-      });
+      // Limpiar solo las contraseñas, mantener el identificador
+      if (userIdentifier) {
+        setFormData({
+          usuario: userIdentifier,
+          correoElectronico: userIdentifier,
+          dni: userIdentifier,
+          contrasenaActual: "",
+          nuevaContrasena: "",
+        });
+      } else {
+        setFormData({
+          usuario: "",
+          correoElectronico: "",
+          dni: "",
+          contrasenaActual: "",
+          nuevaContrasena: "",
+        });
+      }
       onClose();
     } catch (err) {
       const errorMessage =
@@ -122,13 +160,24 @@ export default function ChangePassword({
 
   const handleClose = () => {
     if (!loading) {
-      setFormData({
-        usuario: "",
-        correoElectronico: "",
-        dni: "",
-        contrasenaActual: "",
-        nuevaContrasena: "",
-      });
+      // Limpiar solo las contraseñas, mantener el identificador si existe
+      if (userIdentifier) {
+        setFormData({
+          usuario: userIdentifier,
+          correoElectronico: userIdentifier,
+          dni: userIdentifier,
+          contrasenaActual: "",
+          nuevaContrasena: "",
+        });
+      } else {
+        setFormData({
+          usuario: "",
+          correoElectronico: "",
+          dni: "",
+          contrasenaActual: "",
+          nuevaContrasena: "",
+        });
+      }
       setError("");
       onClose();
     }
@@ -196,7 +245,7 @@ export default function ChangePassword({
             name="usuario"
             label="Usuario, Correo o DNI"
             placeholder="Ingrese usuario, correo electrónico o DNI"
-            autoFocus
+            autoFocus={!userIdentifier}
             value={formData.usuario || formData.correoElectronico || formData.dni}
             onChange={(e) => {
               const value = e.target.value;
@@ -207,7 +256,7 @@ export default function ChangePassword({
                 dni: value,
               }));
             }}
-            disabled={loading}
+            disabled={loading || !!userIdentifier}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
