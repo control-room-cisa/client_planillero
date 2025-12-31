@@ -652,7 +652,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                   .reduce((s, a) => s + a.duracionHoras, 0) ?? 0;
               const extras =
                 registro.actividades
-                  ?.filter((a) => a.esExtra)
+                  ?.filter((a) => a.esExtra && !a.esCompensatorio)
                   .reduce((s, a: any) => s + (getActividadHoras(a) ?? 0), 0) ??
                 0;
               const total = normales + extras;

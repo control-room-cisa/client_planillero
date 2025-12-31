@@ -234,13 +234,17 @@ export const useDailyTimesheet = () => {
   }, [fecha, currentDate, navigate]);
 
   // Cargar jobs cuando se abra el drawer
-  const loadJobs = React.useCallback(async () => {
+  const loadJobs = React.useCallback(async (horaExtraOverride?: boolean) => {
     try {
       setLoadingJobs(true);
       const jobsData = await JobService.getAll();
       const jobsActivos = jobsData.filter((j) => j.activo === true);
 
-      const jobsFiltrados = formData.horaExtra
+      // REGLA: Si horaExtra=true, mostrar SOLO jobs NO especiales
+      // Si horaExtra=false, mostrar TODOS los jobs (incluyendo especiales)
+      // Usar el override si se proporciona, de lo contrario usar formData.horaExtra
+      const horaExtraValue = horaExtraOverride !== undefined ? horaExtraOverride : formData.horaExtra;
+      const jobsFiltrados = horaExtraValue
         ? jobsActivos.filter((j) => !j.especial)
         : jobsActivos;
 
@@ -1458,9 +1462,11 @@ export const useDailyTimesheet = () => {
         job: "",
       }));
       setSelectedJob(null);
+      // Pasar horaExtra=true explícitamente para evitar problemas de timing
+      await loadJobs(true);
+    } else {
+      await loadJobs();
     }
-
-    await loadJobs();
   }, [horasNormales, horasRestantesDia, loadJobs]);
 
   // Efectos adicionales
@@ -1571,8 +1577,9 @@ export const useDailyTimesheet = () => {
 
         if (needsUpdate && newFormData.horaExtra !== prev.horaExtra) {
           setSelectedJob(null);
+          // Pasar el nuevo valor de horaExtra explícitamente para evitar problemas de timing
           setTimeout(() => {
-            loadJobs();
+            loadJobs(newFormData.horaExtra);
           }, 0);
         }
 

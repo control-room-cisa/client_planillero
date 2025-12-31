@@ -306,12 +306,29 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   const { sueldoMensual = 0 } = (empleado as any) || {};
   const conteoDias = resumenHoras?.conteoHoras?.conteoDias;
   const periodoNomina = conteoDias?.totalPeriodo ?? 15;
-  const diasLaborados = conteoDias?.diasLaborados ?? 0;
   const diasVacaciones = conteoDias?.vacaciones ?? 0;
   const diasPermisoCS = conteoDias?.permisoConSueldo ?? 0; // justificado
+
+  // Incapacidades (nombres correctos del backend)
   const diasIncapacidadCubreEmpresa =
-    conteoDias?.incapacidadCubreEmpresaDias ?? 0;
-  const diasIncapacidadCubreIHSS = conteoDias?.incapacidadCubreIHSSDias ?? 0;
+    conteoDias?.incapacidadEmpresa ??
+    conteoDias?.incapacidadCubreEmpresaDias ??
+    0;
+  const diasIncapacidadCubreIHSS =
+    conteoDias?.incapacidadIHSS ?? conteoDias?.incapacidadCubreIHSSDias ?? 0;
+
+  // Días laborados: el backend ya resta incapacidades, vacaciones, permisos, etc.
+  // Pero recalculamos aquí para asegurar consistencia con los datos mostrados
+  const diasLaborados = Math.max(
+    0,
+    (periodoNomina || 15) -
+      (diasVacaciones || 0) -
+      (diasPermisoCS || 0) -
+      (diasIncapacidadCubreEmpresa || 0) -
+      (diasIncapacidadCubreIHSS || 0) -
+      ((conteoDias?.permisoSinSueldo ?? 0) || 0) -
+      ((conteoDias?.inasistencias ?? 0) || 0)
+  );
 
   const salarioQuincenal = React.useMemo(
     () => (sueldoMensual || 0) / 2,
@@ -343,15 +360,18 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     ) || 0;
   const montoPermisosJustificados = horasPermisosJustificados * salarioPorHora;
 
-  // Horas de incapacidades
+  // Horas de incapacidades (priorizar nombres correctos del backend)
   const horasIncapacidadCubreEmpresa =
     Number(
-      resumenHoras?.conteoHoras?.cantidadHoras?.incapacidadCubreEmpresaHoras ??
+      resumenHoras?.conteoHoras?.cantidadHoras?.incapacidadEmpresa ??
+        resumenHoras?.conteoHoras?.cantidadHoras
+          ?.incapacidadCubreEmpresaHoras ??
         diasIncapacidadCubreEmpresa * 8
     ) || 0;
   const horasIncapacidadCubreIHSS =
     Number(
-      resumenHoras?.conteoHoras?.cantidadHoras?.incapacidadCubreIHSSHoras ??
+      resumenHoras?.conteoHoras?.cantidadHoras?.incapacidadIHSS ??
+        resumenHoras?.conteoHoras?.cantidadHoras?.incapacidadCubreIHSSHoras ??
         diasIncapacidadCubreIHSS * 8
     ) || 0;
 
@@ -2231,6 +2251,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
           empleadoId={Number(empleado.id)}
           fechaInicio={fechaInicio}
           fechaFin={fechaFin}
+          nombreEmpleado={`${empleado.nombre} ${empleado.apellido}`}
         />
         <Dialog
           open={modalDetalleAlimentacionOpen}
