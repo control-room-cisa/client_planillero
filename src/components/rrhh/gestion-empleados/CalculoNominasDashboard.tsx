@@ -36,6 +36,7 @@ import {
 } from "@mui/icons-material";
 import { ArrowBack as ArrowBackIcon } from "@mui/icons-material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import {
   useNavigate,
   useOutletContext,
@@ -358,8 +359,6 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     (diasLaborados / (periodoNomina || 15)) * salarioQuincenal;
   const montoVacaciones =
     (diasVacaciones / (periodoNomina || 15)) * salarioQuincenal;
-  const montoCubreEmpresa =
-    (diasIncapacidadCubreEmpresa / (periodoNomina || 15)) * salarioQuincenal;
 
   // Horas de permisos justificados: usar horas del resumen si existen, si no días × 8
   const horasPermisosJustificados =
@@ -370,23 +369,53 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   const montoPermisosJustificados = horasPermisosJustificados * salarioPorHora;
 
   // Horas de incapacidades (priorizar nombres correctos del backend)
-  const horasIncapacidadCubreEmpresa =
-    Number(
-      resumenHoras?.conteoHoras?.cantidadHoras?.incapacidadEmpresa ??
-        resumenHoras?.conteoHoras?.cantidadHoras
-          ?.incapacidadCubreEmpresaHoras ??
-        diasIncapacidadCubreEmpresa * 8
-    ) || 0;
-  const horasIncapacidadCubreIHSS =
-    Number(
-      resumenHoras?.conteoHoras?.cantidadHoras?.incapacidadIHSS ??
-        resumenHoras?.conteoHoras?.cantidadHoras?.incapacidadCubreIHSSHoras ??
-        diasIncapacidadCubreIHSS * 8
-    ) || 0;
+  // Comentado temporalmente - no se muestran en el dashboard por el momento
+  // const horasIncapacidadCubreEmpresa =
+  //   Number(
+  //     resumenHoras?.conteoHoras?.cantidadHoras?.incapacidadEmpresa ??
+  //       resumenHoras?.conteoHoras?.cantidadHoras
+  //         ?.incapacidadCubreEmpresaHoras ??
+  //       diasIncapacidadCubreEmpresa * 8
+  //   ) || 0;
+  // const horasIncapacidadCubreIHSS =
+  //   Number(
+  //     resumenHoras?.conteoHoras?.cantidadHoras?.incapacidadIHSS ??
+  //       resumenHoras?.conteoHoras?.cantidadHoras?.incapacidadCubreIHSSHoras ??
+  //       diasIncapacidadCubreIHSS * 8
+  //   ) || 0;
+
+  // Constantes y estados de deducciones/ajustes
+  const PISO_IHSS = 11903.13; // piso IHSS para cálculo de RAP
+
+  // Cálculo de montos de incapacidad según fórmulas especificadas
+  // Monto incapacidad IHSS: diasIncapacidadIHSS * (PISO_IHSS * 0.66) / 30
+  const montoIncapacidadIHSSCalculado = React.useMemo(() => {
+    if (!diasIncapacidadCubreIHSS) return 0;
+    return roundTo2Decimals((diasIncapacidadCubreIHSS * PISO_IHSS * 0.66) / 30);
+  }, [diasIncapacidadCubreIHSS]);
+
+  // Monto incapacidad cubre empresa: ((diasIncapacidadIHSS + diasIncapacidadEmpresa) * SalarioMensual / 30) - MontoIncapacidadIHSS
+  const montoCubreEmpresaCalculado = React.useMemo(() => {
+    if (!sueldoMensual) return 0;
+    const totalDiasIncapacidad =
+      diasIncapacidadCubreIHSS + diasIncapacidadCubreEmpresa;
+    const montoTotalIncapacidad = (totalDiasIncapacidad * sueldoMensual) / 30;
+    const montoIHSS = montoIncapacidadIHSSCalculado;
+    return roundTo2Decimals(Math.max(0, montoTotalIncapacidad - montoIHSS));
+  }, [
+    sueldoMensual,
+    diasIncapacidadCubreEmpresa,
+    diasIncapacidadCubreIHSS,
+    montoIncapacidadIHSSCalculado,
+  ]);
 
   // Estado editable para incapacidad cubierta por empresa (inicial por cálculo)
   const [montoIncapacidadCubreEmpresa, setMontoIncapacidadCubreEmpresa] =
-    React.useState<number>(montoCubreEmpresa || 0);
+    React.useState<number>(montoCubreEmpresaCalculado || 0);
+
+  // Estado editable para incapacidad IHSS (solo informativo, no se suma a totales)
+  const [montoIncapacidadIHSS, setMontoIncapacidadIHSS] =
+    React.useState<number>(montoIncapacidadIHSSCalculado || 0);
 
   const subtotalQuincena =
     (montoDiasLaborados || 0) +
@@ -406,7 +435,6 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   const montoHoras100 = (horas?.p100 || 0) * salarioPorHora * 2.0;
 
   // Constantes y estados de deducciones/ajustes
-  const PISO_IHSS = 11903.13; // piso IHSS para cálculo de RAP
   const DEDUCCION_IHSS_FIJA = 595.16; // IHSS fijo constante
   const [ajuste, setAjuste] = React.useState<number>(0);
   const [montoExcedenteIHSS, setMontoExcedenteIHSS] = React.useState<number>(0);
@@ -422,6 +450,8 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
 
   // Estados string para UI (permiten estados intermedios como "0." o "15.")
   const [inputMontoIncapacidadEmpresa, setInputMontoIncapacidadEmpresa] =
+    React.useState<string>("");
+  const [inputMontoIncapacidadIHSS, setInputMontoIncapacidadIHSS] =
     React.useState<string>("");
   const [inputAjuste, setInputAjuste] = React.useState<string>("");
   const [inputDeduccionIHSS, setInputDeduccionIHSS] =
@@ -452,7 +482,14 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   // Estado para controlar el modal de registros diarios
   const [modalRegistrosOpen, setModalRegistrosOpen] = React.useState(false);
 
+  // Estado para verificar si ya existe una nómina con el mismo intervalo
+  const [nominaExiste, setNominaExiste] = React.useState<boolean>(false);
+  const [loadingNominaCheck, setLoadingNominaCheck] =
+    React.useState<boolean>(false);
+
   // Cálculos de totales según indicaciones
+  // NOTA: montoIncapacidadIHSS NO se suma al total de percepciones
+  // Solo montoIncapacidadCubreEmpresa se suma en subtotalQuincena
   const totalPercepciones =
     (subtotalQuincena || 0) +
     (montoExcedenteIHSS || 0) +
@@ -542,12 +579,21 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     );
   }, [montoIncapacidadCubreEmpresa]);
 
-  // Actualizar montoIncapacidadCubreEmpresa cuando cambian los días de incapacidad
+  // Actualizar montos de incapacidad cuando cambian los cálculos
   React.useEffect(() => {
-    if (montoCubreEmpresa !== undefined && montoCubreEmpresa !== null) {
-      setMontoIncapacidadCubreEmpresa(montoCubreEmpresa);
-    }
-  }, [montoCubreEmpresa]);
+    setMontoIncapacidadCubreEmpresa(montoCubreEmpresaCalculado);
+  }, [montoCubreEmpresaCalculado]);
+
+  React.useEffect(() => {
+    setMontoIncapacidadIHSS(montoIncapacidadIHSSCalculado);
+  }, [montoIncapacidadIHSSCalculado]);
+
+  // Sincronizar montoIncapacidadIHSS con su input string
+  React.useEffect(() => {
+    setInputMontoIncapacidadIHSS(
+      montoIncapacidadIHSS > 0 ? String(montoIncapacidadIHSS) : ""
+    );
+  }, [montoIncapacidadIHSS]);
 
   const totalDeducciones =
     (deduccionIHSS || 0) +
@@ -638,7 +684,6 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   // Otros: siempre editable, no se resetea automáticamente
   React.useEffect(() => {
     setAjuste(0);
-    setMontoIncapacidadCubreEmpresa(0);
     setMontoExcedenteIHSS(0);
 
     // Si es primera quincena (A), algunas deducciones deben ser 0
@@ -667,7 +712,6 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     setComentario("");
     // Resetear también los inputs string (excepto IHSS, RAP, Alimentación y Otros)
     setInputAjuste("");
-    setInputMontoIncapacidadEmpresa("");
     setInputMontoExcedenteIHSS("");
     // inputDeduccionAlimentacion NO se resetea aquí - se carga desde el servicio
     // inputOtros NO se resetea - siempre editable
@@ -796,12 +840,57 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     (error as any)?.response?.data?.validationErrors
   );
 
+  // Verificar automáticamente si existe una nómina con el mismo intervalo al cargar el período
+  React.useEffect(() => {
+    const verificarNominaExistente = async () => {
+      if (!empleado?.id || !rangoValido || !fechaInicio || !fechaFin) {
+        setNominaExiste(false);
+        return;
+      }
+
+      setLoadingNominaCheck(true);
+      try {
+        const existentes = await NominaService.list({
+          empleadoId: Number(empleado.id),
+        });
+
+        // Verificar si existe una nómina con el mismo intervalo exacto (fechaInicio y fechaFin iguales)
+        const existeMismoIntervalo = existentes.some((n) => {
+          const nFechaInicio =
+            n.fechaInicio &&
+            typeof n.fechaInicio === "object" &&
+            "toISOString" in n.fechaInicio
+              ? (n.fechaInicio as Date).toISOString().split("T")[0]
+              : String(n.fechaInicio || "").split("T")[0];
+          const nFechaFin =
+            n.fechaFin &&
+            typeof n.fechaFin === "object" &&
+            "toISOString" in n.fechaFin
+              ? (n.fechaFin as Date).toISOString().split("T")[0]
+              : String(n.fechaFin || "").split("T")[0];
+
+          return nFechaInicio === fechaInicio && nFechaFin === fechaFin;
+        });
+
+        setNominaExiste(existeMismoIntervalo);
+      } catch (error) {
+        console.error("Error al verificar nóminas existentes:", error);
+        setNominaExiste(false);
+      } finally {
+        setLoadingNominaCheck(false);
+      }
+    };
+
+    verificarNominaExistente();
+  }, [empleado?.id, fechaInicio, fechaFin, rangoValido]);
+
   const crearNominaDisabled =
     !empleado ||
     !rangoValido ||
     loading ||
     !resumenHoras ||
-    bloqueaPorValidacion;
+    bloqueaPorValidacion ||
+    nominaExiste; // Deshabilitar si ya existe una nómina con el mismo intervalo
 
   const handleGenerarNomina = React.useCallback(async () => {
     try {
@@ -859,10 +948,9 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
         montoVacaciones: montoVacaciones || 0,
         montoDiasLaborados: montoDiasLaborados || 0,
         montoExcedenteIHSS: montoExcedenteIHSS || 0,
-        montoIncapacidadCubreEmpresa:
-          montoIncapacidadCubreEmpresa || montoCubreEmpresa || 0,
+        montoIncapacidadCubreEmpresa: montoIncapacidadCubreEmpresa || 0,
+        // montoIncapacidadIHSS es informativo y NO se guarda (no se suma a totales)
         montoPermisosJustificados: montoPermisosJustificados || 0,
-        // Enviar incapacidad IHSS como parte de deducciones u otros si aplica en el futuro
 
         // Horas extra (montos)
         // Normal no se guarda como campo separado en backend; se refleja en montos de días
@@ -905,7 +993,8 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     subtotalQuincena,
     montoVacaciones,
     montoDiasLaborados,
-    montoCubreEmpresa,
+    montoIncapacidadCubreEmpresa,
+    montoIncapacidadIHSS,
     montoPermisosJustificados,
     montoHoras25,
     montoHoras50,
@@ -913,6 +1002,20 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     montoHoras100,
     showToast,
     bloqueaPorValidacion,
+    montoExcedenteIHSS,
+    ajuste,
+    totalPercepciones,
+    deduccionIHSS,
+    deduccionISR,
+    deduccionRAP,
+    deduccionAlimentacion,
+    cobroPrestamo,
+    impuestoVecinal,
+    otros,
+    totalDeducciones,
+    totalNetoPagar,
+    comentario,
+    getNombrePeriodoNomina,
   ]);
 
   // Auto-refetch al cambiar empleado si ya hay rango
@@ -1268,7 +1371,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                 pt: { xs: 4, sm: 0 },
               }}
             >
-              {/* Sección de navegación y avatar - responsive */}
+              {/* Sección de navegación y avatar - responsive - TODO DENTRO */}
               <Box
                 sx={{
                   display: "flex",
@@ -1280,12 +1383,12 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                   overflow: "hidden",
                 }}
               >
-                {/* Botones de navegación - ocultos en móvil pequeño, visibles desde sm */}
+                {/* Botón Anterior - izquierda */}
                 <Box
                   sx={{
                     display: { xs: "none", sm: "flex" },
-                    gap: 1,
                     alignItems: "center",
+                    flexShrink: 0,
                   }}
                 >
                   <IconButton
@@ -1296,10 +1399,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                       opacity: (empleadosIndex?.length ? hayPrev : hasPrevious)
                         ? 1
                         : 0.5,
-                      width: { xs: 32, sm: 40, md: 48 },
-                      height: { xs: 32, sm: 40, md: 48 },
+                      width: { sm: 40, md: 48 },
+                      height: { sm: 40, md: 48 },
                       "& .MuiSvgIcon-root": {
-                        fontSize: { xs: 24, sm: 32, md: 40 },
+                        fontSize: { sm: 32, md: 40 },
                       },
                       backgroundColor: "rgba(255, 255, 255, 0.1)",
                       "&:hover": {
@@ -1316,7 +1419,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                   </IconButton>
                 </Box>
 
-                {/* Avatar + datos */}
+                {/* Avatar + datos + selector de período - centro */}
                 <Box
                   sx={{
                     display: "flex",
@@ -1326,6 +1429,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     minWidth: 0,
                     overflow: "hidden",
                     width: "100%",
+                    flexWrap: { xs: "wrap", sm: "nowrap" },
                   }}
                 >
                   <Avatar
@@ -1387,13 +1491,71 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                       {empleado.codigo || "Sin código asignado"}
                     </Typography>
                   </Box>
+
+                  {/* Selector de período - dentro del contenedor de datos del empleado en pantallas no pequeñas */}
+                  <Box
+                    sx={{
+                      display: { xs: "none", sm: "flex" },
+                      alignItems: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <FormControl
+                      size="small"
+                      sx={{
+                        minWidth: { sm: 250, md: 300 },
+                        width: { sm: "auto" },
+                      }}
+                    >
+                      <InputLabel
+                        sx={{
+                          color: "rgba(255,255,255,0.7)",
+                          fontSize: "0.875rem",
+                        }}
+                      >
+                        Período de Nómina
+                      </InputLabel>
+                      <Select
+                        value={intervaloSeleccionado}
+                        onChange={handleIntervaloChange}
+                        label="Período de Nómina"
+                        size="small"
+                        sx={{
+                          color: "white",
+                          backgroundColor: "rgba(255, 255, 255, 0.1)",
+                          "& .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "rgba(255,255,255,0.3)",
+                          },
+                          "&:hover .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "rgba(255,255,255,0.5)",
+                          },
+                          "& .MuiSelect-icon": { color: "white" },
+                        }}
+                        MenuProps={{
+                          PaperProps: {
+                            sx: { maxHeight: 300 },
+                          },
+                        }}
+                      >
+                        <MenuItem value="">
+                          <em>Selecciona un período</em>
+                        </MenuItem>
+                        {intervalosDisponibles.map((intervalo) => (
+                          <MenuItem key={intervalo.valor} value={intervalo.valor}>
+                            {intervalo.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
                 </Box>
 
-                {/* Botón Next - oculto en móvil pequeño, visible desde sm */}
+                {/* Botón Siguiente - derecha */}
                 <Box
                   sx={{
                     display: { xs: "none", sm: "flex" },
                     alignItems: "center",
+                    flexShrink: 0,
                   }}
                 >
                   <IconButton
@@ -1404,10 +1566,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                       opacity: (empleadosIndex?.length ? hayNext : hasNext)
                         ? 1
                         : 0.5,
-                      width: { xs: 32, sm: 40, md: 48 },
-                      height: { xs: 32, sm: 40, md: 48 },
+                      width: { sm: 40, md: 48 },
+                      height: { sm: 40, md: 48 },
                       "& .MuiSvgIcon-root": {
-                        fontSize: { xs: 24, sm: 32, md: 40 },
+                        fontSize: { sm: 32, md: 40 },
                       },
                       backgroundColor: "rgba(255, 255, 255, 0.1)",
                       "&:hover": {
@@ -1425,22 +1587,19 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                 </Box>
               </Box>
 
-              {/* Selector de período + botón Aplicar - responsive */}
+              {/* Selector de período - solo visible en móvil (xs) */}
               <Box
                 sx={{
-                  display: "flex",
-                  flexDirection: { xs: "column", sm: "row" },
-                  gap: { xs: 1.5, sm: 2 },
-                  alignItems: { xs: "stretch", sm: "center" },
-                  flex: { xs: "none", md: 1.5 },
-                  minWidth: 0,
+                  display: { xs: "flex", sm: "none" },
+                  flexDirection: "column",
+                  gap: 1.5,
+                  alignItems: "stretch",
                 }}
               >
                 <FormControl
                   size="small"
                   sx={{
-                    minWidth: { xs: "100%", sm: 250, md: 300 },
-                    width: { xs: "100%", sm: "auto" },
+                    width: "100%",
                   }}
                 >
                   <InputLabel
@@ -1483,18 +1642,6 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     ))}
                   </Select>
                 </FormControl>
-
-                <Button
-                  variant="contained"
-                  disabled={!rangoValido || !empleado}
-                  onClick={() => refetch()}
-                  sx={{
-                    width: { xs: "100%", sm: "auto" },
-                    minWidth: { xs: "100%", sm: 100 },
-                  }}
-                >
-                  Aplicar
-                </Button>
               </Box>
 
               {/* Botones de navegación para móvil - solo en xs */}
@@ -1564,7 +1711,8 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
               <Box sx={{ mt: 2, textAlign: "center" }}>
                 <Typography variant="body2" sx={{ opacity: 0.7 }}>
                   💡 Los períodos de nómina se calculan automáticamente en
-                  intervalos de ~15 días
+                  intervalos de ~15 días. Selecciona un período para ver la
+                  información.
                 </Typography>
               </Box>
             )}
@@ -1711,63 +1859,161 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
               gap: 3,
             }}
           >
+            {/* Información de Contrato */}
             <Card>
               <CardContent>
                 <Typography variant="h6" color="primary" gutterBottom>
-                  Información Laboral
+                  Información de Contrato
                 </Typography>
                 <Divider sx={{ my: 1 }} />
                 <Box sx={{ mt: 2 }}>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Departamento:</strong>{" "}
-                    {(empleado as any).departamento?.nombre ||
-                    (typeof (empleado as any).departamento === "string"
-                      ? (empleado as any).departamento
-                      : null) ||
-                    (empleado as any).departamentoId
-                      ? `Departamento ${(empleado as any).departamentoId}`
-                      : "—"}
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Tipo de Contrato:</strong>{" "}
-                    {empleado.tipoContrato ?? "—"}
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Tipo de Horario:</strong>{" "}
-                    {empleado.tipoHorario === "H1_1"
-                      ? "Normal L-V"
-                      : empleado.tipoHorario === "H1_2"
-                      ? "Martes a Sábado"
-                      : empleado.tipoHorario === "H2"
-                      ? "Turnos 7x7"
-                      : empleado.tipoHorario ?? "—"}
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Sueldo Mensual:</strong>{" "}
-                    {empleado?.sueldoMensual != null
-                      ? formatCurrency(empleado.sueldoMensual)
-                      : "—"}
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Sueldo Quincenal:</strong>{" "}
-                    {empleado?.sueldoMensual != null
-                      ? formatCurrency(empleado.sueldoMensual / 2)
-                      : "—"}
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    <strong>Sueldo por hora:</strong>{" "}
-                    {Number.isFinite(Number(empleado?.sueldoMensual))
-                      ? formatCurrency(Number(empleado!.sueldoMensual) / 240)
-                      : "—"}
-                  </Typography>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Departamento:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {(empleado as any).departamento ||
+                        ((empleado as any).departamentoId
+                          ? `Departamento ${(empleado as any).departamentoId}`
+                          : "—")}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Tipo de Contrato:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {empleado.tipoContrato ?? "—"}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Tipo de Horario:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {empleado.tipoHorario ?? "—"}
+                    </Typography>
+                  </Box>
+                  <Divider sx={{ my: 2 }} />
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Sueldo Mensual:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {empleado?.sueldoMensual != null
+                        ? formatCurrency(empleado.sueldoMensual)
+                        : "—"}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Sueldo Quincenal:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {empleado?.sueldoMensual != null
+                        ? formatCurrency(empleado.sueldoMensual / 2)
+                        : "—"}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Sueldo por hora:</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {Number.isFinite(Number(empleado?.sueldoMensual))
+                        ? formatCurrency(Number(empleado!.sueldoMensual) / 240)
+                        : "—"}
+                    </Typography>
+                  </Box>
                 </Box>
               </CardContent>
             </Card>
 
+            {/* Beneficios Acumulados */}
             <Card>
               <CardContent>
                 <Typography variant="h6" color="primary" gutterBottom>
-                  Información Bancaria
+                  Beneficios Acumulados
+                </Typography>
+                <Divider sx={{ my: 1 }} />
+                <Box sx={{ mt: 2 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Tiempo Compensatorio (horas):</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {(empleado as any).tiempoCompensatorioHoras != null
+                        ? `${(empleado as any).tiempoCompensatorioHoras}h`
+                        : "—"}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body1">
+                      <strong>Vacaciones (horas):</strong>
+                    </Typography>
+                    <Typography variant="body1">
+                      {(empleado as any).tiempoVacacionesHoras != null
+                        ? `${(empleado as any).tiempoVacacionesHoras}h`
+                        : "—"}
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+
+            {/* Información Bancaria y de Contacto (fusionada) */}
+            <Card>
+              <CardContent>
+                <Typography variant="h6" color="primary" gutterBottom>
+                  Información Bancaria y de Contacto
                 </Typography>
                 <Divider sx={{ my: 1 }} />
                 <Box sx={{ mt: 2 }}>
@@ -1783,17 +2029,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <strong>Número de Cuenta:</strong>{" "}
                     {empleado.numeroCuenta || "No especificado"}
                   </Typography>
-                </Box>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent>
-                <Typography variant="h6" color="primary" gutterBottom>
-                  Información de Contacto
-                </Typography>
-                <Divider sx={{ my: 1 }} />
-                <Box sx={{ mt: 2 }}>
+                  <Divider sx={{ my: 2 }} />
                   <Typography variant="body1" gutterBottom>
                     <strong>Correo:</strong>{" "}
                     {empleado.correoElectronico || "No especificado"}
@@ -1814,12 +2050,31 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
           {/* Botón para revisar registros diarios */}
           <Box sx={{ mt: 3, textAlign: "center" }}>
             <Button
-              variant="outlined"
+              variant="contained"
               color="primary"
+              size="large"
+              startIcon={<CalendarTodayIcon />}
               onClick={() => setModalRegistrosOpen(true)}
               disabled={!rangoValido || !empleado}
+              sx={{
+                px: 4,
+                py: 1.5,
+                fontSize: "1rem",
+                fontWeight: 600,
+                textTransform: "none",
+                borderRadius: 2,
+                boxShadow: 3,
+                "&:hover": {
+                  boxShadow: 6,
+                  transform: "translateY(-2px)",
+                  transition: "all 0.3s ease-in-out",
+                },
+                "&:disabled": {
+                  opacity: 0.5,
+                },
+              }}
             >
-              Revisar actividades diarias
+              Revisar Actividades Diarias
             </Button>
           </Box>
 
@@ -1960,7 +2215,21 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                         <strong>Monto incapacidad cubre empresa:</strong>
                       </Typography>
                       <Typography variant="body1">
-                        {formatCurrency(montoCubreEmpresa || 0)}
+                        {formatCurrency(montoIncapacidadCubreEmpresa || 0)}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Monto incapacidad IHSS:</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {formatCurrency(montoIncapacidadIHSS || 0)}
                       </Typography>
                     </Box>
                     <Box
@@ -2040,7 +2309,8 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                           0}
                       </Typography>
                     </Box>
-                    <Box
+                    {/* Incapacidad en horas comentado temporalmente */}
+                    {/* <Box
                       sx={{
                         display: "flex",
                         justifyContent: "space-between",
@@ -2067,13 +2337,13 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                       <Typography variant="body1">
                         {horasIncapacidadCubreIHSS.toFixed(2)}
                       </Typography>
-                    </Box>
+                    </Box> */}
                   </Box>
                 </Box>
               ) : (
                 <Typography variant="body1" color="text.secondary">
-                  Selecciona un período de nómina del selector y presiona
-                  "Aplicar" para ver la información.
+                  Selecciona un período de nómina del selector para ver la
+                  información.
                 </Typography>
               )}
             </Paper>
@@ -2158,7 +2428,21 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                   }
                 />
                 <TextField
-                  label="(+) Monto Incapacidad (IHSS)"
+                  label="(+) Monto Incapacidad (IHSS) - No suma a total"
+                  type="text"
+                  inputMode="decimal"
+                  size="small"
+                  placeholder="0"
+                  value={inputMontoIncapacidadIHSS}
+                  onChange={(e) => {
+                    const sanitized = sanitizeDecimalInput(e.target.value);
+                    setInputMontoIncapacidadIHSS(sanitized);
+                    setMontoIncapacidadIHSS(parseDecimalValue(sanitized));
+                  }}
+                  helperText="Este monto es informativo y NO se incluye en el total de percepciones"
+                />
+                <TextField
+                  label="(+) Monto Excedente IHSS"
                   type="text"
                   inputMode="decimal"
                   size="small"
@@ -2369,15 +2653,24 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                 />
               </Box>
 
-              <Box sx={{ mt: 2, textAlign: "right" }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  disabled={crearNominaDisabled}
-                  onClick={handleGenerarNomina}
-                >
-                  Generar Nómina
-                </Button>
+              <Box sx={{ mt: 2 }}>
+                {nominaExiste && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Ya existe una nómina generada para el período seleccionado (
+                    {fechaInicio} - {fechaFin}). No se puede generar otra nómina
+                    para el mismo intervalo.
+                  </Alert>
+                )}
+                <Box sx={{ textAlign: "right" }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    disabled={crearNominaDisabled || loadingNominaCheck}
+                    onClick={handleGenerarNomina}
+                  >
+                    {loadingNominaCheck ? "Verificando..." : "Generar Nómina"}
+                  </Button>
+                </Box>
               </Box>
             </Paper>
           </Box>
