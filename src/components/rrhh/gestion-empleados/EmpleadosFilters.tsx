@@ -40,13 +40,14 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
           "@media (max-width: 900px)": {
             flexDirection: "column",
             alignItems: "stretch",
+            gap: 1.5,
           },
         }}
       >
         <Box
           sx={{
             flex: "0 0 300px",
-            "@media (max-width: 900px)": { flex: "1 1 auto" },
+            "@media (max-width: 900px)": { flex: "0 0 auto", width: "100%" },
           }}
         >
           <FormControl fullWidth size="small">
@@ -69,7 +70,12 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
             </Select>
           </FormControl>
         </Box>
-        <Box sx={{ flex: "1 1 400px" }}>
+        <Box 
+          sx={{ 
+            flex: "1 1 400px",
+            "@media (max-width: 900px)": { flex: "0 0 auto", width: "100%" },
+          }}
+        >
           <TextField
             label="Buscar colaboradores"
             variant="outlined"
@@ -87,7 +93,7 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
         <Box
           sx={{
             flex: "0 0 200px",
-            "@media (max-width: 900px)": { flex: "1 1 auto" },
+            "@media (max-width: 900px)": { flex: "0 0 auto", width: "100%" },
           }}
         >
           <Button

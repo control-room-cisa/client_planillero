@@ -195,6 +195,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   // Función para generar los intervalos de fechas predefinidos
   const generarIntervalosFechas = React.useCallback(() => {
     const intervalos = [];
+    const valoresUnicos = new Set<string>(); // Para evitar duplicados
     const hoy = new Date();
     // Normalizar la fecha de hoy a medianoche para comparación
     const hoyNormalizado = new Date(
@@ -223,28 +224,36 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
         return `${dia}/${mes}/${año}`;
       };
 
-      // Solo agregar período 1 si su fecha de inicio no es futura
+      // Solo agregar período 1 si su fecha de inicio no es futura y no está duplicado
       if (inicio1 <= hoyNormalizado) {
-        intervalos.push({
-          label: `${formatearFecha(inicio1)} - ${formatearFecha(fin1)}`,
-          fechaInicio: inicio1.toISOString().split("T")[0],
-          fechaFin: fin1.toISOString().split("T")[0],
-          valor: `${inicio1.toISOString().split("T")[0]}_${
-            fin1.toISOString().split("T")[0]
-          }`,
-        });
+        const valor1 = `${inicio1.toISOString().split("T")[0]}_${
+          fin1.toISOString().split("T")[0]
+        }`;
+        if (!valoresUnicos.has(valor1)) {
+          valoresUnicos.add(valor1);
+          intervalos.push({
+            label: `${formatearFecha(inicio1)} - ${formatearFecha(fin1)}`,
+            fechaInicio: inicio1.toISOString().split("T")[0],
+            fechaFin: fin1.toISOString().split("T")[0],
+            valor: valor1,
+          });
+        }
       }
 
-      // Solo agregar período 2 si su fecha de inicio no es futura
+      // Solo agregar período 2 si su fecha de inicio no es futura y no está duplicado
       if (inicio2 <= hoyNormalizado) {
-        intervalos.push({
-          label: `${formatearFecha(inicio2)} - ${formatearFecha(fin2)}`,
-          fechaInicio: inicio2.toISOString().split("T")[0],
-          fechaFin: fin2.toISOString().split("T")[0],
-          valor: `${inicio2.toISOString().split("T")[0]}_${
-            fin2.toISOString().split("T")[0]
-          }`,
-        });
+        const valor2 = `${inicio2.toISOString().split("T")[0]}_${
+          fin2.toISOString().split("T")[0]
+        }`;
+        if (!valoresUnicos.has(valor2)) {
+          valoresUnicos.add(valor2);
+          intervalos.push({
+            label: `${formatearFecha(inicio2)} - ${formatearFecha(fin2)}`,
+            fechaInicio: inicio2.toISOString().split("T")[0],
+            fechaFin: fin2.toISOString().split("T")[0],
+            valor: valor2,
+          });
+        }
       }
     }
 
@@ -1221,24 +1230,24 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
           <Paper
             elevation={3}
             sx={{
-              p: 3,
+              p: { xs: 2, sm: 3 },
               mb: 4,
               background: "linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)",
               color: "white",
               position: "relative", // <-- necesario para botón flotante
             }}
           >
-            {/* Botón VOLVER flotante (75% tamaño) */}
+            {/* Botón VOLVER flotante */}
             <IconButton
               onClick={goBackToList}
               title="Volver a lista de colaboradores"
               aria-label="Volver"
               sx={{
                 position: "absolute",
-                top: 8,
-                left: 8,
-                width: 30, // 75% de 40
-                height: 30, // 75% de 40
+                top: { xs: 4, sm: 8 },
+                left: { xs: 4, sm: 8 },
+                width: { xs: 28, sm: 30 },
+                height: { xs: 28, sm: 30 },
                 zIndex: 2,
                 color: "white",
                 backgroundColor: "rgba(0,0,0,0.2)",
@@ -1246,97 +1255,194 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                 boxShadow: 1,
               }}
             >
-              <ArrowBackIcon sx={{ fontSize: 15 }} /> {/* 75% de 20 */}
+              <ArrowBackIcon sx={{ fontSize: { xs: 14, sm: 15 } }} />
             </IconButton>
 
-            <Box sx={{ display: "flex", gap: 3, alignItems: "center" }}>
-              {/* Prev */}
-              <IconButton
-                onClick={goPrev}
-                disabled={!(empleadosIndex?.length ? hayPrev : hasPrevious)}
-                sx={{
-                  color: "white",
-                  opacity: (empleadosIndex?.length ? hayPrev : hasPrevious)
-                    ? 1
-                    : 0.5,
-                  width: 20,
-                  height: 48,
-                  "& .MuiSvgIcon-root": { fontSize: 80 },
-                  backgroundColor: "rgba(255, 255, 255, 0.1)",
-                  "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.2)" },
-                }}
-                title={`Anterior${
-                  empleadosIndex?.length
-                    ? ` (${idx + 1}/${empleadosIndex.length})`
-                    : ""
-                }`}
-              >
-                <NavigateBeforeIcon />
-              </IconButton>
-
-              {/* Avatar + datos (25% más grande) */}
+            {/* Contenedor principal - responsive */}
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: { xs: "column", md: "row" },
+                gap: { xs: 2, sm: 3 },
+                alignItems: { xs: "stretch", md: "center" },
+                pt: { xs: 4, sm: 0 },
+              }}
+            >
+              {/* Sección de navegación y avatar - responsive */}
               <Box
                 sx={{
                   display: "flex",
-                  gap: 3,
+                  flexDirection: { xs: "column", sm: "row" },
+                  gap: { xs: 1.5, sm: 2, md: 3 },
                   alignItems: "center",
-                  flex: 2,
+                  flex: { xs: "none", md: 2 },
                   minWidth: 0,
                   overflow: "hidden",
                 }}
               >
-                <Avatar
-                  src={getImageUrl(empleado.urlFotoPerfil)}
-                  alt={`${empleado.nombre} ${empleado.apellido}`}
-                  sx={{ width: 100, height: 100, border: "3px solid white" }}
+                {/* Botones de navegación - ocultos en móvil pequeño, visibles desde sm */}
+                <Box
+                  sx={{
+                    display: { xs: "none", sm: "flex" },
+                    gap: 1,
+                    alignItems: "center",
+                  }}
                 >
-                  {empleado.nombre?.[0]}
-                </Avatar>
-
-                <Box sx={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
-                  <Typography
-                    variant="h5"
-                    gutterBottom
+                  <IconButton
+                    onClick={goPrev}
+                    disabled={!(empleadosIndex?.length ? hayPrev : hasPrevious)}
                     sx={{
-                      fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2rem" },
-                      lineHeight: 1.2,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      color: "white",
+                      opacity: (empleadosIndex?.length ? hayPrev : hasPrevious)
+                        ? 1
+                        : 0.5,
+                      width: { xs: 32, sm: 40, md: 48 },
+                      height: { xs: 32, sm: 40, md: 48 },
+                      "& .MuiSvgIcon-root": {
+                        fontSize: { xs: 24, sm: 32, md: 40 },
+                      },
+                      backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      "&:hover": {
+                        backgroundColor: "rgba(255, 255, 255, 0.2)",
+                      },
+                    }}
+                    title={`Anterior${
+                      empleadosIndex?.length
+                        ? ` (${idx + 1}/${empleadosIndex.length})`
+                        : ""
+                    }`}
+                  >
+                    <NavigateBeforeIcon />
+                  </IconButton>
+                </Box>
+
+                {/* Avatar + datos */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: { xs: 1.5, sm: 2, md: 3 },
+                    alignItems: "center",
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: "hidden",
+                    width: "100%",
+                  }}
+                >
+                  <Avatar
+                    src={getImageUrl(empleado.urlFotoPerfil)}
+                    alt={`${empleado.nombre} ${empleado.apellido}`}
+                    sx={{
+                      width: { xs: 60, sm: 80, md: 100 },
+                      height: { xs: 60, sm: 80, md: 100 },
+                      border: "3px solid white",
+                      flexShrink: 0,
                     }}
                   >
-                    {empleado.nombre} {empleado.apellido}
-                  </Typography>
-                  {empleado.cargo && (
+                    {empleado.nombre?.[0]}
+                  </Avatar>
+
+                  <Box
+                    sx={{
+                      minWidth: 0,
+                      flex: 1,
+                      overflow: "hidden",
+                      textAlign: { xs: "center", sm: "left" },
+                    }}
+                  >
                     <Typography
-                      variant="h6"
+                      variant="h5"
+                      gutterBottom
                       sx={{
-                        fontSize: { xs: "1rem", sm: "1.125rem" },
+                        fontSize: { xs: "1.25rem", sm: "1.5rem", md: "2rem" },
                         lineHeight: 1.2,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {empleado.cargo}
+                      {empleado.nombre} {empleado.apellido}
                     </Typography>
-                  )}
-                  <Typography variant="subtitle1">
-                    {empleado.codigo || "Sin código asignado"}
-                  </Typography>
+                    {empleado.cargo && (
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          fontSize: {
+                            xs: "0.875rem",
+                            sm: "1rem",
+                            md: "1.125rem",
+                          },
+                          lineHeight: 1.2,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {empleado.cargo}
+                      </Typography>
+                    )}
+                    <Typography
+                      variant="subtitle1"
+                      sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+                    >
+                      {empleado.codigo || "Sin código asignado"}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Botón Next - oculto en móvil pequeño, visible desde sm */}
+                <Box
+                  sx={{
+                    display: { xs: "none", sm: "flex" },
+                    alignItems: "center",
+                  }}
+                >
+                  <IconButton
+                    onClick={goNext}
+                    disabled={!(empleadosIndex?.length ? hayNext : hasNext)}
+                    sx={{
+                      color: "white",
+                      opacity: (empleadosIndex?.length ? hayNext : hasNext)
+                        ? 1
+                        : 0.5,
+                      width: { xs: 32, sm: 40, md: 48 },
+                      height: { xs: 32, sm: 40, md: 48 },
+                      "& .MuiSvgIcon-root": {
+                        fontSize: { xs: 24, sm: 32, md: 40 },
+                      },
+                      backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      "&:hover": {
+                        backgroundColor: "rgba(255, 255, 255, 0.2)",
+                      },
+                    }}
+                    title={`Siguiente${
+                      empleadosIndex?.length
+                        ? ` (${idx + 1}/${empleadosIndex.length})`
+                        : ""
+                    }`}
+                  >
+                    <NavigateNextIcon />
+                  </IconButton>
                 </Box>
               </Box>
 
+              {/* Selector de período + botón Aplicar - responsive */}
               <Box
                 sx={{
-                  flex: 1.5,
                   display: "flex",
-                  justifyContent: "flex-end",
-                  alignItems: "center",
-                  gap: 2,
+                  flexDirection: { xs: "column", sm: "row" },
+                  gap: { xs: 1.5, sm: 2 },
+                  alignItems: { xs: "stretch", sm: "center" },
+                  flex: { xs: "none", md: 1.5 },
+                  minWidth: 0,
                 }}
               >
-                <FormControl size="small" sx={{ minWidth: 300 }}>
+                <FormControl
+                  size="small"
+                  sx={{
+                    minWidth: { xs: "100%", sm: 250, md: 300 },
+                    width: { xs: "100%", sm: "auto" },
+                  }}
+                >
                   <InputLabel
                     sx={{
                       color: "rgba(255,255,255,0.7)",
@@ -1382,35 +1488,63 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                   variant="contained"
                   disabled={!rangoValido || !empleado}
                   onClick={() => refetch()}
-                  sx={{ ml: 1 }}
+                  sx={{
+                    width: { xs: "100%", sm: "auto" },
+                    minWidth: { xs: "100%", sm: 100 },
+                  }}
                 >
                   Aplicar
                 </Button>
               </Box>
 
-              {/* Next */}
-              <IconButton
-                onClick={goNext}
-                disabled={!(empleadosIndex?.length ? hayNext : hasNext)}
+              {/* Botones de navegación para móvil - solo en xs */}
+              <Box
                 sx={{
-                  color: "white",
-                  opacity: (empleadosIndex?.length ? hayNext : hasNext)
-                    ? 1
-                    : 0.5,
-                  width: 20,
-                  height: 48,
-                  "& .MuiSvgIcon-root": { fontSize: 80 },
-                  backgroundColor: "rgba(255, 255, 255, 0.1)",
-                  "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.2)" },
+                  display: { xs: "flex", sm: "none" },
+                  justifyContent: "center",
+                  gap: 2,
+                  mt: 1,
                 }}
-                title={`Siguiente${
-                  empleadosIndex?.length
-                    ? ` (${idx + 1}/${empleadosIndex.length})`
-                    : ""
-                }`}
               >
-                <NavigateNextIcon />
-              </IconButton>
+                <IconButton
+                  onClick={goPrev}
+                  disabled={!(empleadosIndex?.length ? hayPrev : hasPrevious)}
+                  sx={{
+                    color: "white",
+                    opacity: (empleadosIndex?.length ? hayPrev : hasPrevious)
+                      ? 1
+                      : 0.5,
+                    backgroundColor: "rgba(255, 255, 255, 0.1)",
+                    "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.2)" },
+                  }}
+                  title={`Anterior${
+                    empleadosIndex?.length
+                      ? ` (${idx + 1}/${empleadosIndex.length})`
+                      : ""
+                  }`}
+                >
+                  <NavigateBeforeIcon />
+                </IconButton>
+                <IconButton
+                  onClick={goNext}
+                  disabled={!(empleadosIndex?.length ? hayNext : hasNext)}
+                  sx={{
+                    color: "white",
+                    opacity: (empleadosIndex?.length ? hayNext : hasNext)
+                      ? 1
+                      : 0.5,
+                    backgroundColor: "rgba(255, 255, 255, 0.1)",
+                    "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.2)" },
+                  }}
+                  title={`Siguiente${
+                    empleadosIndex?.length
+                      ? ` (${idx + 1}/${empleadosIndex.length})`
+                      : ""
+                  }`}
+                >
+                  <NavigateNextIcon />
+                </IconButton>
+              </Box>
             </Box>
 
             {/* Indicador de navegación */}
@@ -1694,7 +1828,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
             <Typography variant="h5" gutterBottom>
               Registro de Incidencias
             </Typography>
-            <Paper sx={{ p: 3, mt: 2 }}>
+            <Paper sx={{ p: { xs: 2, sm: 2.5, md: 3 }, mt: 2 }}>
               {loading ? (
                 <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
                   <CircularProgress />
@@ -1703,8 +1837,12 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                 <Box
                   sx={{
                     display: "grid",
-                    gridTemplateColumns: "1fr 1fr 1fr",
-                    gap: 3,
+                    gridTemplateColumns: {
+                      xs: "1fr",
+                      sm: "repeat(2, 1fr)",
+                      md: "repeat(3, 1fr)",
+                    },
+                    gap: { xs: 2, sm: 2.5, md: 3 },
                     mt: 2,
                   }}
                 >

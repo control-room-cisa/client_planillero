@@ -19,12 +19,16 @@ import {
   Select,
   MenuItem,
   Alert,
+  Menu,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as VisibilityIcon,
   RequestPage as RequestPageIcon,
+  MoreVert as MoreVertIcon,
 } from "@mui/icons-material";
 import type { Empleado } from "../../../services/empleadoService";
 import { getImageUrl } from "../../../utils/imageUtils";
@@ -73,6 +77,26 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
 
   onOpenNominas,
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [selectedEmpleado, setSelectedEmpleado] = React.useState<Empleado | null>(null);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, empleado: Empleado) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedEmpleado(empleado);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedEmpleado(null);
+  };
+
+  const handleMenuAction = (action: () => void) => {
+    action();
+    handleMenuClose();
+  };
+
   const fullName = (e: Empleado) =>
     `${e.nombre ?? ""} ${e.apellido ?? ""}`.trim();
 
@@ -134,17 +158,41 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
           <TableHead>
             <TableRow>
               <TableCell>Empleado</TableCell>
-              <TableCell>Código</TableCell>
-              <TableCell>Empresa</TableCell>
-              <TableCell>Departamento</TableCell>
-              <TableCell>Cargo</TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", sm: "table-cell" },
+                }}
+              >
+                Código
+              </TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", md: "table-cell" },
+                }}
+              >
+                Empresa
+              </TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", md: "table-cell" },
+                }}
+              >
+                Departamento
+              </TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", md: "table-cell" },
+                }}
+              >
+                Cargo
+              </TableCell>
               <TableCell>Estado</TableCell>
               <TableCell align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             <TableRow>
-              <TableCell colSpan={7} align="center">
+              <TableCell colSpan={isMobile ? 3 : 7} align="center">
                 <CircularProgress size={24} />
               </TableCell>
             </TableRow>
@@ -180,17 +228,41 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
           <TableHead>
             <TableRow>
               <TableCell>Empleado</TableCell>
-              <TableCell>Código</TableCell>
-              <TableCell>Empresa</TableCell>
-              <TableCell>Departamento</TableCell>
-              <TableCell>Cargo</TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", sm: "table-cell" },
+                }}
+              >
+                Código
+              </TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", md: "table-cell" },
+                }}
+              >
+                Empresa
+              </TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", md: "table-cell" },
+                }}
+              >
+                Departamento
+              </TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", md: "table-cell" },
+                }}
+              >
+                Cargo
+              </TableCell>
               <TableCell>Estado</TableCell>
               <TableCell align="center">Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             <TableRow>
-              <TableCell colSpan={7} align="center">
+              <TableCell colSpan={isMobile ? 3 : 7} align="center">
                 No hay colaboradores registrados
               </TableCell>
             </TableRow>
@@ -208,10 +280,34 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
         <TableHead>
           <TableRow>
             <TableCell>Nombre del colaborador</TableCell>
-            <TableCell>Código</TableCell>
-            <TableCell>Empresa</TableCell>
-            <TableCell>Departamento</TableCell>
-            <TableCell>Cargo</TableCell>
+            <TableCell
+              sx={{
+                display: { xs: "none", sm: "table-cell" },
+              }}
+            >
+              Código
+            </TableCell>
+            <TableCell
+              sx={{
+                display: { xs: "none", md: "table-cell" },
+              }}
+            >
+              Empresa
+            </TableCell>
+            <TableCell
+              sx={{
+                display: { xs: "none", md: "table-cell" },
+              }}
+            >
+              Departamento
+            </TableCell>
+            <TableCell
+              sx={{
+                display: { xs: "none", md: "table-cell" },
+              }}
+            >
+              Cargo
+            </TableCell>
             <TableCell>Estado</TableCell>
             <TableCell align="center">Acciones</TableCell>
           </TableRow>
@@ -220,34 +316,73 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
           {sortedEmpleados.map((empleado) => (
             <TableRow key={empleado.id}>
               <TableCell>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: { xs: 1, sm: 2 },
+                  }}
+                >
                   <Avatar
                     src={getImageUrl(empleado.urlFotoPerfil)}
                     alt={`${empleado.nombre} ${empleado.apellido}`}
+                    sx={{
+                      display: { xs: "none", sm: "flex" },
+                      width: { xs: 32, sm: 40 },
+                      height: { xs: 32, sm: 40 },
+                    }}
                   >
                     {empleado.nombre?.[0]}
                   </Avatar>
                   <Box>
-                    <Typography variant="body1" fontWeight="medium">
+                    <Typography
+                      variant="body1"
+                      fontWeight="medium"
+                      sx={{ fontSize: { xs: "0.875rem", sm: "1rem" } }}
+                    >
                       {empleado.nombre} {empleado.apellido}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: { xs: "none", sm: "block" } }}
+                    >
                       {empleado.correoElectronico}
                     </Typography>
                   </Box>
                 </Box>
               </TableCell>
 
-              <TableCell>{empleado.codigo || "-"}</TableCell>
-              <TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", sm: "table-cell" },
+                }}
+              >
+                {empleado.codigo || "-"}
+              </TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", md: "table-cell" },
+                }}
+              >
                 {(empleado as any).empresa?.nombre ?? empleado.empresaId ?? "-"}
               </TableCell>
-              <TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", md: "table-cell" },
+                }}
+              >
                 {(empleado as any).departamento?.nombre ??
                   (empleado as any).departamento ??
                   "-"}
               </TableCell>
-              <TableCell>{empleado.cargo || "-"}</TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", md: "table-cell" },
+                }}
+              >
+                {empleado.cargo || "-"}
+              </TableCell>
 
               <TableCell>
                 <Chip
@@ -258,42 +393,106 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
               </TableCell>
 
               <TableCell align="center">
-                <IconButton
-                  color="primary"
-                  onClick={() => onView(empleado)}
-                  title="Ver detalles"
-                >
-                  <VisibilityIcon />
-                </IconButton>
-                <IconButton
-                  color="primary"
-                  onClick={() => onEdit(empleado)}
-                  title="Editar"
-                >
-                  <EditIcon />
-                </IconButton>
-                <IconButton
-                  color="error"
-                  onClick={() => onDelete(empleado.id as number)}
-                  title="Eliminar"
-                >
-                  <DeleteIcon />
-                </IconButton>
-                <IconButton
-                  color="info"
-                  onClick={() => {
-                    if (onOpenNominas) {
-                      // ✅ Pasamos el índice ORDENADO para navegación en Nóminas
-                      onOpenNominas(empleado, empleadosIndex);
-                    } else {
-                      // Compatibilidad con implementación existente
-                      onNominaClick(empleado);
-                    }
-                  }}
-                  title="Nóminas"
-                >
-                  <RequestPageIcon />
-                </IconButton>
+                {isMobile ? (
+                  <>
+                    <IconButton
+                      onClick={(e) => handleMenuOpen(e, empleado)}
+                      size="small"
+                    >
+                      <MoreVertIcon />
+                    </IconButton>
+                    <Menu
+                      anchorEl={anchorEl}
+                      open={Boolean(anchorEl) && selectedEmpleado?.id === empleado.id}
+                      onClose={handleMenuClose}
+                    >
+                      <MenuItem
+                        onClick={() =>
+                          handleMenuAction(() => onView(selectedEmpleado!))
+                        }
+                      >
+                        <VisibilityIcon sx={{ mr: 1, fontSize: 20 }} />
+                        Ver detalles
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() =>
+                          handleMenuAction(() => onEdit(selectedEmpleado!))
+                        }
+                      >
+                        <EditIcon sx={{ mr: 1, fontSize: 20 }} />
+                        Editar
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() =>
+                          handleMenuAction(() =>
+                            onDelete(selectedEmpleado!.id as number)
+                          )
+                        }
+                        sx={{ color: "error.main" }}
+                      >
+                        <DeleteIcon sx={{ mr: 1, fontSize: 20 }} />
+                        Eliminar
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() =>
+                          handleMenuAction(() => {
+                            if (onOpenNominas) {
+                              onOpenNominas(selectedEmpleado!, empleadosIndex);
+                            } else {
+                              onNominaClick(selectedEmpleado!);
+                            }
+                          })
+                        }
+                      >
+                        <RequestPageIcon sx={{ mr: 1, fontSize: 20 }} />
+                        Nóminas
+                      </MenuItem>
+                    </Menu>
+                  </>
+                ) : (
+                  <>
+                    <IconButton
+                      color="primary"
+                      onClick={() => onView(empleado)}
+                      title="Ver detalles"
+                      size="small"
+                    >
+                      <VisibilityIcon />
+                    </IconButton>
+                    <IconButton
+                      color="primary"
+                      onClick={() => onEdit(empleado)}
+                      title="Editar"
+                      size="small"
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      color="error"
+                      onClick={() => onDelete(empleado.id as number)}
+                      title="Eliminar"
+                      size="small"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                    <IconButton
+                      color="info"
+                      onClick={() => {
+                        if (onOpenNominas) {
+                          // ✅ Pasamos el índice ORDENADO para navegación en Nóminas
+                          onOpenNominas(empleado, empleadosIndex);
+                        } else {
+                          // Compatibilidad con implementación existente
+                          onNominaClick(empleado);
+                        }
+                      }}
+                      title="Nóminas"
+                      size="small"
+                    >
+                      <RequestPageIcon />
+                    </IconButton>
+                  </>
+                )}
               </TableCell>
             </TableRow>
           ))}

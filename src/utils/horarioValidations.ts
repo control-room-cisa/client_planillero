@@ -155,7 +155,7 @@ export class HorarioValidator {
     horasNormales: number
   ): string {
     const faltantes = Math.max(0, horasNormales - horasTrabajadas);
-    return `Faltan ${faltantes.toFixed(1)} horas para completar el día`;
+    return `Faltan ${faltantes.toFixed(2)} horas para completar el día`;
   }
 
   /**

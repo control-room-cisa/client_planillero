@@ -26,6 +26,7 @@ import {
   TableCell,
   TableBody,
   TableContainer,
+  Tooltip,
 } from "@mui/material";
 import {
   Close as CloseIcon,
@@ -960,6 +961,16 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
       maxWidth="lg"
       fullWidth
       fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          ...(isMobile && {
+            height: "100vh",
+            maxHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+          }),
+        },
+      }}
     >
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -981,6 +992,13 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
           // asegurar que no haya bordes internos
           borderTop: "none",
           borderBottom: "none",
+          // En móvil, usar flexbox para ocupar todo el espacio disponible
+          display: "flex",
+          flexDirection: "column",
+          ...(isMobile && {
+            flex: 1,
+            minHeight: 0, // Necesario para que el flex funcione correctamente
+          }),
         }}
       >
         {loading && (
@@ -990,7 +1008,14 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
         )}
 
         <Box
-          sx={{ maxHeight: "70vh", overflowY: "auto", pr: { xs: 0.5, md: 1 } }}
+          sx={{
+            maxHeight: { xs: "none", md: "70vh" },
+            height: { xs: "100%", md: "auto" },
+            overflowY: "auto",
+            pr: { xs: 0.5, md: 1 },
+            flex: { xs: 1, md: "none" },
+            minHeight: 0, // Necesario para que el scroll funcione en flexbox
+          }}
         >
           <Stack spacing={2} sx={{ pt: 1.5, pb: 1.5 }}>
             {registros.map((registro, idx) => {
@@ -1294,317 +1319,212 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                     </Typography>
 
                     {registro.actividades && registro.actividades.length > 0 ? (
-                      !isMobile ? (
-                        <TableContainer>
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>Descripción</TableCell>
-                                <TableCell>Horas</TableCell>
-                                <TableCell>Horario</TableCell>
-                                <TableCell>Job</TableCell>
-                                <TableCell>Código</TableCell>
-                                <TableCell>Tipo</TableCell>
-                                <TableCell>Clase</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {actividadesOrdenadas.map((act: any) => {
-                                const isSynthetic = Boolean(act?._synthetic);
-                                const isSpecial = (
-                                  act?.job?.codigo || ""
-                                ).startsWith("E");
-                                if (isSynthetic) {
-                                  return (
-                                    <TableRow key={act.id ?? act.jobId}>
-                                      <TableCell colSpan={7} align="center">
-                                        <Typography
-                                          sx={{ color: "error.main" }}
-                                        >
-                                          {act.descripcion}
-                                        </Typography>
-                                      </TableCell>
-                                    </TableRow>
-                                  );
-                                }
+                      <TableContainer
+                        sx={{
+                          overflowX: "auto",
+                          maxWidth: "100%",
+                        }}
+                      >
+                        <Table size="small" sx={{ minWidth: 600 }}>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell
+                                sx={{
+                                  minWidth: { xs: 120, sm: 150 },
+                                }}
+                              >
+                                Descripción
+                              </TableCell>
+                              <TableCell
+                                sx={{
+                                  minWidth: { xs: 60, sm: 80 },
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                Horas
+                              </TableCell>
+                              <TableCell
+                                sx={{
+                                  minWidth: { xs: 100, sm: 120 },
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                Horario
+                              </TableCell>
+                              <TableCell
+                                sx={{
+                                  minWidth: { xs: 100, sm: 120 },
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                Job
+                              </TableCell>
+                              <TableCell
+                                sx={{
+                                  minWidth: { xs: 80, sm: 100 },
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                Código
+                              </TableCell>
+                              <TableCell
+                                sx={{
+                                  minWidth: { xs: 100, sm: 120 },
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                Tipo
+                              </TableCell>
+                              <TableCell
+                                sx={{
+                                  minWidth: { xs: 80, sm: 100 },
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                Clase
+                              </TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {actividadesOrdenadas.map((act: any) => {
+                              const isSynthetic = Boolean(act?._synthetic);
+                              const isSpecial = (
+                                act?.job?.codigo || ""
+                              ).startsWith("E");
+                              if (isSynthetic) {
                                 return (
                                   <TableRow key={act.id ?? act.jobId}>
-                                    <TableCell>{act.descripcion}</TableCell>
-                                    <TableCell>
-                                      {Number.isFinite(
-                                        Number(act.duracionHoras)
-                                      ) ? (
-                                        <Chip
-                                          label={`${act.duracionHoras}h`}
-                                          size="small"
-                                        />
-                                      ) : (
-                                        <Chip
-                                          label={`-`}
-                                          size="small"
-                                          variant="outlined"
-                                        />
-                                      )}
-                                    </TableCell>
-                                    <TableCell>
-                                      {act.horaInicio && act.horaFin
-                                        ? `${formatTimeCorrectly(
-                                            act.horaInicio
-                                          )} - ${formatTimeCorrectly(
-                                            act.horaFin
-                                          )}`
-                                        : "-"}
-                                    </TableCell>
-                                    <TableCell>
-                                      {act.esCompensatorio === true &&
-                                      act.esExtra === false ? (
-                                        <Typography color="text.secondary">
-                                          -
-                                        </Typography>
-                                      ) : (
-                                        <Typography
-                                          color={
-                                            isSpecial ? "error.main" : undefined
-                                          }
-                                        >
-                                          {act.job?.nombre ?? "-"}
-                                        </Typography>
-                                      )}
-                                    </TableCell>
-                                    <TableCell>
-                                      {act.esCompensatorio === true &&
-                                      act.esExtra === false ? (
-                                        <Typography color="text.secondary">
-                                          -
-                                        </Typography>
-                                      ) : (
-                                        <Typography
-                                          color={
-                                            isSpecial ? "error.main" : undefined
-                                          }
-                                        >
-                                          {act.job?.codigo ?? "-"}
-                                        </Typography>
-                                      )}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Chip
-                                        label={
-                                          act.esCompensatorio === true
-                                            ? act.esExtra === true
-                                              ? "Pago Compensatoria"
-                                              : "Toma Compensatoria"
-                                            : act.esExtra === true
-                                            ? "Extra"
-                                            : "Normal"
-                                        }
-                                        size="small"
-                                        color={
-                                          act.esCompensatorio === true
-                                            ? act.esExtra === true
-                                              ? "success"
-                                              : "warning"
-                                            : act.esExtra === true
-                                            ? "error"
-                                            : "default"
-                                        }
-                                      />
-                                    </TableCell>
-                                    <TableCell>
-                                      {act.className || "-"}
+                                    <TableCell colSpan={7} align="center">
+                                      <Typography sx={{ color: "error.main" }}>
+                                        {act.descripcion}
+                                      </Typography>
                                     </TableCell>
                                   </TableRow>
                                 );
-                              })}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      ) : (
-                        <Stack spacing={1.5} sx={{ pt: 1, pb: 1 }}>
-                          {actividadesOrdenadas.map((act: any) => {
-                            const isSynthetic = Boolean(act?._synthetic);
-                            const isSpecial = (
-                              act?.job?.codigo || ""
-                            ).startsWith("E");
-                            return (
-                              <Paper
-                                key={act.id ?? act.jobId}
-                                variant="outlined"
-                                sx={{
-                                  p: 1.5,
-                                  borderStyle: "solid",
-                                  borderWidth: 1,
-                                  borderColor: (theme) =>
-                                    theme.palette.mode === "light"
-                                      ? theme.palette.grey[300]
-                                      : theme.palette.grey[700],
-                                }}
-                              >
-                                <Stack spacing={1}>
-                                  <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Descripción
-                                    </Typography>
-                                    <Typography
-                                      variant="body2"
-                                      sx={{ fontWeight: 600 }}
-                                      color={
-                                        isSynthetic &&
-                                        act._synthetic === "Libre"
-                                          ? "error.main"
-                                          : undefined
-                                      }
-                                    >
-                                      {act.descripcion}
-                                    </Typography>
-                                  </Box>
-                                  <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Horario
-                                    </Typography>
-                                    <Typography variant="body2">
-                                      {act.horaInicio && act.horaFin
-                                        ? `${formatTimeCorrectly(
-                                            act.horaInicio
-                                          )} - ${formatTimeCorrectly(
-                                            act.horaFin
-                                          )}`
-                                        : "-"}
-                                    </Typography>
-                                  </Box>
-                                  <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Horas
-                                    </Typography>
-                                    <Box>
-                                      {Number.isFinite(
-                                        Number(act.duracionHoras)
-                                      ) ? (
-                                        <Chip
-                                          label={`${act.duracionHoras}h`}
-                                          size="small"
-                                        />
-                                      ) : (
-                                        <Chip
-                                          label={`-`}
-                                          size="small"
-                                          variant="outlined"
-                                        />
-                                      )}
-                                    </Box>
-                                  </Box>
-                                  {!(
-                                    act.esCompensatorio === true &&
-                                    act.esExtra === false
-                                  ) && (
-                                    <Box>
-                                      <Typography
-                                        variant="caption"
-                                        color="text.secondary"
-                                      >
-                                        Job
+                              }
+                              return (
+                                <TableRow key={act.id ?? act.jobId}>
+                                  <TableCell
+                                    sx={{
+                                      maxWidth: { xs: 150, sm: 250 },
+                                      wordWrap: "break-word",
+                                      whiteSpace: "normal",
+                                    }}
+                                  >
+                                    {act.descripcion}
+                                  </TableCell>
+                                  <TableCell>
+                                    {Number.isFinite(
+                                      Number(act.duracionHoras)
+                                    ) ? (
+                                      <Chip
+                                        label={`${act.duracionHoras}h`}
+                                        size="small"
+                                      />
+                                    ) : (
+                                      <Chip
+                                        label={`-`}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                    )}
+                                  </TableCell>
+                                  <TableCell sx={{ whiteSpace: "nowrap" }}>
+                                    {act.horaInicio && act.horaFin
+                                      ? `${formatTimeCorrectly(
+                                          act.horaInicio
+                                        )} - ${formatTimeCorrectly(
+                                          act.horaFin
+                                        )}`
+                                      : "-"}
+                                  </TableCell>
+                                  <TableCell
+                                    sx={{
+                                      maxWidth: { xs: 120, sm: 180 },
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                    }}
+                                  >
+                                    {act.esCompensatorio === true &&
+                                    act.esExtra === false ? (
+                                      <Typography color="text.secondary">
+                                        -
                                       </Typography>
-                                      <Typography
-                                        variant="body2"
-                                        color={
-                                          isSpecial ? "error.main" : undefined
-                                        }
+                                    ) : (
+                                      <Tooltip
+                                        title={act.job?.nombre ?? "-"}
+                                        arrow
+                                        placement="top"
                                       >
-                                        {act.job?.nombre ?? "-"}
+                                        <Typography
+                                          color={
+                                            isSpecial ? "error.main" : undefined
+                                          }
+                                          noWrap
+                                          sx={{
+                                            cursor: "help",
+                                          }}
+                                        >
+                                          {act.job?.nombre ?? "-"}
+                                        </Typography>
+                                      </Tooltip>
+                                    )}
+                                  </TableCell>
+                                  <TableCell sx={{ whiteSpace: "nowrap" }}>
+                                    {act.esCompensatorio === true &&
+                                    act.esExtra === false ? (
+                                      <Typography color="text.secondary">
+                                        -
                                       </Typography>
-                                    </Box>
-                                  )}
-                                  {!(
-                                    act.esCompensatorio === true &&
-                                    act.esExtra === false
-                                  ) && (
-                                    <Box>
+                                    ) : (
                                       <Typography
-                                        variant="caption"
-                                        color="text.secondary"
-                                      >
-                                        Código
-                                      </Typography>
-                                      <Typography
-                                        variant="body2"
                                         color={
                                           isSpecial ? "error.main" : undefined
                                         }
                                       >
                                         {act.job?.codigo ?? "-"}
                                       </Typography>
-                                    </Box>
-                                  )}
-                                  <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Tipo
-                                    </Typography>
-                                    <Box>
-                                      {isSynthetic ? (
-                                        <Chip
-                                          label={act._synthetic}
-                                          size="small"
-                                          color={
-                                            act._synthetic === "Libre"
-                                              ? "error"
-                                              : "warning"
-                                          }
-                                          variant="outlined"
-                                        />
-                                      ) : (
-                                        <Chip
-                                          label={
-                                            act.esCompensatorio === true
-                                              ? act.esExtra === true
-                                                ? "Pago Compensatoria"
-                                                : "Toma Compensatoria"
-                                              : act.esExtra === true
-                                              ? "Extra"
-                                              : "Normal"
-                                          }
-                                          size="small"
-                                          color={
-                                            act.esCompensatorio === true
-                                              ? act.esExtra === true
-                                                ? "success"
-                                                : "warning"
-                                              : act.esExtra === true
-                                              ? "error"
-                                              : "default"
-                                          }
-                                        />
-                                      )}
-                                    </Box>
-                                  </Box>
-                                  <Box>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      Clase
-                                    </Typography>
-                                    <Typography variant="body2">
-                                      {isSynthetic ? "-" : act.className || "-"}
-                                    </Typography>
-                                  </Box>
-                                </Stack>
-                              </Paper>
-                            );
-                          })}
-                        </Stack>
-                      )
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      label={
+                                        act.esCompensatorio === true
+                                          ? act.esExtra === true
+                                            ? "Pago Compensatoria"
+                                            : "Toma Compensatoria"
+                                          : act.esExtra === true
+                                          ? "Extra"
+                                          : "Normal"
+                                      }
+                                      size="small"
+                                      color={
+                                        act.esCompensatorio === true
+                                          ? act.esExtra === true
+                                            ? "success"
+                                            : "warning"
+                                          : act.esExtra === true
+                                          ? "error"
+                                          : "default"
+                                      }
+                                    />
+                                  </TableCell>
+                                  <TableCell
+                                    sx={{
+                                      maxWidth: { xs: 80, sm: 120 },
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                    }}
+                                  >
+                                    {act.className || "-"}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
                     ) : (
                       <Alert severity="info">
                         No hay actividades registradas para este día
