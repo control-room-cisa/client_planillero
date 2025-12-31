@@ -331,23 +331,42 @@ export default function Layout() {
               onClose={handleCloseUserMenu}
             >
               {/* Información del empleado (sin acción) */}
-              <MenuItem disabled>
-                <Box
+              <MenuItem
+                disabled
+                sx={{
+                  py: 2,
+                  px: 2,
+                  backgroundColor: "action.hover",
+                  cursor: "default",
+                  "&.Mui-disabled": {
+                    opacity: 1,
+                  },
+                }}
+              >
+                <Typography
+                  variant="body1"
+                  fontWeight="bold"
                   sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    width: "100%",
+                    fontSize: "1rem",
+                    color: "text.primary",
+                    lineHeight: 1.5,
                   }}
                 >
-                  <Typography variant="body2" fontWeight="bold">
-                    {user?.nombre} {user?.apellido}
-                  </Typography>
+                  {user?.nombre} {user?.apellido}
                   {user?.codigo && (
-                    <Typography variant="caption" color="text.secondary">
-                      Código: {user.codigo}
-                    </Typography>
+                    <Box
+                      component="span"
+                      sx={{
+                        display: "inline-block",
+                        ml: 1,
+                        color: "primary.main",
+                        fontWeight: 600,
+                      }}
+                    >
+                      ({user.codigo})
+                    </Box>
                   )}
-                </Box>
+                </Typography>
               </MenuItem>
               <Divider />
               {/* Cambiar contraseña */}
