@@ -90,11 +90,7 @@ export default function ChangePassword({
     setError("");
 
     // Validar que se proporcione al menos un identificador
-    if (
-      !formData.usuario &&
-      !formData.correoElectronico &&
-      !formData.dni
-    ) {
+    if (!formData.usuario && !formData.correoElectronico && !formData.dni) {
       setError("Debe proporcionar un usuario, correo electrónico o DNI");
       return;
     }
@@ -246,7 +242,9 @@ export default function ChangePassword({
             label="Usuario, Correo o DNI"
             placeholder="Ingrese usuario, correo electrónico o DNI"
             autoFocus={!userIdentifier}
-            value={formData.usuario || formData.correoElectronico || formData.dni}
+            value={
+              formData.usuario || formData.correoElectronico || formData.dni
+            }
             onChange={(e) => {
               const value = e.target.value;
               setFormData((prev) => ({
@@ -351,4 +349,3 @@ export default function ChangePassword({
     </Dialog>
   );
 }
-

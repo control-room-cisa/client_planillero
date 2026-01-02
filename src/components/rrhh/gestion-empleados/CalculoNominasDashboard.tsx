@@ -1541,7 +1541,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                           <em>Selecciona un período</em>
                         </MenuItem>
                         {intervalosDisponibles.map((intervalo) => (
-                          <MenuItem key={intervalo.valor} value={intervalo.valor}>
+                          <MenuItem
+                            key={intervalo.valor}
+                            value={intervalo.valor}
+                          >
                             {intervalo.label}
                           </MenuItem>
                         ))}

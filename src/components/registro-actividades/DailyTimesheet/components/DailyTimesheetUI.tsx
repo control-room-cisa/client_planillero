@@ -165,7 +165,11 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
             onClick={handleDayConfigSubmit}
             size="small"
             color={hasDayRecord ? "success" : "primary"}
-            sx={{ ml: 1 }}
+            sx={{
+              ml: 1,
+              minWidth: "140px",
+              whiteSpace: "nowrap",
+            }}
             disabled={
               initialLoading ||
               loading ||

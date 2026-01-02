@@ -80,9 +80,13 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const [selectedEmpleado, setSelectedEmpleado] = React.useState<Empleado | null>(null);
+  const [selectedEmpleado, setSelectedEmpleado] =
+    React.useState<Empleado | null>(null);
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, empleado: Empleado) => {
+  const handleMenuOpen = (
+    event: React.MouseEvent<HTMLElement>,
+    empleado: Empleado
+  ) => {
     setAnchorEl(event.currentTarget);
     setSelectedEmpleado(empleado);
   };
@@ -403,7 +407,10 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
                     </IconButton>
                     <Menu
                       anchorEl={anchorEl}
-                      open={Boolean(anchorEl) && selectedEmpleado?.id === empleado.id}
+                      open={
+                        Boolean(anchorEl) &&
+                        selectedEmpleado?.id === empleado.id
+                      }
                       onClose={handleMenuClose}
                     >
                       <MenuItem

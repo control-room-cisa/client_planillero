@@ -70,8 +70,8 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
             </Select>
           </FormControl>
         </Box>
-        <Box 
-          sx={{ 
+        <Box
+          sx={{
             flex: "1 1 400px",
             "@media (max-width: 900px)": { flex: "0 0 auto", width: "100%" },
           }}

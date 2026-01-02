@@ -111,7 +111,7 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
       return {
         label: "Registros pendientes",
         color: "warning",
-        tooltip: `Rango: ${startStr} a ${endStr} • Registrados: ${registeredDays}/${totalDays} • Aprobados(Sup): ${approvedSupervisorDays}/${totalDays}`,
+        tooltip: `Registrados: ${registeredDays}/${totalDays} • Aprobados(Sup): ${approvedSupervisorDays}/${totalDays}`,
         totalDays,
         registeredDays,
         approvedSupervisorDays,
@@ -123,7 +123,7 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
       return {
         label: "Completo",
         color: "success",
-        tooltip: `Rango: ${startStr} a ${endStr} • Registrados: ${registeredDays}/${totalDays} • Aprobados(Sup): ${approvedSupervisorDays}/${totalDays}`,
+        tooltip: `Registrados: ${registeredDays}/${totalDays} • Aprobados(Sup): ${approvedSupervisorDays}/${totalDays}`,
         totalDays,
         registeredDays,
         approvedSupervisorDays,
@@ -132,7 +132,7 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
     return {
       label: "Pendiente de aprobación",
       color: "info",
-      tooltip: `Rango: ${startStr} a ${endStr} • Registrados: ${registeredDays}/${totalDays} • Aprobados(Sup): ${approvedSupervisorDays}/${totalDays}`,
+      tooltip: `Registrados: ${registeredDays}/${totalDays} • Aprobados(Sup): ${approvedSupervisorDays}/${totalDays}`,
       totalDays,
       registeredDays,
       approvedSupervisorDays,
@@ -182,13 +182,34 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
         </Box>
       )}
 
-      <TableContainer sx={{ flex: 1, minHeight: 0 }}>
-        <Table stickyHeader>
+      <TableContainer
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          "& .MuiTableCell-root": {
+            fontSize: { xs: "0.875rem", sm: "1rem" },
+            padding: { xs: "8px 4px", sm: "16px" },
+          },
+        }}
+      >
+        <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
               <TableCell>Colaborador</TableCell>
-              <TableCell>Días registrados</TableCell>
-              <TableCell>Días aprobados</TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", sm: "table-cell" },
+                }}
+              >
+                Días registrados
+              </TableCell>
+              <TableCell
+                sx={{
+                  display: { xs: "none", sm: "table-cell" },
+                }}
+              >
+                Días aprobados
+              </TableCell>
               <TableCell>Estado</TableCell>
               <TableCell align="center">Acciones</TableCell>
             </TableRow>
@@ -208,14 +229,32 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
                       <Avatar
                         src={getImageUrl(empleado.urlFotoPerfil)}
                         alt={`${empleado.nombre} ${empleado.apellido}`}
+                        sx={{
+                          display: { xs: "none", sm: "flex" },
+                        }}
                       >
                         {empleado.nombre?.[0]}
                       </Avatar>
-                      <Box>
-                        <Typography variant="body1" fontWeight="medium">
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography
+                          variant="body1"
+                          fontWeight="medium"
+                          sx={{
+                            fontSize: { xs: "0.875rem", sm: "1rem" },
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {empleado.nombre} {empleado.apellido}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{
+                            display: { xs: "none", sm: "block" },
+                          }}
+                        >
                           {empleado.correoElectronico}
                         </Typography>
                       </Box>
@@ -225,13 +264,25 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
                   {(() => {
                     const st = computeStatus(empleado);
                     return (
-                      <TableCell>{`${st.registeredDays}/${st.totalDays}`}</TableCell>
+                      <TableCell
+                        sx={{
+                          display: { xs: "none", sm: "table-cell" },
+                        }}
+                      >
+                        {`${st.registeredDays}/${st.totalDays}`}
+                      </TableCell>
                     );
                   })()}
                   {(() => {
                     const st = computeStatus(empleado);
                     return (
-                      <TableCell>{`${st.approvedSupervisorDays}/${st.totalDays}`}</TableCell>
+                      <TableCell
+                        sx={{
+                          display: { xs: "none", sm: "table-cell" },
+                        }}
+                      >
+                        {`${st.approvedSupervisorDays}/${st.totalDays}`}
+                      </TableCell>
                     );
                   })()}
 
