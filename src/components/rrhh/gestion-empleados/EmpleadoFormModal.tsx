@@ -35,6 +35,42 @@ import EmpleadoService from "../../../services/empleadoService";
 import { Roles } from "../../../enums/roles";
 import { getTipoHorarioLabel, TIPOS_HORARIO } from "../../../enums/tipoHorario";
 
+/**
+ * Convierte el valor mapeado de tipoContrato del backend al código del enum
+ * Ejemplo: "7x7" -> "T7X7"
+ */
+const convertTipoContratoFromBackend = (
+  value: string | null | undefined
+): string | undefined => {
+  if (!value) return undefined;
+  const mapping: Record<string, string> = {
+    "7x7": "T7X7",
+    "14x14": "T14X14",
+    "Indefinido Normal": "INDEFINIDO_NORMAL",
+    "Por Hora": "POR_HORA",
+    "21x7": "T21X7",
+    Temporal: "TEMPORAL",
+  };
+  return mapping[value] || value;
+};
+
+/**
+ * Convierte el valor mapeado de tipoCuenta del backend al código del enum
+ * Ejemplo: "Ahorros moneda nacional" -> "AHORROS_MONEDA_NACIONAL"
+ */
+const convertTipoCuentaFromBackend = (
+  value: string | null | undefined
+): string | undefined => {
+  if (!value) return undefined;
+  const mapping: Record<string, string> = {
+    "Ahorros moneda nacional": "AHORROS_MONEDA_NACIONAL",
+    "Ahorros moneda extranjera": "AHORROS_MONEDA_EXTRANJERA",
+    "Cheques moneda nacional": "CHEQUES_MONEDA_NACIONAL",
+    "Cheques moneda extranjera": "CHEQUES_MONEDA_EXTRANJERA",
+  };
+  return mapping[value] || value;
+};
+
 interface EmpleadoFormModalProps {
   open: boolean;
   onClose: () => void;
@@ -188,14 +224,18 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         tipoHorario: empleadoCompleto.tipoHorario as any,
         estadoCivil: empleadoCompleto.estadoCivil as any,
         nombreConyugue: empleadoCompleto.nombreConyugue || "",
-        tipoContrato: empleadoCompleto.tipoContrato as any,
+        tipoContrato: convertTipoContratoFromBackend(
+          empleadoCompleto.tipoContrato
+        ) as any,
         condicionSalud: empleadoCompleto.condicionSalud || "",
         nombreContactoEmergencia:
           empleadoCompleto.nombreContactoEmergencia || "",
         numeroContactoEmergencia:
           empleadoCompleto.numeroContactoEmergencia || "",
         banco: empleadoCompleto.banco || "",
-        tipoCuenta: empleadoCompleto.tipoCuenta || undefined,
+        tipoCuenta: convertTipoCuentaFromBackend(
+          empleadoCompleto.tipoCuenta
+        ) as any,
         numeroCuenta: empleadoCompleto.numeroCuenta || "",
         muerteBeneficiario: empleadoCompleto.muerteBeneficiario || "",
         nombreMadre: empleadoCompleto.nombreMadre || "",
@@ -523,7 +563,11 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
               </FormControl>
 
               <FormControl fullWidth error={!!fieldErrors.tipoContrato}>
-                <InputLabel shrink={!!formData.tipoContrato}>
+                <InputLabel
+                  shrink={
+                    !!formData.tipoContrato || formData.tipoContrato === ""
+                  }
+                >
                   Contrato *
                 </InputLabel>
                 <Select
@@ -531,6 +575,9 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   value={formData.tipoContrato || ""}
                   onChange={handleSelectChange}
                   label="Contrato *"
+                  notched={
+                    !!formData.tipoContrato || formData.tipoContrato === ""
+                  }
                   required
                 >
                   <MenuItem value="" disabled>
