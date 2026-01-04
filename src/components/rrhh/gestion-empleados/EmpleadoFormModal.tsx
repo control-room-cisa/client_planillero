@@ -29,6 +29,40 @@ import { useEmpleadoValidation } from "../../../hooks/useEmpleadoValidation";
 import EmpleadoService from "../../../services/empleadoService";
 import { Roles } from "../../../enums/roles";
 
+/**
+ * Mapea el tipo de horario del enum de Prisma a su descripción legible
+ * Los valores coinciden con el @map del enum TipoHorario en schema.prisma
+ */
+const getTipoHorarioLabel = (tipoHorario: string): string => {
+  const horarioMap: Record<string, string> = {
+    H1_1: "(H1.1) Lunes a Viernes",
+    H1_2: "(H1.2) Martes a Sábado",
+    H1_3: "(H1.3) Miércoles a Domingo",
+    H1_4: "(H1.4) Días alternos Cocina",
+    H1_5: "(H1.5) Días alternos Medio Ambiente",
+    H1_6: "(H1.6) Lunes a Sábado",
+    H2_1: "(H2.1) Turnos 7x7 Copenergy",
+    H2_2: "(H2.2) Lunes a Viernes Copenergy",
+  };
+
+  return horarioMap[tipoHorario] || tipoHorario;
+};
+
+/**
+ * Lista de todos los tipos de horario disponibles según el enum de Prisma
+ * Coincide exactamente con el enum TipoHorario en schema.prisma
+ */
+const TIPOS_HORARIO = [
+  "H1_1",
+  "H1_2",
+  "H1_3",
+  "H1_4",
+  "H1_5",
+  "H1_6",
+  "H2_1",
+  "H2_2",
+] as const;
+
 interface EmpleadoFormModalProps {
   open: boolean;
   onClose: () => void;
@@ -479,9 +513,11 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   <MenuItem value="" disabled>
                     <em>Seleccionar horario</em>
                   </MenuItem>
-                  <MenuItem value="H1_1">Normal L-V</MenuItem>
-                  <MenuItem value="H1_2">Martes a Sábado</MenuItem>
-                  <MenuItem value="H2">Turnos 7x7</MenuItem>
+                  {TIPOS_HORARIO.map((tipo) => (
+                    <MenuItem key={tipo} value={tipo}>
+                      {getTipoHorarioLabel(tipo)}
+                    </MenuItem>
+                  ))}
                 </Select>
                 {fieldErrors.tipoHorario && (
                   <Typography

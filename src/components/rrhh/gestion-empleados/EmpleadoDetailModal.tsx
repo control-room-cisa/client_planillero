@@ -31,6 +31,27 @@ interface EmpleadoDetailModalProps {
   empleado?: Empleado | null;
 }
 
+/**
+ * Mapea el tipo de horario del enum de Prisma a su descripción legible
+ * Los valores coinciden con el @map del enum TipoHorario en schema.prisma
+ */
+const getTipoHorarioLabel = (tipoHorario?: string | null): string => {
+  if (!tipoHorario) return "N/A";
+
+  const horarioMap: Record<string, string> = {
+    H1_1: "(H1.1) Lunes a Viernes",
+    H1_2: "(H1.2) Martes a Sábado",
+    H1_3: "(H1.3) Miércoles a Domingo",
+    H1_4: "(H1.4) Días alternos Cocina",
+    H1_5: "(H1.5) Días alternos Medio Ambiente",
+    H1_6: "(H1.6) Lunes a Sábado",
+    H2_1: "(H2.1) Turnos 7x7 Copenergy",
+    H2_2: "(H2.2) Lunes a Viernes Copenergy",
+  };
+
+  return horarioMap[tipoHorario] || tipoHorario;
+};
+
 const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
   open,
   onClose,
@@ -164,13 +185,7 @@ const EmpleadoDetailModal: React.FC<EmpleadoDetailModalProps> = ({
                   </Typography>
                   <Typography>
                     <strong>Tipo de Horario:</strong>{" "}
-                    {empleado.tipoHorario === "H1_1"
-                      ? "Normal L-V"
-                      : empleado.tipoHorario === "H1_2"
-                      ? "Martes a Sábado"
-                      : empleado.tipoHorario === "H2"
-                      ? "Turnos 7x7"
-                      : empleado.tipoHorario || "N/A"}
+                    {getTipoHorarioLabel(empleado.tipoHorario)}
                   </Typography>
                   <Typography>
                     <strong>Tipo de Contrato:</strong>{" "}
