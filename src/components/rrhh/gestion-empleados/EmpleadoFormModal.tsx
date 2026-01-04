@@ -16,6 +16,11 @@ import {
   Typography,
   Switch,
   FormControlLabel,
+  Alert,
+  AlertTitle,
+  List,
+  ListItem,
+  ListItemText,
 } from "@mui/material";
 import { AttachFile as AttachFileIcon } from "@mui/icons-material";
 import type {
@@ -28,40 +33,7 @@ import type { Departamento, Empresa } from "../../../types/auth";
 import { useEmpleadoValidation } from "../../../hooks/useEmpleadoValidation";
 import EmpleadoService from "../../../services/empleadoService";
 import { Roles } from "../../../enums/roles";
-
-/**
- * Mapea el tipo de horario del enum de Prisma a su descripción legible
- * Los valores coinciden con el @map del enum TipoHorario en schema.prisma
- */
-const getTipoHorarioLabel = (tipoHorario: string): string => {
-  const horarioMap: Record<string, string> = {
-    H1_1: "(H1.1) Lunes a Viernes",
-    H1_2: "(H1.2) Martes a Sábado",
-    H1_3: "(H1.3) Miércoles a Domingo",
-    H1_4: "(H1.4) Días alternos Cocina",
-    H1_5: "(H1.5) Días alternos Medio Ambiente",
-    H1_6: "(H1.6) Lunes a Sábado",
-    H2_1: "(H2.1) Turnos 7x7 Copenergy",
-    H2_2: "(H2.2) Lunes a Viernes Copenergy",
-  };
-
-  return horarioMap[tipoHorario] || tipoHorario;
-};
-
-/**
- * Lista de todos los tipos de horario disponibles según el enum de Prisma
- * Coincide exactamente con el enum TipoHorario en schema.prisma
- */
-const TIPOS_HORARIO = [
-  "H1_1",
-  "H1_2",
-  "H1_3",
-  "H1_4",
-  "H1_5",
-  "H1_6",
-  "H2_1",
-  "H2_2",
-] as const;
+import { getTipoHorarioLabel, TIPOS_HORARIO } from "../../../enums/tipoHorario";
 
 interface EmpleadoFormModalProps {
   open: boolean;
@@ -136,6 +108,9 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
   }>({});
 
   const [loading, setLoading] = React.useState(false);
+  const [backendValidationErrors, setBackendValidationErrors] = React.useState<
+    Array<{ field: string; message: string }>
+  >([]);
 
   const [departamentosDisponibles, setDepartamentosDisponibles] =
     React.useState<Departamento[]>([]);
@@ -270,6 +245,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       empresaId: 0,
     });
     setSelectedFiles({});
+    setBackendValidationErrors([]);
     clearErrors();
   };
 
@@ -343,13 +319,28 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error("Error al guardar empleado:", err);
-      // Extraer mensaje de error del backend si está disponible
-      const errorMessage =
-        err.message ||
-        (isEditing
-          ? "Error al actualizar el colaborador"
-          : "Error al crear el colaborador");
-      onError(errorMessage);
+
+      // Extraer errores de validación del backend si están disponibles
+      if (err.validationErrors && Array.isArray(err.validationErrors)) {
+        setBackendValidationErrors(err.validationErrors);
+        // También mostrar el mensaje general
+        const errorMessage =
+          err.message ||
+          (isEditing
+            ? "Error al actualizar el colaborador"
+            : "Error al crear el colaborador");
+        onError(errorMessage);
+      } else {
+        // Limpiar errores de validación si no hay
+        setBackendValidationErrors([]);
+        // Extraer mensaje de error del backend si está disponible
+        const errorMessage =
+          err.message ||
+          (isEditing
+            ? "Error al actualizar el colaborador"
+            : "Error al crear el colaborador");
+        onError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -361,6 +352,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       formData.nombreUsuario &&
       formData.tipoHorario &&
       formData.tipoContrato &&
+      formData.tipoCuenta &&
       formData.rolId &&
       formData.empresaId &&
       formData.departamentoId &&
@@ -852,17 +844,19 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                 error={!!fieldErrors.banco}
                 helperText={fieldErrors.banco}
               />
-              <FormControl fullWidth>
+              <FormControl fullWidth required error={!!fieldErrors.tipoCuenta}>
                 <InputLabel
                   shrink={!!formData.tipoCuenta || formData.tipoCuenta === ""}
                 >
-                  Tipo de Cuenta
+                  Tipo de Cuenta *
                 </InputLabel>
                 <Select
                   name="tipoCuenta"
                   value={formData.tipoCuenta || ""}
                   onChange={handleSelectChange}
+                  label="Tipo de Cuenta *"
                   notched={!!formData.tipoCuenta || formData.tipoCuenta === ""}
+                  required
                 >
                   <MenuItem value="" disabled>
                     <em>Seleccionar tipo</em>
@@ -880,6 +874,15 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                     Cheques moneda extranjera
                   </MenuItem>
                 </Select>
+                {fieldErrors.tipoCuenta && (
+                  <Typography
+                    variant="caption"
+                    color="error"
+                    sx={{ mt: 0.5, ml: 1 }}
+                  >
+                    {fieldErrors.tipoCuenta}
+                  </Typography>
+                )}
               </FormControl>
               <TextField
                 label="Número de Cuenta"
@@ -1005,6 +1008,31 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
               )}
             </Box>
           </Box>
+
+          {/* Errores de validación del backend */}
+          {backendValidationErrors.length > 0 && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              <AlertTitle sx={{ fontWeight: 600 }}>
+                Errores de validación
+              </AlertTitle>
+              <List dense sx={{ py: 0, mt: 1 }}>
+                {backendValidationErrors.map((error, index) => (
+                  <ListItem key={index} sx={{ py: 0.5, px: 0 }}>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" component="span">
+                          <strong style={{ textTransform: "capitalize" }}>
+                            {error.field.replace(/([A-Z])/g, " $1").trim()}:
+                          </strong>{" "}
+                          {error.message}
+                        </Typography>
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </Alert>
+          )}
         </Box>
       </DialogContent>
       <DialogActions>

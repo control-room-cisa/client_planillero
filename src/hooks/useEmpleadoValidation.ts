@@ -109,6 +109,9 @@ export const useEmpleadoValidation = (isEditing: boolean) => {
       case "tipoContrato":
         if (!value) return "Tipo de contrato es requerido";
         break;
+      case "tipoCuenta":
+        if (!value) return "Tipo de cuenta es requerido";
+        break;
       case "rolId":
         if (!value) return "Rol es requerido";
         break;

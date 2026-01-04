@@ -207,11 +207,18 @@ class EmpleadoService {
     } catch (error: any) {
       console.error("Error al crear empleado:", error);
 
+      // Extraer errores de validación del backend si están disponibles
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        const validationError = new Error(error.response.data.message || "Errores de validación");
+        (validationError as any).validationErrors = error.response.data.errors;
+        throw validationError;
+      }
+
       // Extraer mensaje de error del backend si está disponible
       if (error.response?.data?.message) {
         throw new Error(error.response.data.message);
       } else if (error.message) {
-        throw new Error(error.message);
+        throw error;
       } else {
         throw new Error("Error al crear el empleado");
       }
@@ -249,11 +256,18 @@ class EmpleadoService {
     } catch (error: any) {
       console.error("Error al actualizar empleado:", error);
 
+      // Extraer errores de validación del backend si están disponibles
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        const validationError = new Error(error.response.data.message || "Errores de validación");
+        (validationError as any).validationErrors = error.response.data.errors;
+        throw validationError;
+      }
+
       // Extraer mensaje de error del backend si está disponible
       if (error.response?.data?.message) {
         throw new Error(error.response.data.message);
       } else if (error.message) {
-        throw new Error(error.message);
+        throw error;
       } else {
         throw new Error("Error al actualizar el empleado");
       }
