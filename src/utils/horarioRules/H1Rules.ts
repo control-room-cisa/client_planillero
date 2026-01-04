@@ -38,10 +38,11 @@ import type { HorarioRuleEngine } from "./interfaces";
  * en DailyTimesheet.tsx y otros componentes que dependen de estas reglas.
  */
 export const H1Rules: HorarioRuleEngine = {
-  type: "H1",
+  // Canonical code: H1_1 (legacy "H1" was removed from DB)
+  type: "H1_1",
   name: "Horario Fijo",
   config: {
-    type: "H1",
+    type: "H1_1",
     fields: {
       horaEntrada: {
         visible: true,

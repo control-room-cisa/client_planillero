@@ -60,6 +60,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
 
     // Flags y valores calculados
     isH2,
+    showDiaNoLaborable,
     workedHoursNormales,
     horasNormales,
     progressPercentage,
@@ -408,6 +409,32 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                     />
                   }
                   label="Día Libre"
+                />
+              </Box>
+            )}
+
+            {/* Día no laborable (client-only): solo para tipos que NO usan Día Libre pero sí editan horas */}
+            {showDiaNoLaborable && (
+              <Box
+                sx={{ display: "flex", alignItems: "center", height: "40px" }}
+              >
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      disabled={
+                        readOnly ||
+                        initialLoading ||
+                        Boolean(
+                          horarioData?.esFestivo || horarioValidado?.esFestivo
+                        )
+                      }
+                      name="esDiaNoLaborable"
+                      checked={dayConfigData.esDiaNoLaborable || false}
+                      onChange={handleDayConfigInputChange}
+                      color="primary"
+                    />
+                  }
+                  label="Día no laborable"
                 />
               </Box>
             )}

@@ -133,12 +133,25 @@ export class HorarioValidator {
     datosExistentes: boolean
   ): HorarioValidationResult {
     switch (tipoHorario) {
-      case "H1":
       case "H1_1":
       case "H1_2":
         return this.validateH1(horario, datosExistentes);
-      case "H2":
+      case "H1_3":
+      case "H1_4":
+      case "H1_5":
+      case "H1_6": {
+        // H1 editables: jornada oculta (por defecto día)
+        const base = this.validateH1(horario, datosExistentes);
+        return { ...base, mostrarJornada: false };
+      }
+      case "H2_1":
         return this.validateH2(horario, datosExistentes);
+      case "H2_2": {
+        // H2_2 se comporta más similar a H1_1 a nivel de configuración base.
+        // Jornada oculta (siempre día) según reglas de UI.
+        const base = this.validateH1(horario, datosExistentes);
+        return { ...base, mostrarJornada: false };
+      }
       case "H3":
         return this.validateH3(horario, datosExistentes);
       default:

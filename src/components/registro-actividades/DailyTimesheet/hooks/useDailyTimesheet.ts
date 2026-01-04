@@ -87,6 +87,8 @@ export const useDailyTimesheet = () => {
     horaSalida: "",
     jornada: "D",
     esDiaLibre: false,
+    // Client-only: no se persiste al backend. Solo fuerza 07:00-07:00 (0 horas).
+    esDiaNoLaborable: false,
     esIncapacidad: false,
     esHoraCorrida: false,
     comentarioEmpleado: "",
@@ -129,13 +131,19 @@ export const useDailyTimesheet = () => {
     apiData: horarioValidado,
   });
 
-  // === NUEVO: bandera de horario H2 ===
-  const isH2 = horarioValidado?.tipoHorario === "H2";
-  const isH1 = ["H1", "H1_1", "H1_2"].includes(
-    horarioValidado?.tipoHorario || ""
-  );
+  // === Banderas por tipo de horario (códigos canónicos del backend) ===
+  const isH2 = horarioValidado?.tipoHorario === "H2_1";
+  const isH2_2 = horarioValidado?.tipoHorario === "H2_2";
+  const isH1 = ["H1_1", "H1_2"].includes(horarioValidado?.tipoHorario || "");
   const isHoliday = Boolean(
     horarioData?.esFestivo || horarioValidado?.esFestivo
+  );
+
+  // Mostrar "Día no laborable" cuando NO existe Día Libre en UI y las horas son editables.
+  const showDiaNoLaborable = Boolean(
+    !horarioRules.utils.isFieldVisible("esDiaLibre") &&
+      horarioRules.utils.isFieldEnabled("horaEntrada") &&
+      horarioRules.utils.isFieldEnabled("horaSalida")
   );
 
   // ===== Helpers de tiempo =====
@@ -159,7 +167,7 @@ export const useDailyTimesheet = () => {
 
   const getDefaultHorario = React.useCallback(
     (jornadaValue?: string | null) => {
-      if (horarioValidado?.tipoHorario === "H2") {
+      if (horarioValidado?.tipoHorario === "H2_1") {
         return (
           getH2Schedule(
             jornadaValue && jornadaValue !== "" ? jornadaValue : "D",
@@ -339,11 +347,38 @@ export const useDailyTimesheet = () => {
             );
 
             if (datosExistentes && registro) {
-              if (["H1", "H1_1", "H1_2"].includes(horarioData.tipoHorario)) {
+              if (["H1_1", "H1_2"].includes(horarioData.tipoHorario)) {
                 return {
                   ...base,
                   jornada: registro.jornada || base.jornada,
                   esDiaLibre: Boolean(horarioData.esDiaLibre),
+                  esDiaNoLaborable: false,
+                  esIncapacidad: registro.esIncapacidad || false,
+                  comentarioEmpleado: registro.comentarioEmpleado || "",
+                };
+              } else if (
+                ["H1_3", "H1_4", "H1_5", "H1_6"].includes(horarioData.tipoHorario)
+              ) {
+                return {
+                  ...base,
+                  // Jornada siempre fija en día para H1 editables
+                  jornada: "D",
+                  horaEntrada: formatTimeLocal(registro.horaEntrada),
+                  horaSalida: formatTimeLocal(registro.horaSalida),
+                  esDiaLibre: false,
+                  esDiaNoLaborable: false,
+                  esIncapacidad: registro.esIncapacidad || false,
+                  comentarioEmpleado: registro.comentarioEmpleado || "",
+                };
+              } else if (horarioData.tipoHorario === "H2_2") {
+                return {
+                  ...base,
+                  // Jornada siempre fija en día para H2_2
+                  jornada: "D",
+                  horaEntrada: formatTimeLocal(registro.horaEntrada),
+                  horaSalida: formatTimeLocal(registro.horaSalida),
+                  esDiaLibre: Boolean(horarioData.esDiaLibre),
+                  esDiaNoLaborable: false,
                   esIncapacidad: registro.esIncapacidad || false,
                   comentarioEmpleado: registro.comentarioEmpleado || "",
                 };
@@ -354,6 +389,7 @@ export const useDailyTimesheet = () => {
                   horaEntrada: formatTimeLocal(registro.horaEntrada),
                   horaSalida: formatTimeLocal(registro.horaSalida),
                   esDiaLibre: Boolean(horarioData.esDiaLibre),
+                  esDiaNoLaborable: false,
                   esIncapacidad: registro.esIncapacidad || false,
                   comentarioEmpleado: registro.comentarioEmpleado || "",
                 };
@@ -362,7 +398,12 @@ export const useDailyTimesheet = () => {
 
             const result = {
               ...base,
-              esDiaLibre: Boolean(horarioData.esDiaLibre),
+              esDiaLibre: ["H1_3", "H1_4", "H1_5", "H1_6"].includes(
+                horarioData.tipoHorario
+              )
+                ? false
+                : Boolean(horarioData.esDiaLibre),
+              esDiaNoLaborable: false,
               esIncapacidad: registro?.esIncapacidad || false,
               comentarioEmpleado:
                 registro?.comentarioEmpleado ||
@@ -391,6 +432,7 @@ export const useDailyTimesheet = () => {
         horaSalida: "",
         jornada: "D",
         esDiaLibre: false,
+        esDiaNoLaborable: false,
         esIncapacidad: false,
         esHoraCorrida: false,
         comentarioEmpleado: "",
@@ -592,9 +634,46 @@ export const useDailyTimesheet = () => {
       if (
         (isHoliday ||
           dayConfigData.esDiaLibre ||
+          dayConfigData.esDiaNoLaborable ||
           dayConfigData.esIncapacidad) &&
         (name === "horaEntrada" || name === "horaSalida")
       ) {
+        return;
+      }
+
+      // Client-only: Día no laborable (no se envía al backend)
+      if (name === "esDiaNoLaborable") {
+        setDayConfigData((prev) => {
+          if (Boolean(finalValue)) {
+            return {
+              ...prev,
+              esDiaNoLaborable: true,
+              jornada: "D",
+              horaEntrada: "07:00",
+              horaSalida: "07:00",
+            };
+          }
+
+          // Al deseleccionar: restaurar desde registro diario si existe; si no, usar defaults del backend.
+          if (registroDiario?.horaEntrada && registroDiario?.horaSalida) {
+            return {
+              ...prev,
+              esDiaNoLaborable: false,
+              jornada: "D",
+              horaEntrada: formatTimeLocal(registroDiario.horaEntrada),
+              horaSalida: formatTimeLocal(registroDiario.horaSalida),
+            };
+          }
+
+          const defaults = getDefaultHorario("D");
+          return {
+            ...prev,
+            esDiaNoLaborable: false,
+            jornada: "D",
+            horaEntrada: defaults.horaEntrada,
+            horaSalida: defaults.horaSalida,
+          };
+        });
         return;
       }
 
@@ -612,7 +691,7 @@ export const useDailyTimesheet = () => {
           prev
         );
 
-        if (horarioValidado?.tipoHorario === "H2") {
+        if (horarioValidado?.tipoHorario === "H2_1") {
           if (name === "esDiaLibre" || name === "esIncapacidad") {
             if (finalValue) {
               next = {
@@ -650,6 +729,37 @@ export const useDailyTimesheet = () => {
               };
             }
           }
+        } else if (isH2_2 && (name === "esDiaLibre" || name === "esIncapacidad")) {
+          // En H2_2: Jornada siempre fija en día ("D").
+          // - Día Libre: fuerza 07:00 - 07:00
+          // - Incapacidad: mantener rango colapsado (horaSalida = horaEntrada por defecto) sin cambiar a nocturno
+          // En H2_2: Día Libre fuerza 07:00 - 07:00 (sin importar el horario del backend)
+          const defaults = getDefaultHorario("D");
+          if (finalValue) {
+            if (name === "esDiaLibre") {
+              next = {
+                ...next,
+                jornada: "D",
+                horaEntrada: "07:00",
+                horaSalida: "07:00",
+              };
+            } else {
+              // esIncapacidad=true
+              next = {
+                ...next,
+                jornada: "D",
+                horaEntrada: defaults.horaEntrada,
+                horaSalida: defaults.horaEntrada,
+              };
+            }
+          } else {
+            next = {
+              ...next,
+              jornada: "D",
+              horaEntrada: defaults.horaEntrada,
+              horaSalida: defaults.horaSalida,
+            };
+          }
         } else if (name === "esDiaLibre" || name === "esIncapacidad") {
           const defaults = getDefaultHorario(prev.jornada || "D");
           if (finalValue) {
@@ -678,12 +788,14 @@ export const useDailyTimesheet = () => {
     [
       horarioRules.utils,
       horarioValidado?.tipoHorario,
+      isH2_2,
       isHoliday,
       currentDate,
       getDefaultHorario,
       getH2Schedule,
       dayConfigData,
       dayConfigErrors,
+      registroDiario,
     ]
   );
 
@@ -734,30 +846,41 @@ export const useDailyTimesheet = () => {
       );
 
       {
-        const { intervals: newIntervals } = getBoundsFromHHMM(
-          dayConfigData.horaEntrada,
-          dayConfigData.horaSalida
-        );
+        // En días de 0 horas (feriado / día libre / día no laborable / entrada==salida),
+        // no validar traslapes ni actividades fuera de rango.
+        const shouldSkipRangeValidation =
+          isHoliday ||
+          dayConfigData.esDiaLibre ||
+          dayConfigData.esDiaNoLaborable ||
+          dayConfigData.horaEntrada === dayConfigData.horaSalida;
+        if (shouldSkipRangeValidation) {
+          // skip
+        } else {
+          const { intervals: newIntervals } = getBoundsFromHHMM(
+            dayConfigData.horaEntrada,
+            dayConfigData.horaSalida
+          );
 
-        const acts = registroDiario?.actividades || [];
-        const outOfRange = acts
-          .filter((act) => !act.esExtra)
-          .map((act, idx) => ({
-            idx,
-            act,
-            outside: isActivityOutsideRange(act, newIntervals),
-          }))
-          .filter((x) => x.outside);
+          const acts = registroDiario?.actividades || [];
+          const outOfRange = acts
+            .filter((act) => !act.esExtra)
+            .map((act, idx) => ({
+              idx,
+              act,
+              outside: isActivityOutsideRange(act, newIntervals),
+            }))
+            .filter((x) => x.outside);
 
-        if (outOfRange.length > 0) {
-          const rango = `${dayConfigData.horaEntrada} - ${dayConfigData.horaSalida}`;
-          setSnackbar({
-            open: true,
-            severity: "error",
-            message: `Hay ${outOfRange.length} actividad fuera del nuevo rango (${rango}). Debes actualizar actividad.`,
-          });
-          setLoading(false);
-          return;
+          if (outOfRange.length > 0) {
+            const rango = `${dayConfigData.horaEntrada} - ${dayConfigData.horaSalida}`;
+            setSnackbar({
+              open: true,
+              severity: "error",
+              message: `Hay ${outOfRange.length} actividad fuera del nuevo rango (${rango}). Debes actualizar actividad.`,
+            });
+            setLoading(false);
+            return;
+          }
         }
       }
 
@@ -1040,9 +1163,13 @@ export const useDailyTimesheet = () => {
     horasRestantesDia + editingHoursNormales;
 
   const canAddExtraHours = horasNormales === 0 || horasRestantesDia <= 0.01;
-  const disableHoraCorrida = isH2 || (horasNormales === 0 && isH1);
+  // Hora corrida no aplica en H2_1 y no tiene sentido cuando el día tiene 0 horas.
+  const disableHoraCorrida = isH2 || horasNormales === 0;
   const disableTimeFields =
-    dayConfigData.esDiaLibre || dayConfigData.esIncapacidad || isHoliday;
+    dayConfigData.esDiaLibre ||
+    dayConfigData.esDiaNoLaborable ||
+    dayConfigData.esIncapacidad ||
+    isHoliday;
 
   /**
    * REGLA DE NEGOCIO CRÍTICA: INCAPACIDAD
@@ -1481,7 +1608,7 @@ export const useDailyTimesheet = () => {
   }, [horasCero, dayConfigData.horaEntrada, dayConfigData.horaSalida]);
 
   React.useEffect(() => {
-    if (horarioValidado?.tipoHorario !== "H2") return;
+    if (horarioValidado?.tipoHorario !== "H2_1") return;
     setDayConfigData((prev) => {
       if (prev.esDiaLibre) {
         if (
@@ -1618,6 +1745,8 @@ export const useDailyTimesheet = () => {
 
     // Flags y valores calculados
     isH2,
+    isH2_2,
+    showDiaNoLaborable,
     isH1,
     isHoliday,
     workedHoursNormales,

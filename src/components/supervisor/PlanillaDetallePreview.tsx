@@ -856,7 +856,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                           <Chip label="Día libre" color="info" size="small" />
                         )}
                         {!registro.esDiaLibre &&
-                          horariosByFecha[registro.fecha ?? ""] !== "H2" &&
+                          horariosByFecha[registro.fecha ?? ""] !== "H2_1" &&
                           registro.esHoraCorrida && (
                             <Chip
                               label="Hora Corrida"

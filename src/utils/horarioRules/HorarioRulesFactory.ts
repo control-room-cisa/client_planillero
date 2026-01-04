@@ -1,13 +1,24 @@
 import { DefaultRules } from "./DefaultRules";
 import { H1Rules } from "./H1Rules";
+import { H1EditableRules } from "./H1EditableRules";
 import { H2Rules } from "./H2Rules";
+import { H2_2Rules } from "./H2_2Rules";
 import type { FieldName, HorarioFormRulesConfig, HorarioRuleEngine } from "./interfaces";
 
 const registry = new Map<string, HorarioRuleEngine>([
+  // Canonical: H1_1
   [H1Rules.type, H1Rules],
-  ["H1_1", H1Rules], // H1_1 usa las mismas reglas que H1
-  ["H1_2", H1Rules], // H1_2 usa las mismas reglas que H1
+  // Alias pending/legacy variants
+  ["H1_2", H1Rules],
+  // H1 "editables" (aplica a H1.4 y otros H1_n que requieran edición de entrada/salida)
+  ["H1_3", H1EditableRules],
+  ["H1_4", H1EditableRules],
+  ["H1_5", H1EditableRules],
+  ["H1_6", H1EditableRules],
+  // Canonical: H2_1
   [H2Rules.type, H2Rules],
+  // Canonical: H2_2
+  [H2_2Rules.type, H2_2Rules],
   [DefaultRules.type, DefaultRules],
 ]);
 

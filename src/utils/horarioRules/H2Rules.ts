@@ -43,10 +43,11 @@ import type { HorarioRuleEngine } from "./interfaces";
  * en DailyTimesheet.tsx y otros componentes que dependen de estas reglas.
  */
 export const H2Rules: HorarioRuleEngine = {
-  type: "H2",
+  // Canonical code: H2_1 (legacy "H2" was removed from DB)
+  type: "H2_1",
   name: "Horario Flexible",
   config: {
-    type: "H2",
+    type: "H2_1",
     fields: {
       horaEntrada: { visible: true, enabled: true, required: true },
       horaSalida: { visible: true, enabled: true, required: true },
