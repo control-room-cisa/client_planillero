@@ -721,11 +721,9 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
 
   React.useEffect(() => {
     if (isPrimeraQuincena) {
-      setDeduccionISR(0);
-      // deduccionAlimentacion NO se resetea - se aplica en todas las quincenas (A y B)
-      setCobroPrestamo(0);
+      // En primera quincena se mantiene Alimentación y ahora ISR/Préstamo son editables.
+      // Mantener Impuesto Vecinal en 0 por defecto.
       setImpuestoVecinal(0);
-      // Otros NO se resetea - siempre editable
     }
   }, [isPrimeraQuincena]);
 
@@ -2423,12 +2421,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     setInputDeduccionISR(sanitized);
                     setDeduccionISR(parseDecimalValue(sanitized));
                   }}
-                  disabled={codigoNominaTerminaEnA}
-                  helperText={
-                    codigoNominaTerminaEnA
-                      ? "Primera quincena: sin deducciones"
-                      : undefined
-                  }
+                  // En primera quincena ISR es editable (alimentación se mantiene).
                 />
                 <TextField
                   label="(+) Monto Incapacidad (IHSS) - No suma a total"
@@ -2522,12 +2515,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     setInputCobroPrestamo(sanitized);
                     setCobroPrestamo(parseDecimalValue(sanitized));
                   }}
-                  disabled={codigoNominaTerminaEnA}
-                  helperText={
-                    codigoNominaTerminaEnA
-                      ? "Primera quincena: sin deducciones"
-                      : undefined
-                  }
+                  // En primera quincena Préstamo es editable (alimentación se mantiene).
                 />
                 <TextField
                   label="(-) Deducción IHSS"
