@@ -139,11 +139,11 @@ export const useDailyTimesheet = () => {
     horarioData?.esFestivo || horarioValidado?.esFestivo
   );
 
-  // Mostrar "Día no laborable" cuando NO existe Día Libre en UI y las horas son editables.
+  // Mostrar "Día no laborable" para tipos que requieren esta UX (client-only).
+  // - H1_3/H1_4/H1_6: no usan Día Libre (oculto), pero sí editan horas
+  // - H1_5: Día Libre es read-only desde backend, pero aún requiere el toggle "Día no laborable"
   const showDiaNoLaborable = Boolean(
-    !horarioRules.utils.isFieldVisible("esDiaLibre") &&
-      horarioRules.utils.isFieldEnabled("horaEntrada") &&
-      horarioRules.utils.isFieldEnabled("horaSalida")
+    ["H1_3", "H1_4", "H1_5"].includes(horarioValidado?.tipoHorario || "")
   );
 
   // ===== Helpers de tiempo =====
@@ -357,7 +357,7 @@ export const useDailyTimesheet = () => {
                   comentarioEmpleado: registro.comentarioEmpleado || "",
                 };
               } else if (
-                ["H1_3", "H1_4", "H1_5", "H1_6"].includes(horarioData.tipoHorario)
+                ["H1_3", "H1_4"].includes(horarioData.tipoHorario)
               ) {
                 return {
                   ...base,
@@ -366,6 +366,19 @@ export const useDailyTimesheet = () => {
                   horaEntrada: formatTimeLocal(registro.horaEntrada),
                   horaSalida: formatTimeLocal(registro.horaSalida),
                   esDiaLibre: false,
+                  esDiaNoLaborable: false,
+                  esIncapacidad: registro.esIncapacidad || false,
+                  comentarioEmpleado: registro.comentarioEmpleado || "",
+                };
+              } else if (horarioData.tipoHorario === "H1_5") {
+                return {
+                  ...base,
+                  jornada: "D",
+                  // En H1_5, entrada/salida no son editables pero se cargan del registro si existe.
+                  horaEntrada: formatTimeLocal(registro.horaEntrada),
+                  horaSalida: formatTimeLocal(registro.horaSalida),
+                  // Día libre viene del backend y es read-only en UI.
+                  esDiaLibre: Boolean(horarioData.esDiaLibre),
                   esDiaNoLaborable: false,
                   esIncapacidad: registro.esIncapacidad || false,
                   comentarioEmpleado: registro.comentarioEmpleado || "",
@@ -398,7 +411,7 @@ export const useDailyTimesheet = () => {
 
             const result = {
               ...base,
-              esDiaLibre: ["H1_3", "H1_4", "H1_5", "H1_6"].includes(
+              esDiaLibre: ["H1_3", "H1_4"].includes(
                 horarioData.tipoHorario
               )
                 ? false
