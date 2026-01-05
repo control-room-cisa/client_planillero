@@ -39,6 +39,11 @@ export const useHorasTrabajo = ({
     setError(null);
 
     try {
+      console.log("[useHorasTrabajo] request", {
+        empleadoId,
+        fechaInicio,
+        fechaFin,
+      });
       const resumen = await CalculoHorasTrabajoService.getResumenHorasTrabajo(
         empleadoId,
         fechaInicio,
@@ -46,7 +51,18 @@ export const useHorasTrabajo = ({
       );
       setResumenHoras(resumen);
     } catch (err: any) {
-      console.error("Error al cargar datos de horas:", err);
+      // Dejar evidencia clara en consola (producción) de dónde falló
+      const reqId =
+        err?.response?.headers?.["x-request-id"] ||
+        err?.config?.headers?.["X-Request-Id"];
+      console.error("[useHorasTrabajo] error", {
+        requestId: reqId,
+        message: err?.message,
+        status: err?.response?.status,
+        response: err?.response?.data,
+        url: err?.config?.url,
+        baseURL: err?.config?.baseURL,
+      });
       setError(err);
     } finally {
       setLoading(false);
