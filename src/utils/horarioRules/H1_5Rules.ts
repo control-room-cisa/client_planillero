@@ -126,3 +126,4 @@ export const H1_5Rules: HorarioRuleEngine = {
 export default H1_5Rules;
 
 
+

@@ -44,11 +44,24 @@ export const H2_2Rules: HorarioRuleEngine = {
       // Feriado: 0 horas normales.
       if (apiData?.esFestivo || formData?.esFestivo) return 0;
 
-      // Para H2_2, las horas normales esperadas vienen del backend.
-      // Si el backend no retorna cantidadHorasLaborables, usar 0 por defecto.
-      if (apiData?.cantidadHorasLaborables != null) return apiData.cantidadHorasLaborables;
-      if (apiData?.horasNormales != null) return apiData.horasNormales;
-      return 0;
+      // H2_2: igual que H1_1 para el conteo de horas normales:
+      // horas = (horaSalida - horaEntrada) - 1h almuerzo cuando NO es hora corrida.
+      if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
+      if (formData.horaEntrada === formData.horaSalida) return 0;
+
+      const timeToMinutes = (t: string) => {
+        const [h, m] = String(t || "")
+          .split(":")
+          .map(Number);
+        return h * 60 + m;
+      };
+
+      const s = timeToMinutes(formData.horaEntrada);
+      let e = timeToMinutes(formData.horaSalida);
+      if (e <= s) e += 24 * 60;
+
+      const almuerzo = formData.esHoraCorrida ? 0 : 1;
+      return Math.max(0, (e - s) / 60 - almuerzo);
     },
     calculateLunchHours: (formData) => (formData.esHoraCorrida ? 0 : 1),
     processApiDefaults: (prev, apiData, hasExisting) => {
@@ -120,7 +133,8 @@ export const H2_2Rules: HorarioRuleEngine = {
 
       const entrada = prevFormData.horaEntrada;
       const salida = prevFormData.horaSalida;
-      if (!entrada || !salida) return { ...prevFormData, [fieldName]: nextValue };
+      if (!entrada || !salida)
+        return { ...prevFormData, [fieldName]: nextValue };
 
       const s = timeToMinutes(entrada);
       let e = timeToMinutes(salida);
@@ -147,5 +161,3 @@ export const H2_2Rules: HorarioRuleEngine = {
 };
 
 export default H2_2Rules;
-
-

@@ -77,7 +77,7 @@ export const H1Rules: HorarioRuleEngine = {
       comentarioEmpleado: { visible: true, enabled: true, required: false },
     },
     calculateNormalHours: (formData, apiData) => {
-      // Si es feriado, las horas laborables son 0 (calculadas desde diferencia de horas)
+      // Si es feriado, las horas laborables son 0 (normalmente 07:00-07:00).
       if (apiData?.esFestivo || formData?.esFestivo) {
         if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
         // Calcular diferencia: si ambas son iguales (ej: 7:00 - 7:00), retornar 0
@@ -89,12 +89,11 @@ export const H1Rules: HorarioRuleEngine = {
         const s = timeToMinutes(formData.horaEntrada);
         let e = timeToMinutes(formData.horaSalida);
         if (e <= s) e += 24 * 60;
-        return Math.max(0, (e - s) / 60);
+        const almuerzo = formData.esHoraCorrida ? 0 : 1;
+        return Math.max(0, (e - s) / 60 - almuerzo);
       }
-      if (apiData?.cantidadHorasLaborables != null)
-        return apiData.cantidadHorasLaborables;
-      if (apiData?.horasNormales != null) return apiData.horasNormales;
-      if (!formData?.horaEntrada || !formData?.horaSalida) return 8;
+      // Regla: NO inventar horas. Siempre justificar con (salida-entrada) y hora corrida.
+      if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
       const timeToMinutes = (t: string) => {
         const [h, m] = t.split(":").map(Number);
         return h * 60 + m;

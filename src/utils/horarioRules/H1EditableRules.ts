@@ -131,3 +131,4 @@ export const H1EditableRules: HorarioRuleEngine = {
 export default H1EditableRules;
 
 
+

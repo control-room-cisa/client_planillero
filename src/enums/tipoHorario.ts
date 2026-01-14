@@ -38,3 +38,4 @@ export function getTipoHorarioLabel(tipoHorario?: string | null): string {
   return (TIPO_HORARIO_LABEL as Record<string, string>)[tipoHorario] || tipoHorario;
 }
 
+

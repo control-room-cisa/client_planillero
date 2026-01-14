@@ -74,11 +74,11 @@ export const DefaultRules: HorarioRuleEngine = {
         const s = timeToMinutes(formData.horaEntrada);
         let e = timeToMinutes(formData.horaSalida);
         if (e <= s) e += 24 * 60;
-        return Math.max(0, (e - s) / 60);
+        const almuerzo = formData.esHoraCorrida ? 0 : 1;
+        return Math.max(0, (e - s) / 60 - almuerzo);
       }
-      if (apiData?.cantidadHorasLaborables != null)
-        return apiData.cantidadHorasLaborables;
-      if (!formData?.horaEntrada || !formData?.horaSalida) return 8;
+      // Regla: NO inventar horas. Siempre justificar con (salida-entrada) y hora corrida.
+      if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
       const timeToMinutes = (t: string) => {
         const [h, m] = t.split(":").map(Number);
         return h * 60 + m;
