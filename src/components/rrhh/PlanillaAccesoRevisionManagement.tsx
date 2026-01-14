@@ -174,7 +174,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
         const supervisoresPermitidos = data.filter(
           (empleado) =>
             empleado.rolId === Roles.SUPERVISOR ||
-            empleado.rolId === Roles.CONTABILIDAD ||
+            empleado.rolId === Roles.SUPERVISOR_CONTABILIDAD ||
             empleado.rolId === Roles.GERENCIA ||
             empleado.rolId === Roles.RRHH
         );

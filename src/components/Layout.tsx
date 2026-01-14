@@ -141,26 +141,63 @@ export default function Layout() {
 
   // ===== Ruta inicial por rol cuando se entra a "/"
   React.useEffect(() => {
+    // Solo ejecutar si estamos en la ruta raíz y el usuario está cargado
     if (location.pathname !== "/") return;
     if (!user?.rolId) return; // Esperar a que el usuario esté cargado
 
-    if (user.rolId === Roles.RRHH) {
-      navigate("/rrhh/colaboradores", { replace: true });
-    } else if (user.rolId === Roles.CONTABILIDAD) {
-      navigate("/contabilidad", { replace: true });
-    } else if (
-      user.rolId === Roles.EMPLEADO ||
-      user.rolId === Roles.SUPERVISOR
-    ) {
-      // EMPLEADO o SUPERVISOR -> redirigir con fecha actual
-      navigate(`/registro-actividades/${todayDateString}`, { replace: true });
+    // Validar que todayDateString sea válido antes de navegar
+    if (!todayDateString || !/^\d{4}-\d{2}-\d{2}$/.test(todayDateString)) {
+      console.warn("Fecha inválida para navegación:", todayDateString);
+      return;
     }
+
+    // Usar setTimeout para asegurar que el router esté completamente inicializado
+    const timeoutId = setTimeout(() => {
+      try {
+        if (user.rolId === Roles.RRHH) {
+          navigate("/rrhh/colaboradores", { replace: true });
+        } else if (user.rolId === Roles.SUPERVISOR_CONTABILIDAD) {
+          navigate("/contabilidad", { replace: true });
+        } else if (
+          user.rolId === Roles.EMPLEADO ||
+          user.rolId === Roles.SUPERVISOR ||
+          user.rolId === Roles.ASISTENTE_CONTABILIDAD
+        ) {
+          // EMPLEADO, SUPERVISOR o ASISTENTE_CONTABILIDAD -> redirigir con fecha actual
+          const targetPath = `/registro-actividades/${todayDateString}`;
+          // Validar que la ruta sea válida antes de navegar
+          if (targetPath.startsWith("/") && !targetPath.includes("..")) {
+            navigate(targetPath, { replace: true });
+          }
+        }
+      } catch (error) {
+        console.error("Error al navegar:", error);
+        // Fallback: intentar navegar sin replace si hay error
+        try {
+          if (user.rolId === Roles.RRHH) {
+            navigate("/rrhh/colaboradores");
+          } else if (user.rolId === Roles.SUPERVISOR_CONTABILIDAD) {
+            navigate("/contabilidad");
+          } else if (
+            user.rolId === Roles.EMPLEADO ||
+            user.rolId === Roles.SUPERVISOR ||
+            user.rolId === Roles.ASISTENTE_CONTABILIDAD
+          ) {
+            navigate(`/registro-actividades/${todayDateString}`);
+          }
+        } catch (fallbackError) {
+          console.error("Error en fallback de navegación:", fallbackError);
+        }
+      }
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [location.pathname, navigate, user?.rolId, todayDateString]);
 
   // ===== Menú por rol → path
   const navItems = React.useMemo(() => {
     // Contabilidad
-    if (user?.rolId === Roles.CONTABILIDAD) {
+    if (user?.rolId === Roles.SUPERVISOR_CONTABILIDAD) {
       return [
         {
           id: "contabilidad",
@@ -173,6 +210,34 @@ export default function Layout() {
           text: "Vista Supervisor",
           icon: <FindInPageIcon />,
           path: "/supervision/planillas",
+        },
+        {
+          id: "prorrateo",
+          text: "Prorrateo",
+          icon: <AccountBalanceIcon />,
+          path: "/contabilidad/prorrateo",
+        },
+      ];
+    }
+
+    // Asistente Contabilidad
+    if (user?.rolId === Roles.ASISTENTE_CONTABILIDAD) {
+      return [
+        {
+          id: "registro",
+          text: "Nuevo Registro Diario",
+          icon: <PostAddIcon />,
+          path: `/registro-actividades/${todayDateString}`,
+        },
+        {
+          id: "notificaciones",
+          text: "Notificaciones",
+          icon: (
+            <Badge badgeContent={notificationCount} color="error">
+              <NotificationsIcon />
+            </Badge>
+          ),
+          path: "/notificaciones",
         },
         {
           id: "prorrateo",

@@ -67,12 +67,12 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       >
-        {/* Registro (EMPLEADO + SUPERVISOR) */}
+        {/* Registro (EMPLEADO + SUPERVISOR + ASISTENTE_CONTABILIDAD) */}
         <Route
           path="registro-actividades/:fecha?"
           element={
             <RoleProtectedRoute
-              allowedRoles={[Roles.EMPLEADO, Roles.SUPERVISOR]}
+              allowedRoles={[Roles.EMPLEADO, Roles.SUPERVISOR, Roles.ASISTENTE_CONTABILIDAD]}
             >
               <DailyTimesheet />
             </RoleProtectedRoute>
@@ -89,7 +89,7 @@ const AppRoutes: React.FC = () => {
           path="supervision/planillas"
           element={
             <RoleProtectedRoute
-              allowedRoles={[Roles.SUPERVISOR, Roles.CONTABILIDAD]}
+              allowedRoles={[Roles.SUPERVISOR, Roles.SUPERVISOR_CONTABILIDAD]}
             >
               <SupervisorManagement />
             </RoleProtectedRoute>
@@ -99,7 +99,7 @@ const AppRoutes: React.FC = () => {
           path="supervision/planillas/detalle"
           element={
             <RoleProtectedRoute
-              allowedRoles={[Roles.SUPERVISOR, Roles.CONTABILIDAD]}
+              allowedRoles={[Roles.SUPERVISOR, Roles.SUPERVISOR_CONTABILIDAD]}
             >
               <SupervisorRoute />
             </RoleProtectedRoute>
@@ -160,7 +160,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="contabilidad"
           element={
-            <RoleProtectedRoute allowedRoles={[Roles.CONTABILIDAD]}>
+            <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR_CONTABILIDAD]}>
               <ContabilidadDashboard />
             </RoleProtectedRoute>
           }
@@ -168,7 +168,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="contabilidad/prorrateo"
           element={
-            <RoleProtectedRoute allowedRoles={[Roles.CONTABILIDAD]}>
+            <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR_CONTABILIDAD, Roles.ASISTENTE_CONTABILIDAD]}>
               <ProrrateoManagement />
             </RoleProtectedRoute>
           }
@@ -176,17 +176,17 @@ const AppRoutes: React.FC = () => {
         <Route
           path="contabilidad/prorrateo/detalle"
           element={
-            <RoleProtectedRoute allowedRoles={[Roles.CONTABILIDAD]}>
+            <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR_CONTABILIDAD, Roles.ASISTENTE_CONTABILIDAD]}>
               <ProrrateoRoute />
             </RoleProtectedRoute>
           }
         />
 
-        {/* Notificaciones (solo EMPLEADO) */}
+        {/* Notificaciones (EMPLEADO + ASISTENTE_CONTABILIDAD) */}
         <Route
           path="notificaciones"
           element={
-            <RoleProtectedRoute allowedRoles={[Roles.EMPLEADO]}>
+            <RoleProtectedRoute allowedRoles={[Roles.EMPLEADO, Roles.ASISTENTE_CONTABILIDAD]}>
               <NotificationsEmployee />
             </RoleProtectedRoute>
           }
