@@ -21,6 +21,8 @@ import {
   List,
   ListItem,
   ListItemText,
+  CircularProgress,
+  InputAdornment,
 } from "@mui/material";
 import { AttachFile as AttachFileIcon } from "@mui/icons-material";
 import type {
@@ -99,6 +101,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
   const isEditing = !!empleado;
   const {
     fieldErrors,
+    setFieldErrors,
     validateForm,
     validateAndSetError,
     clearErrors,
@@ -145,9 +148,15 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
   }>({});
 
   const [loading, setLoading] = React.useState(false);
+  const [checkingUsername, setCheckingUsername] = React.useState(false);
   const [backendValidationErrors, setBackendValidationErrors] = React.useState<
     Array<{ field: string; message: string }>
   >([]);
+  const usernameCheckTimeoutRef = React.useRef<number | null>(null);
+  // Guardar el nombre de usuario original para comparaciones
+  const originalUsernameRef = React.useRef<string | undefined>(undefined);
+  // Referencia al valor actual del nombre de usuario para leerlo en el timeout
+  const currentUsernameRef = React.useRef<string>("");
 
   const [departamentosDisponibles, setDepartamentosDisponibles] =
     React.useState<Departamento[]>([]);
@@ -192,6 +201,16 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     }
   }, [open, empleado, isEditing]);
 
+  // Limpiar timeout cuando el componente se desmonte
+  React.useEffect(() => {
+    return () => {
+      if (usernameCheckTimeoutRef.current !== null) {
+        clearTimeout(usernameCheckTimeoutRef.current);
+        usernameCheckTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const loadEmpleadoData = async () => {
     if (!empleado) return;
 
@@ -205,6 +224,12 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       // prepara lista de departamentos según la empresa detectada
       const empresaSeleccionada = empresas.find((e) => e.id === empresaId);
       setDepartamentosDisponibles(empresaSeleccionada?.departamentos ?? []);
+
+      const nombreUsuarioLower = empleadoCompleto.nombreUsuario
+        ? empleadoCompleto.nombreUsuario.toLowerCase()
+        : "";
+      originalUsernameRef.current = nombreUsuarioLower;
+      currentUsernameRef.current = nombreUsuarioLower;
 
       setFormData({
         nombre: empleadoCompleto.nombre,
@@ -221,7 +246,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         departamentoId, // CHANGED
         empresaId, // NEW
         activo: empleadoCompleto.activo ?? true,
-        nombreUsuario: empleadoCompleto.nombreUsuario || "",
+        nombreUsuario: nombreUsuarioLower,
         tipoHorario: empleadoCompleto.tipoHorario as any,
         estadoCivil: empleadoCompleto.estadoCivil as any,
         nombreConyugue: empleadoCompleto.nombreConyugue || "",
@@ -257,6 +282,8 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
   };
 
   const resetForm = () => {
+    originalUsernameRef.current = undefined;
+    currentUsernameRef.current = "";
     setFormData({
       nombre: "",
       apellido: "",
@@ -296,7 +323,12 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    const newValue = type === "checkbox" ? checked : value;
+    let newValue = type === "checkbox" ? checked : value;
+
+    // Transformar nombreUsuario a minúsculas siempre
+    if (name === "nombreUsuario") {
+      newValue = String(newValue).toLowerCase();
+    }
 
     setFormData({
       ...formData,
@@ -304,6 +336,119 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     });
 
     validateAndSetError(name, newValue);
+
+    // Validación en tiempo real del nombre de usuario con el backend
+    if (name === "nombreUsuario" && typeof newValue === "string") {
+      const username = newValue.trim().toLowerCase();
+      const originalUsername = originalUsernameRef.current;
+      
+      // Actualizar referencia al valor actual
+      currentUsernameRef.current = username;
+
+      // Limpiar timeout anterior
+      if (usernameCheckTimeoutRef.current !== null) {
+        clearTimeout(usernameCheckTimeoutRef.current);
+        usernameCheckTimeoutRef.current = null;
+      }
+
+      // Si es el mismo nombre de usuario que ya tiene guardado (al editar), limpiar error inmediatamente
+      if (isEditing && originalUsername && username === originalUsername) {
+        setFieldErrors((prev) => {
+          const newErrors = { ...prev };
+          if (
+            newErrors.nombreUsuario === "Este nombre de usuario ya está en uso"
+          ) {
+            delete newErrors.nombreUsuario;
+          }
+          return newErrors;
+        });
+        setCheckingUsername(false);
+        return; // No hacer validación si es el mismo usuario
+      }
+
+      // Solo verificar si tiene al menos 4 caracteres y no es el mismo que el empleado actual
+      if (username.length >= 4 && (!isEditing || !originalUsername || username !== originalUsername)) {
+        // Debounce: esperar 300ms después del último cambio antes de hacer la petición
+        usernameCheckTimeoutRef.current = window.setTimeout(async () => {
+          // Leer el valor actual desde la referencia (más confiable que formData en el closure)
+          const currentUsername = currentUsernameRef.current.trim().toLowerCase();
+          const currentOriginal = originalUsernameRef.current;
+          
+          // Si ahora es el mismo que el original, no hacer la petición y limpiar error
+          if (isEditing && currentOriginal && currentUsername === currentOriginal) {
+            setFieldErrors((prev) => {
+              const newErrors = { ...prev };
+              if (
+                newErrors.nombreUsuario === "Este nombre de usuario ya está en uso"
+              ) {
+                delete newErrors.nombreUsuario;
+              }
+              return newErrors;
+            });
+            setCheckingUsername(false);
+            return;
+          }
+
+          // Solo hacer la petición si sigue siendo diferente y tiene al menos 4 caracteres
+          if (currentUsername.length >= 4 && (!isEditing || !currentOriginal || currentUsername !== currentOriginal)) {
+            setCheckingUsername(true);
+            try {
+              const available = await EmpleadoService.checkUsername(currentUsername);
+              
+              // Verificar una vez más después de la respuesta (por si el usuario cambió el valor mientras se hacía la petición)
+              const finalUsername = currentUsernameRef.current.trim().toLowerCase();
+              const finalOriginal = originalUsernameRef.current;
+              
+              // IMPORTANTE: Si ahora es el mismo que el original, NO establecer error de duplicado
+              if (isEditing && finalOriginal && finalUsername === finalOriginal) {
+                // Si ahora es el mismo que el original, limpiar error (no establecerlo)
+                setFieldErrors((prev) => {
+                  const newErrors = { ...prev };
+                  if (
+                    newErrors.nombreUsuario === "Este nombre de usuario ya está en uso"
+                  ) {
+                    delete newErrors.nombreUsuario;
+                  }
+                  return newErrors;
+                });
+              } else if (!available) {
+                // Solo establecer error si NO es el mismo que el original
+                setFieldErrors((prev) => ({
+                  ...prev,
+                  nombreUsuario: "Este nombre de usuario ya está en uso",
+                }));
+              } else {
+                // Limpiar el error de duplicado si está disponible
+                setFieldErrors((prev) => {
+                  const newErrors = { ...prev };
+                  if (
+                    newErrors.nombreUsuario === "Este nombre de usuario ya está en uso"
+                  ) {
+                    delete newErrors.nombreUsuario;
+                  }
+                  return newErrors;
+                });
+              }
+            } catch (error) {
+              console.error("Error al verificar nombre de usuario:", error);
+            } finally {
+              setCheckingUsername(false);
+            }
+          }
+        }, 300);
+      } else if (username.length < 4) {
+        // Limpiar error de duplicado si tiene menos de 4 caracteres
+        setFieldErrors((prev) => {
+          const newErrors = { ...prev };
+          if (
+            newErrors.nombreUsuario === "Este nombre de usuario ya está en uso"
+          ) {
+            delete newErrors.nombreUsuario;
+          }
+          return newErrors;
+        });
+      }
+    }
   };
 
   const handleSelectChange = (e: any) => {
@@ -343,6 +488,9 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         const updateData: UpdateEmpleadoDto = {
           id: empleado.id,
           ...updateFields,
+          // Asegurar que nombreUsuario siempre esté en minúsculas
+          nombreUsuario:
+            formData.nombreUsuario?.toLowerCase() || formData.nombreUsuario,
           // Solo incluir contraseña si no está vacía
           ...(contrasena.trim() ? { contrasena } : {}),
           // Incluir editTime si tiene un valor
@@ -354,6 +502,9 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         // Ensure all required fields for CreateEmpleadoDto are present
         const createData: CreateEmpleadoDto = {
           ...formData,
+          // Asegurar que nombreUsuario siempre esté en minúsculas
+          nombreUsuario:
+            formData.nombreUsuario?.toLowerCase() || formData.nombreUsuario,
           urlFotoPerfil: "", // or selectedFiles?.urlFotoPerfil if needed
           codigo: "", // provide a default or generate as needed
           departamento: "", // provide a default or map from departamentoId if needed
@@ -465,7 +616,22 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
               fullWidth
               required
               error={!!fieldErrors.nombreUsuario}
-              helperText={fieldErrors.nombreUsuario}
+              helperText={
+                checkingUsername
+                  ? "Verificando disponibilidad..."
+                  : fieldErrors.nombreUsuario ||
+                    (formData.nombreUsuario &&
+                    formData.nombreUsuario.length >= 4
+                      ? "Solo letras y números, mínimo 4 caracteres"
+                      : "")
+              }
+              InputProps={{
+                endAdornment: checkingUsername ? (
+                  <InputAdornment position="end">
+                    <CircularProgress size={20} />
+                  </InputAdornment>
+                ) : null,
+              }}
             />
             <TextField
               label="DNI"

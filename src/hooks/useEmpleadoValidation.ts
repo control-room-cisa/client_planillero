@@ -22,10 +22,15 @@ export const useEmpleadoValidation = (isEditing: boolean) => {
       case "nombreUsuario":
         if (!value || value.trim().length === 0)
           return "Nombre de usuario es requerido";
-        if (value.length < 3)
-          return "Nombre de usuario debe tener al menos 3 caracteres";
+        // Validar que tenga al menos 4 caracteres
+        if (value.length < 4)
+          return "Nombre de usuario debe tener al menos 4 caracteres";
         if (value.length > 15)
           return "Nombre de usuario no puede tener más de 15 caracteres";
+        // Validar que solo contenga letras y números (sin símbolos ni espacios)
+        const usernameRegex = /^[a-zA-Z0-9]+$/;
+        if (!usernameRegex.test(value))
+          return "El nombre de usuario solo puede contener letras y números";
         break;
       case "correoElectronico":
         // Correo es opcional ahora

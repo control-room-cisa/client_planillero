@@ -285,6 +285,21 @@ class EmpleadoService {
       throw new Error("Error al eliminar el empleado");
     }
   }
+
+  static async checkUsername(username: string): Promise<boolean> {
+    try {
+      const response = await api.get<{
+        success: boolean;
+        message: string;
+        data: { available: boolean };
+      }>(`/empleados/check-username/${encodeURIComponent(username)}`);
+      return response.data.data.available;
+    } catch (error) {
+      console.error(`Error al verificar nombre de usuario:`, error);
+      // Si hay error, asumir que no está disponible para ser conservador
+      return false;
+    }
+  }
 }
 
 export default EmpleadoService;
