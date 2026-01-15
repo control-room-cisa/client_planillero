@@ -69,7 +69,8 @@ export const H1EditableRules: HorarioRuleEngine = {
       // Día libre oculto, por defecto false
       next.esDiaLibre = false;
       // Campo client-only: default false
-      if (typeof next.esDiaNoLaborable !== "boolean") next.esDiaNoLaborable = false;
+      if (typeof next.esDiaNoLaborable !== "boolean")
+        next.esDiaNoLaborable = false;
 
       // Feriado: setear 07:00 - 07:00
       if (apiData?.esFestivo) {
@@ -123,12 +124,13 @@ export const H1EditableRules: HorarioRuleEngine = {
         .toString()
         .padStart(2, "0");
       const mins = (e % 60).toString().padStart(2, "0");
-      return { ...base, esHoraCorrida: nextValue, horaSalida: `${hours}:${mins}` };
+      return {
+        ...base,
+        esHoraCorrida: nextValue,
+        horaSalida: `${hours}:${mins}`,
+      };
     },
   },
 };
 
 export default H1EditableRules;
-
-
-

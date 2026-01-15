@@ -35,7 +35,7 @@ export const TIPO_HORARIO_LABEL: Record<TipoHorario, string> = {
 
 export function getTipoHorarioLabel(tipoHorario?: string | null): string {
   if (!tipoHorario) return "N/A";
-  return (TIPO_HORARIO_LABEL as Record<string, string>)[tipoHorario] || tipoHorario;
+  return (
+    (TIPO_HORARIO_LABEL as Record<string, string>)[tipoHorario] || tipoHorario
+  );
 }
-
-

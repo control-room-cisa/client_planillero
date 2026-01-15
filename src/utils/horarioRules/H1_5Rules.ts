@@ -68,7 +68,8 @@ export const H1_5Rules: HorarioRuleEngine = {
       // Día libre viene del backend y se muestra, pero no se puede cambiar.
       next.esDiaLibre = Boolean(apiData?.esDiaLibre);
       // Client-only default
-      if (typeof next.esDiaNoLaborable !== "boolean") next.esDiaNoLaborable = false;
+      if (typeof next.esDiaNoLaborable !== "boolean")
+        next.esDiaNoLaborable = false;
 
       // Feriado: setear 07:00 - 07:00 (0 horas por diferencia)
       if (apiData?.esFestivo) {
@@ -80,7 +81,8 @@ export const H1_5Rules: HorarioRuleEngine = {
       // Cargar siempre del backend cuando no hay registro existente.
       // Si hay registro existente, useDailyTimesheet setea desde el registro.
       if (!hasExisting) {
-        next.horaEntrada = apiData?.horarioTrabajo?.inicio || next.horaEntrada || "";
+        next.horaEntrada =
+          apiData?.horarioTrabajo?.inicio || next.horaEntrada || "";
         next.horaSalida = apiData?.horarioTrabajo?.fin || next.horaSalida || "";
       }
 
@@ -118,12 +120,13 @@ export const H1_5Rules: HorarioRuleEngine = {
         .toString()
         .padStart(2, "0");
       const mins = (e % 60).toString().padStart(2, "0");
-      return { ...base, esHoraCorrida: nextValue, horaSalida: `${hours}:${mins}` };
+      return {
+        ...base,
+        esHoraCorrida: nextValue,
+        horaSalida: `${hours}:${mins}`,
+      };
     },
   },
 };
 
 export default H1_5Rules;
-
-
-
