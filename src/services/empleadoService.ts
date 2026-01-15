@@ -45,6 +45,7 @@ interface Empleado {
   nombreMadre?: string;
   nombrePadre?: string;
   fechaInicioIngreso?: string;
+  editTime?: string | null;
   // Campos adicionales del DTO completo
   createdAt?: string;
   updatedAt?: string;
@@ -101,6 +102,7 @@ interface CreateEmpleadoDto {
   nombreMadre?: string;
   nombrePadre?: string;
   fechaInicioIngreso?: Date;
+  editTime?: Date | string | null;
 }
 
 interface UpdateEmpleadoDto {
@@ -137,6 +139,7 @@ interface UpdateEmpleadoDto {
   nombreMadre?: string;
   nombrePadre?: string;
   fechaInicioIngreso?: Date;
+  editTime?: Date | string | null;
   // Nota: contraseña no se incluye en actualizaciones por seguridad
 }
 

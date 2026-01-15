@@ -282,9 +282,78 @@ export const useDailyTimesheet = () => {
     }
   }, [formData.horaExtra]);
 
-  const readOnly = !!(
-    registroDiario?.aprobacionSupervisor || registroDiario?.aprobacionRrhh
-  );
+  /**
+   * Lógica de habilitación/deshabilitación de edición de registros diarios:
+   * 
+   * 1. Validar rango de fechas permitido: (fechaActual - 3 días) a (fechaActual + 30 días)
+   * 2. Si la fecha está FUERA del rango:
+   *    - Inhabilitar edición EXCEPTO si:
+   *      * editTime > fechaActual (futuro) - permite editar fuera del rango
+   *      * aprobacionRRHH === false (rechazado) - permite corregir
+   * 3. Si la fecha está DENTRO del rango o editTime > now:
+   *    - Aplicar regla actual:
+   *      * Deshabilitar si: aprobacionSupervisor === true
+   *      * Habilitar si: aprobacionSupervisor !== true (null o false) O aprobacionRRHH === false
+   */
+  const readOnly = React.useMemo(() => {
+    const fechaActual = new Date();
+    fechaActual.setHours(0, 0, 0, 0); // Normalizar a inicio del día
+
+    // Obtener fecha del registro (usar fecha del registro diario si existe, sino usar currentDate)
+    const fechaRegistro = registroDiario?.fecha
+      ? new Date(registroDiario.fecha)
+      : new Date(currentDate);
+    fechaRegistro.setHours(0, 0, 0, 0); // Normalizar a inicio del día
+
+    // Calcular rango permitido: (fechaActual - 3 días) a (fechaActual + 30 días)
+    const fechaMin = new Date(fechaActual);
+    fechaMin.setDate(fechaMin.getDate() - 3);
+    
+    const fechaMax = new Date(fechaActual);
+    fechaMax.setDate(fechaMax.getDate() + 30);
+
+    // Verificar si está dentro del rango permitido
+    const estaEnRango = fechaRegistro >= fechaMin && fechaRegistro <= fechaMax;
+
+    // Verificar si editTime es futuro
+    const editTimeFuturo = user?.editTime
+      ? new Date(user.editTime) > fechaActual
+      : false;
+
+    // Si no hay registro diario, validar solo el rango de fechas
+    if (!registroDiario) {
+      // Si está dentro del rango O editTime es futuro, permitir crear/editar
+      if (estaEnRango || editTimeFuturo) {
+        return false; // Habilitar
+      }
+      // Fuera del rango y sin editTime futuro: inhabilitar
+      return true;
+    }
+
+    // Si hay registro diario, aplicar lógica completa con aprobaciones
+
+    // Si está dentro del rango O editTime es futuro, aplicar regla actual
+    if (estaEnRango || editTimeFuturo) {
+      // Deshabilitar si está aprobado por supervisor O por RRHH
+      // EXCEPTO si fue rechazado por RRHH (permite corregir)
+      if (registroDiario.aprobacionRrhh === false) {
+        return false; // Habilitar si fue rechazado por RRHH
+      }
+
+      return !!(
+        registroDiario.aprobacionSupervisor || registroDiario.aprobacionRrhh
+      );
+    }
+
+    // Si está fuera del rango Y editTime NO es futuro
+    // Solo habilitar si fue rechazado por RRHH (permite corregir)
+    if (registroDiario.aprobacionRrhh === false) {
+      return false; // Habilitar si fue rechazado por RRHH
+    }
+
+    // Fuera del rango y sin excepciones: inhabilitar
+    return true;
+  }, [registroDiario, currentDate, user?.editTime]);
 
   // Nueva función para cargar validaciones de horario
   const loadHorarioValidations = React.useCallback(

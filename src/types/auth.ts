@@ -49,6 +49,7 @@ export interface Empleado {
   rolId: number;
   horasDiariasTrabajadas?: number | null;
   dni?: string | null;
+  editTime?: string | null; // Fecha/hora hasta la cual el empleado puede editar registros fuera del rango normal
   createdAt?: string;
   updatedAt?: string | null;
   deletedAt?: string | null;

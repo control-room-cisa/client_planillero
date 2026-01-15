@@ -134,6 +134,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     nombreMadre: "",
     nombrePadre: "",
     fechaInicioIngreso: undefined,
+    editTime: undefined,
     empresaId: 0,
     /** campos faltantes */
   });
@@ -243,6 +244,9 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         fechaInicioIngreso: empleadoCompleto.fechaInicioIngreso
           ? new Date(empleadoCompleto.fechaInicioIngreso)
           : undefined,
+        editTime: empleadoCompleto.editTime
+          ? new Date(empleadoCompleto.editTime)
+          : undefined,
       });
     } catch (error) {
       console.error("Error al cargar datos del empleado:", error);
@@ -282,6 +286,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       nombreMadre: "",
       nombrePadre: "",
       fechaInicioIngreso: undefined,
+      editTime: undefined,
       empresaId: 0,
     });
     setSelectedFiles({});
@@ -334,12 +339,14 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       setLoading(true);
 
       if (isEditing && empleado) {
-        const { contrasena, ...updateFields } = formData;
+        const { contrasena, empresaId, ...updateFields } = formData;
         const updateData: UpdateEmpleadoDto = {
           id: empleado.id,
           ...updateFields,
           // Solo incluir contraseña si no está vacía
           ...(contrasena.trim() ? { contrasena } : {}),
+          // Incluir editTime si tiene un valor
+          ...(formData.editTime ? { editTime: formData.editTime } : {}),
         };
         await EmpleadoService.update(updateData, selectedFiles);
         onSuccess("Colaborador actualizado exitosamente");
@@ -636,6 +643,42 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                 InputLabelProps={{ shrink: true }}
               />
 
+              <TextField
+                label="Fecha/Hora Límite de Edición"
+                name="editTime"
+                type="datetime-local"
+                value={
+                  formData.editTime
+                    ? (() => {
+                        const date = new Date(formData.editTime);
+                        // Ajustar a la zona horaria local para datetime-local
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(
+                          2,
+                          "0"
+                        );
+                        const day = String(date.getDate()).padStart(2, "0");
+                        const hours = String(date.getHours()).padStart(2, "0");
+                        const minutes = String(date.getMinutes()).padStart(
+                          2,
+                          "0"
+                        );
+                        return `${year}-${month}-${day}T${hours}:${minutes}`;
+                      })()
+                    : ""
+                }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({
+                    ...formData,
+                    editTime: value ? new Date(value) : undefined,
+                  });
+                }}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                helperText="Permite editar registros fuera del rango normal hasta esta fecha/hora"
+              />
+
               <FormControl fullWidth error={!!fieldErrors.rolId}>
                 <InputLabel>Rol *</InputLabel>
                 <Select
@@ -648,8 +691,12 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   <MenuItem value={Roles.EMPLEADO}>Colaborador</MenuItem>
                   <MenuItem value={Roles.SUPERVISOR}>Supervisor</MenuItem>
                   <MenuItem value={Roles.RRHH}>RRHH</MenuItem>
-                  <MenuItem value={Roles.SUPERVISOR_CONTABILIDAD}>Supervisor Contabilidad</MenuItem>
-                  <MenuItem value={Roles.ASISTENTE_CONTABILIDAD}>Asistente Contabilidad</MenuItem>
+                  <MenuItem value={Roles.SUPERVISOR_CONTABILIDAD}>
+                    Supervisor Contabilidad
+                  </MenuItem>
+                  <MenuItem value={Roles.ASISTENTE_CONTABILIDAD}>
+                    Asistente Contabilidad
+                  </MenuItem>
                 </Select>
                 {fieldErrors.rolId && (
                   <Typography
