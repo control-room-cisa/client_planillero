@@ -341,7 +341,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     if (name === "nombreUsuario" && typeof newValue === "string") {
       const username = newValue.trim().toLowerCase();
       const originalUsername = originalUsernameRef.current;
-      
+
       // Actualizar referencia al valor actual
       currentUsernameRef.current = username;
 
@@ -367,19 +367,29 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       }
 
       // Solo verificar si tiene al menos 4 caracteres y no es el mismo que el empleado actual
-      if (username.length >= 4 && (!isEditing || !originalUsername || username !== originalUsername)) {
+      if (
+        username.length >= 4 &&
+        (!isEditing || !originalUsername || username !== originalUsername)
+      ) {
         // Debounce: esperar 300ms después del último cambio antes de hacer la petición
         usernameCheckTimeoutRef.current = window.setTimeout(async () => {
           // Leer el valor actual desde la referencia (más confiable que formData en el closure)
-          const currentUsername = currentUsernameRef.current.trim().toLowerCase();
+          const currentUsername = currentUsernameRef.current
+            .trim()
+            .toLowerCase();
           const currentOriginal = originalUsernameRef.current;
-          
+
           // Si ahora es el mismo que el original, no hacer la petición y limpiar error
-          if (isEditing && currentOriginal && currentUsername === currentOriginal) {
+          if (
+            isEditing &&
+            currentOriginal &&
+            currentUsername === currentOriginal
+          ) {
             setFieldErrors((prev) => {
               const newErrors = { ...prev };
               if (
-                newErrors.nombreUsuario === "Este nombre de usuario ya está en uso"
+                newErrors.nombreUsuario ===
+                "Este nombre de usuario ya está en uso"
               ) {
                 delete newErrors.nombreUsuario;
               }
@@ -390,22 +400,36 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
           }
 
           // Solo hacer la petición si sigue siendo diferente y tiene al menos 4 caracteres
-          if (currentUsername.length >= 4 && (!isEditing || !currentOriginal || currentUsername !== currentOriginal)) {
+          if (
+            currentUsername.length >= 4 &&
+            (!isEditing ||
+              !currentOriginal ||
+              currentUsername !== currentOriginal)
+          ) {
             setCheckingUsername(true);
             try {
-              const available = await EmpleadoService.checkUsername(currentUsername);
-              
+              const available = await EmpleadoService.checkUsername(
+                currentUsername
+              );
+
               // Verificar una vez más después de la respuesta (por si el usuario cambió el valor mientras se hacía la petición)
-              const finalUsername = currentUsernameRef.current.trim().toLowerCase();
+              const finalUsername = currentUsernameRef.current
+                .trim()
+                .toLowerCase();
               const finalOriginal = originalUsernameRef.current;
-              
+
               // IMPORTANTE: Si ahora es el mismo que el original, NO establecer error de duplicado
-              if (isEditing && finalOriginal && finalUsername === finalOriginal) {
+              if (
+                isEditing &&
+                finalOriginal &&
+                finalUsername === finalOriginal
+              ) {
                 // Si ahora es el mismo que el original, limpiar error (no establecerlo)
                 setFieldErrors((prev) => {
                   const newErrors = { ...prev };
                   if (
-                    newErrors.nombreUsuario === "Este nombre de usuario ya está en uso"
+                    newErrors.nombreUsuario ===
+                    "Este nombre de usuario ya está en uso"
                   ) {
                     delete newErrors.nombreUsuario;
                   }
@@ -422,7 +446,8 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                 setFieldErrors((prev) => {
                   const newErrors = { ...prev };
                   if (
-                    newErrors.nombreUsuario === "Este nombre de usuario ya está en uso"
+                    newErrors.nombreUsuario ===
+                    "Este nombre de usuario ya está en uso"
                   ) {
                     delete newErrors.nombreUsuario;
                   }
