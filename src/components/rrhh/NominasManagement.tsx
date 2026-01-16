@@ -40,6 +40,7 @@ import type { Empresa } from "../../types/auth";
 import type { Empleado } from "../../services/empleadoService";
 import { Select, MenuItem, InputLabel, FormControl } from "@mui/material";
 import ConfirmDialog from "../common/ConfirmDialog";
+import NominaFormModal from "./NominaFormModal";
 
 const NominasManagement: React.FC = () => {
   const [nominas, setNominas] = useState<NominaDto[]>([]);
@@ -58,6 +59,8 @@ const NominasManagement: React.FC = () => {
   const [openEditModal, setOpenEditModal] = useState(false);
   const [openDetailModal, setOpenDetailModal] = useState(false);
   const [openDetailTableModal, setOpenDetailTableModal] = useState(false);
+  const [openCreateEditModal, setOpenCreateEditModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [currentNomina, setCurrentNomina] = useState<NominaDto | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<NominaDto>>({});
   const [errorAlimentacion, setErrorAlimentacion] = useState<{
@@ -304,8 +307,97 @@ const NominasManagement: React.FC = () => {
     );
   }, [nominas, calcularTotalHorasExtra]);
 
-  // Abrir modal de edición
-  const handleOpenEditModal = async (nomina: NominaDto) => {
+  // Abrir modal de crear/editar nómina
+  const handleOpenCreateEditModal = (nomina?: NominaDto) => {
+    if (nomina) {
+      setIsCreating(false);
+      setCurrentNomina(nomina);
+    } else {
+      setIsCreating(true);
+      setCurrentNomina(null);
+    }
+    setOpenCreateEditModal(true);
+  };
+
+  // Cerrar modal de crear/editar
+  const handleCloseCreateEditModal = () => {
+    setOpenCreateEditModal(false);
+    setCurrentNomina(null);
+  };
+
+  // Función para refrescar nóminas después de guardar
+  const handleRefreshNominas = useCallback(async () => {
+    await fetchNominas();
+  }, [fetchNominas]);
+
+  // Handler para onKeyPress - previene entrada de caracteres no numéricos
+  const handleNumericKeyPress = (
+    e: React.KeyboardEvent<any>,
+    allowNegative: boolean = false,
+    allowDecimal: boolean = true
+  ) => {
+    const char = e.key;
+    const charLower = typeof char === "string" ? char.toLowerCase() : "";
+    const target = e.target as HTMLInputElement;
+
+    // Permitir teclas de control
+    if (
+      char === "Backspace" ||
+      char === "Delete" ||
+      char === "ArrowLeft" ||
+      char === "ArrowRight" ||
+      char === "ArrowUp" ||
+      char === "ArrowDown" ||
+      char === "Tab" ||
+      char === "Enter" ||
+      (e.ctrlKey &&
+        (charLower === "a" ||
+          charLower === "c" ||
+          charLower === "v" ||
+          charLower === "x"))
+    ) {
+      return;
+    }
+
+    // Permitir números
+    if (/[0-9]/.test(char)) {
+      return;
+    }
+
+    // Permitir separador decimal:
+    // - "." (teclado normal)
+    // - "," (teclado ES, luego se convierte a ".")
+    // - "Decimal" (teclado numérico en algunos navegadores/OS)
+    if (char === "." || char === "," || charLower === "decimal") {
+      if (!allowDecimal) {
+        e.preventDefault();
+        return;
+      }
+      if (target.value && target.value.includes(".")) {
+        e.preventDefault();
+      }
+      return;
+    }
+
+    // Permitir signo negativo solo al inicio y si está permitido
+    if (allowNegative && char === "-") {
+      const selectionStart = target.selectionStart ?? 0;
+      if (selectionStart === 0 && !target.value?.includes("-")) {
+        return;
+      }
+      e.preventDefault();
+      return;
+    }
+
+    // Bloquear cualquier otro carácter
+    e.preventDefault();
+  };
+
+  // Abrir modal de edición (solo deducciones)
+  // Nota: Esta función se mantiene para compatibilidad con el modal de edición existente
+  // aunque actualmente no se llama desde ningún lugar externo
+  // @ts-ignore - Función mantenida para compatibilidad con modal existente
+  const _handleOpenEditModal = async (nomina: NominaDto) => {
     if (nomina.pagado === true) {
       showSnackbar("No se puede editar una nómina que ya está pagada", "error");
       return;
@@ -485,6 +577,7 @@ const NominasManagement: React.FC = () => {
             gap: 2,
             flexWrap: "wrap",
             alignItems: "flex-end",
+            mb: 2,
           }}
         >
           <Autocomplete
@@ -580,6 +673,19 @@ const NominasManagement: React.FC = () => {
             Ver Detalles
           </Button>
         </Box>
+
+        {/* Botón Crear Nómina - Separado para mayor visibilidad */}
+        <Box sx={{ display: "flex", justifyContent: "flex-start", mt: 1 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            size="medium"
+            onClick={() => handleOpenCreateEditModal()}
+            sx={{ minWidth: 150 }}
+          >
+            Crear Nómina
+          </Button>
+        </Box>
       </Paper>
 
       {/* Tabla */}
@@ -669,7 +775,7 @@ const NominasManagement: React.FC = () => {
                       </IconButton>
                       <IconButton
                         size="small"
-                        onClick={() => handleOpenEditModal(nomina)}
+                        onClick={() => handleOpenCreateEditModal(nomina)}
                         disabled={nomina.pagado === true}
                         color="primary"
                         title="Editar"
@@ -754,14 +860,28 @@ const NominasManagement: React.FC = () => {
             >
               <TextField
                 label="Ajuste"
-                type="number"
+                type="text"
                 value={editFormData.ajuste ?? ""}
-                onChange={(e) =>
+                onChange={(e) => {
+                  let value = e.target.value.replace(/[^0-9.-]/g, "");
+                  const parts = value.split(".");
+                  value =
+                    parts.length > 2
+                      ? parts[0] + "." + parts.slice(1).join("")
+                      : value;
+                  if (value.includes("-")) {
+                    const negParts = value.split("-");
+                    value = "-" + negParts.slice(1).join("").replace(/-/g, "");
+                  }
                   setEditFormData({
                     ...editFormData,
-                    ajuste: e.target.value ? parseFloat(e.target.value) : null,
-                  })
-                }
+                    ajuste:
+                      value === "" || value === "-" || value === "."
+                        ? null
+                        : parseFloat(value) || null,
+                  });
+                }}
+                onKeyPress={(e) => handleNumericKeyPress(e, true)}
                 fullWidth
                 size="small"
               />
@@ -779,61 +899,93 @@ const NominasManagement: React.FC = () => {
             >
               <TextField
                 label="Deducción IHSS"
-                type="number"
+                type="text"
                 value={editFormData.deduccionIHSS ?? ""}
-                onChange={(e) =>
+                onChange={(e) => {
+                  let value = e.target.value.replace(/[^0-9.]/g, "");
+                  const parts = value.split(".");
+                  value =
+                    parts.length > 2
+                      ? parts[0] + "." + parts.slice(1).join("")
+                      : value;
                   setEditFormData({
                     ...editFormData,
-                    deduccionIHSS: e.target.value
-                      ? parseFloat(e.target.value)
-                      : null,
-                  })
-                }
+                    deduccionIHSS:
+                      value === "" || value === "."
+                        ? null
+                        : parseFloat(value) || null,
+                  });
+                }}
+                onKeyPress={(e) => handleNumericKeyPress(e, false)}
                 fullWidth
                 size="small"
               />
               <TextField
                 label="Deducción ISR"
-                type="number"
+                type="text"
                 value={editFormData.deduccionISR ?? ""}
-                onChange={(e) =>
+                onChange={(e) => {
+                  let value = e.target.value.replace(/[^0-9.]/g, "");
+                  const parts = value.split(".");
+                  value =
+                    parts.length > 2
+                      ? parts[0] + "." + parts.slice(1).join("")
+                      : value;
                   setEditFormData({
                     ...editFormData,
-                    deduccionISR: e.target.value
-                      ? parseFloat(e.target.value)
-                      : null,
-                  })
-                }
+                    deduccionISR:
+                      value === "" || value === "."
+                        ? null
+                        : parseFloat(value) || null,
+                  });
+                }}
+                onKeyPress={(e) => handleNumericKeyPress(e, false)}
                 fullWidth
                 size="small"
               />
               <TextField
                 label="Deducción RAP"
-                type="number"
+                type="text"
                 value={editFormData.deduccionRAP ?? ""}
-                onChange={(e) =>
+                onChange={(e) => {
+                  let value = e.target.value.replace(/[^0-9.]/g, "");
+                  const parts = value.split(".");
+                  value =
+                    parts.length > 2
+                      ? parts[0] + "." + parts.slice(1).join("")
+                      : value;
                   setEditFormData({
                     ...editFormData,
-                    deduccionRAP: e.target.value
-                      ? parseFloat(e.target.value)
-                      : null,
-                  })
-                }
+                    deduccionRAP:
+                      value === "" || value === "."
+                        ? null
+                        : parseFloat(value) || null,
+                  });
+                }}
+                onKeyPress={(e) => handleNumericKeyPress(e, false)}
                 fullWidth
                 size="small"
               />
               <TextField
                 label="Deducción Alimentación"
-                type="number"
+                type="text"
                 value={editFormData.deduccionAlimentacion ?? ""}
-                onChange={(e) =>
+                onChange={(e) => {
+                  let value = e.target.value.replace(/[^0-9.]/g, "");
+                  const parts = value.split(".");
+                  value =
+                    parts.length > 2
+                      ? parts[0] + "." + parts.slice(1).join("")
+                      : value;
                   setEditFormData({
                     ...editFormData,
-                    deduccionAlimentacion: e.target.value
-                      ? parseFloat(e.target.value)
-                      : null,
-                  })
-                }
+                    deduccionAlimentacion:
+                      value === "" || value === "."
+                        ? null
+                        : parseFloat(value) || null,
+                  });
+                }}
+                onKeyPress={(e) => handleNumericKeyPress(e, false)}
                 fullWidth
                 size="small"
                 disabled={
@@ -850,44 +1002,70 @@ const NominasManagement: React.FC = () => {
               />
               <TextField
                 label="Cobro Préstamo"
-                type="number"
+                type="text"
                 value={editFormData.cobroPrestamo ?? ""}
-                onChange={(e) =>
+                onChange={(e) => {
+                  let value = e.target.value.replace(/[^0-9.]/g, "");
+                  const parts = value.split(".");
+                  value =
+                    parts.length > 2
+                      ? parts[0] + "." + parts.slice(1).join("")
+                      : value;
                   setEditFormData({
                     ...editFormData,
-                    cobroPrestamo: e.target.value
-                      ? parseFloat(e.target.value)
-                      : null,
-                  })
-                }
+                    cobroPrestamo:
+                      value === "" || value === "."
+                        ? null
+                        : parseFloat(value) || null,
+                  });
+                }}
+                onKeyPress={(e) => handleNumericKeyPress(e, false)}
                 fullWidth
                 size="small"
               />
               <TextField
                 label="Impuesto Vecinal"
-                type="number"
+                type="text"
                 value={editFormData.impuestoVecinal ?? ""}
-                onChange={(e) =>
+                onChange={(e) => {
+                  let value = e.target.value.replace(/[^0-9.]/g, "");
+                  const parts = value.split(".");
+                  value =
+                    parts.length > 2
+                      ? parts[0] + "." + parts.slice(1).join("")
+                      : value;
                   setEditFormData({
                     ...editFormData,
-                    impuestoVecinal: e.target.value
-                      ? parseFloat(e.target.value)
-                      : null,
-                  })
-                }
+                    impuestoVecinal:
+                      value === "" || value === "."
+                        ? null
+                        : parseFloat(value) || null,
+                  });
+                }}
+                onKeyPress={(e) => handleNumericKeyPress(e, false)}
                 fullWidth
                 size="small"
               />
               <TextField
                 label="Otros"
-                type="number"
+                type="text"
                 value={editFormData.otros ?? ""}
-                onChange={(e) =>
+                onChange={(e) => {
+                  let value = e.target.value.replace(/[^0-9.]/g, "");
+                  const parts = value.split(".");
+                  value =
+                    parts.length > 2
+                      ? parts[0] + "." + parts.slice(1).join("")
+                      : value;
                   setEditFormData({
                     ...editFormData,
-                    otros: e.target.value ? parseFloat(e.target.value) : null,
-                  })
-                }
+                    otros:
+                      value === "" || value === "."
+                        ? null
+                        : parseFloat(value) || null,
+                  });
+                }}
+                onKeyPress={(e) => handleNumericKeyPress(e, false)}
                 fullWidth
                 size="small"
               />
@@ -1558,6 +1736,17 @@ const NominasManagement: React.FC = () => {
           <Button onClick={handleCloseDetailModal}>Cerrar</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Modal de crear/editar nómina */}
+      <NominaFormModal
+        open={openCreateEditModal}
+        isCreating={isCreating}
+        nomina={currentNomina}
+        empresas={empresas}
+        onClose={handleCloseCreateEditModal}
+        onSave={handleRefreshNominas}
+        showSnackbar={showSnackbar}
+      />
 
       {/* Diálogo de confirmación */}
       <ConfirmDialog
