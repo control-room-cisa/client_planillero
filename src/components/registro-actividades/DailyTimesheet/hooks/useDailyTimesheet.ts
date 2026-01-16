@@ -464,6 +464,19 @@ export const useDailyTimesheet = () => {
                   esIncapacidad: registro.esIncapacidad || false,
                   comentarioEmpleado: registro.comentarioEmpleado || "",
                 };
+              } else if (horarioData.tipoHorario === "H1_7") {
+                return {
+                  ...base,
+                  // Jornada siempre fija en día para H1_7
+                  jornada: "D",
+                  horaEntrada: formatTimeLocal(registro.horaEntrada),
+                  horaSalida: formatTimeLocal(registro.horaSalida),
+                  // Cargar esDiaLibre desde el registro guardado
+                  esDiaLibre: Boolean(registro.esDiaLibre),
+                  esDiaNoLaborable: false,
+                  esIncapacidad: registro.esIncapacidad || false,
+                  comentarioEmpleado: registro.comentarioEmpleado || "",
+                };
               } else {
                 return {
                   ...base,
@@ -493,6 +506,16 @@ export const useDailyTimesheet = () => {
                   ? horarioData.nombreDiaFestivo
                   : ""),
             };
+
+            // Para H1_7, aplicar las reglas de procesamiento de defaults
+            if (horarioData.tipoHorario === "H1_7") {
+              const processed = horarioRules.utils.processApiDefaults(
+                result,
+                horarioData,
+                Boolean(registro)
+              );
+              return processed;
+            }
 
             return result;
           });

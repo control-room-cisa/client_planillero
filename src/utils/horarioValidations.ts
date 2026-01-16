@@ -145,6 +145,12 @@ export class HorarioValidator {
         const base = this.validateH1(horario, datosExistentes);
         return { ...base, mostrarJornada: false };
       }
+      case "H1_7":
+      {
+        // H1_7: horario editable con día libre visible
+        const base = this.validateH1(horario, datosExistentes);
+        return { ...base, mostrarJornada: false };
+      }
       case "H2_1":
         return this.validateH2(horario, datosExistentes);
       case "H2_2": {
