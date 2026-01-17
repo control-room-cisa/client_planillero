@@ -271,7 +271,7 @@ export default function Layout() {
         },
         {
           id: "accesos-planilla",
-          text: "Accesos de Planilla",
+          text: "Accesos Especiales de Planilla",
           icon: <LockOpenIcon />,
           path: "/rrhh/accesos-planilla",
         },

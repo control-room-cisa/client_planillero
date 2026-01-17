@@ -242,49 +242,55 @@ export const useDailyTimesheet = () => {
   }, [fecha, currentDate, navigate]);
 
   // Cargar jobs cuando se abra el drawer
-  const loadJobs = React.useCallback(async (horaExtraOverride?: boolean) => {
-    try {
-      setLoadingJobs(true);
-      const jobsData = await JobService.getAll();
-      const jobsActivos = jobsData.filter((j) => j.activo === true);
+  const loadJobs = React.useCallback(
+    async (horaExtraOverride?: boolean) => {
+      try {
+        setLoadingJobs(true);
+        const jobsData = await JobService.getAll();
+        const jobsActivos = jobsData.filter((j) => j.activo === true);
 
-      // REGLA: Si horaExtra=true, mostrar SOLO jobs NO especiales
-      // Si horaExtra=false, mostrar TODOS los jobs (incluyendo especiales)
-      // Usar el override si se proporciona, de lo contrario usar formData.horaExtra
-      const horaExtraValue = horaExtraOverride !== undefined ? horaExtraOverride : formData.horaExtra;
-      const jobsFiltrados = horaExtraValue
-        ? jobsActivos.filter((j) => !j.especial)
-        : jobsActivos;
+        // REGLA: Si horaExtra=true, mostrar SOLO jobs NO especiales
+        // Si horaExtra=false, mostrar TODOS los jobs (incluyendo especiales)
+        // Usar el override si se proporciona, de lo contrario usar formData.horaExtra
+        const horaExtraValue =
+          horaExtraOverride !== undefined
+            ? horaExtraOverride
+            : formData.horaExtra;
+        const jobsFiltrados = horaExtraValue
+          ? jobsActivos.filter((j) => !j.especial)
+          : jobsActivos;
 
-      const jobMap = new Map(jobsFiltrados.map((j) => [j.codigo, j]));
+        const jobMap = new Map(jobsFiltrados.map((j) => [j.codigo, j]));
 
-      const jobsConJerarquia: JobConJerarquia[] = jobsFiltrados.map((j) => {
-        const isSubJob = j.codigo.includes(".");
-        const padreCodigo = isSubJob ? j.codigo.split(".")[0] : null;
-        const parentJob = padreCodigo ? jobMap.get(padreCodigo) : null;
-        return {
-          ...j,
-          indentLevel: isSubJob ? 1 : 0,
-          parentCodigo: parentJob?.codigo || null,
-        };
-      });
+        const jobsConJerarquia: JobConJerarquia[] = jobsFiltrados.map((j) => {
+          const isSubJob = j.codigo.includes(".");
+          const padreCodigo = isSubJob ? j.codigo.split(".")[0] : null;
+          const parentJob = padreCodigo ? jobMap.get(padreCodigo) : null;
+          return {
+            ...j,
+            indentLevel: isSubJob ? 1 : 0,
+            parentCodigo: parentJob?.codigo || null,
+          };
+        });
 
-      setJobs(jobsConJerarquia);
-    } catch (e) {
-      console.error("Error al cargar jobs:", e);
-      setSnackbar({
-        open: true,
-        message: "Error al cargar la lista de jobs",
-        severity: "error",
-      });
-    } finally {
-      setLoadingJobs(false);
-    }
-  }, [formData.horaExtra]);
+        setJobs(jobsConJerarquia);
+      } catch (e) {
+        console.error("Error al cargar jobs:", e);
+        setSnackbar({
+          open: true,
+          message: "Error al cargar la lista de jobs",
+          severity: "error",
+        });
+      } finally {
+        setLoadingJobs(false);
+      }
+    },
+    [formData.horaExtra]
+  );
 
   /**
    * Lógica de habilitación/deshabilitación de edición de registros diarios:
-   * 
+   *
    * 1. Validar rango de fechas permitido: (fechaActual - 3 días) a (fechaActual + 30 días)
    * 2. Si la fecha está FUERA del rango:
    *    - Inhabilitar edición EXCEPTO si:
@@ -308,7 +314,7 @@ export const useDailyTimesheet = () => {
     // Calcular rango permitido: (fechaActual - 3 días) a (fechaActual + 30 días)
     const fechaMin = new Date(fechaActual);
     fechaMin.setDate(fechaMin.getDate() - 3);
-    
+
     const fechaMax = new Date(fechaActual);
     fechaMax.setDate(fechaMax.getDate() + 30);
 
@@ -425,9 +431,7 @@ export const useDailyTimesheet = () => {
                   esIncapacidad: registro.esIncapacidad || false,
                   comentarioEmpleado: registro.comentarioEmpleado || "",
                 };
-              } else if (
-                ["H1_3", "H1_4"].includes(horarioData.tipoHorario)
-              ) {
+              } else if (["H1_3", "H1_4"].includes(horarioData.tipoHorario)) {
                 return {
                   ...base,
                   // Jornada siempre fija en día para H1 editables
@@ -457,11 +461,14 @@ export const useDailyTimesheet = () => {
                   ...base,
                   // Jornada siempre fija en día para H2_2
                   jornada: "D",
-                  horaEntrada: formatTimeLocal(registro.horaEntrada),
-                  horaSalida: formatTimeLocal(registro.horaSalida),
+                  // H2_2: siempre mostrar el horario generado por backend (no el guardado en registro)
+                  horaEntrada: base.horaEntrada,
+                  horaSalida: base.horaSalida,
                   esDiaLibre: Boolean(horarioData.esDiaLibre),
                   esDiaNoLaborable: false,
                   esIncapacidad: registro.esIncapacidad || false,
+                  // esHoraCorrida sí se mantiene desde el registro (afecta descuento de almuerzo)
+                  esHoraCorrida: Boolean(registro.esHoraCorrida),
                   comentarioEmpleado: registro.comentarioEmpleado || "",
                 };
               } else if (horarioData.tipoHorario === "H1_7") {
@@ -493,9 +500,7 @@ export const useDailyTimesheet = () => {
 
             const result = {
               ...base,
-              esDiaLibre: ["H1_3", "H1_4"].includes(
-                horarioData.tipoHorario
-              )
+              esDiaLibre: ["H1_3", "H1_4"].includes(horarioData.tipoHorario)
                 ? false
                 : Boolean(horarioData.esDiaLibre),
               esDiaNoLaborable: false,
@@ -511,7 +516,6 @@ export const useDailyTimesheet = () => {
             if (horarioData.tipoHorario === "H1_7") {
               const processed = horarioRules.utils.processApiDefaults(
                 result,
-                horarioData,
                 Boolean(registro)
               );
               return processed;
@@ -724,6 +728,11 @@ export const useDailyTimesheet = () => {
       const { name, value, type, checked } = event.target;
       let finalValue = type === "checkbox" ? checked : value;
 
+      // H2_2: Día Libre lo define el backend (fin de semana/feriado) y NO es editable en UI.
+      if (isH2_2 && name === "esDiaLibre") {
+        return;
+      }
+
       const horasCero =
         HorarioRulesFactory.calculateNormalHours(
           horarioValidado?.tipoHorario,
@@ -834,37 +843,17 @@ export const useDailyTimesheet = () => {
               };
             }
           }
-        } else if (isH2_2 && (name === "esDiaLibre" || name === "esIncapacidad")) {
+        } else if (isH2_2 && name === "esIncapacidad") {
           // En H2_2: Jornada siempre fija en día ("D").
-          // - Día Libre: fuerza 07:00 - 07:00
-          // - Incapacidad: mantener rango colapsado (horaSalida = horaEntrada por defecto) sin cambiar a nocturno
-          // En H2_2: Día Libre fuerza 07:00 - 07:00 (sin importar el horario del backend)
+          // - Día Libre NO es editable (lo define backend)
+          // - Incapacidad no debe alterar el horario fijo mostrado (solo bloquea actividades)
           const defaults = getDefaultHorario("D");
-          if (finalValue) {
-            if (name === "esDiaLibre") {
-              next = {
-                ...next,
-                jornada: "D",
-                horaEntrada: "07:00",
-                horaSalida: "07:00",
-              };
-            } else {
-              // esIncapacidad=true
-              next = {
-                ...next,
-                jornada: "D",
-                horaEntrada: defaults.horaEntrada,
-                horaSalida: defaults.horaEntrada,
-              };
-            }
-          } else {
-            next = {
-              ...next,
-              jornada: "D",
-              horaEntrada: defaults.horaEntrada,
-              horaSalida: defaults.horaSalida,
-            };
-          }
+          next = {
+            ...next,
+            jornada: "D",
+            horaEntrada: defaults.horaEntrada,
+            horaSalida: defaults.horaSalida,
+          };
         } else if (name === "esDiaLibre" || name === "esIncapacidad") {
           const defaults = getDefaultHorario(prev.jornada || "D");
           if (finalValue) {

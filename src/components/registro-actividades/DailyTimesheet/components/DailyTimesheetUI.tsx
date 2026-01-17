@@ -60,6 +60,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
 
     // Flags y valores calculados
     isH2,
+    isH2_2,
     showDiaNoLaborable,
     workedHoursNormales,
     horasNormales,
@@ -220,14 +221,18 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
             />
           )}
           <Chip
-            label={`${formatTimeLocal(
-              registroDiario.horaEntrada
-            )} - ${formatTimeLocal(registroDiario.horaSalida)}`}
+            label={
+              isH2_2
+                ? `${dayConfigData.horaEntrada} - ${dayConfigData.horaSalida}`
+                : `${formatTimeLocal(registroDiario.horaEntrada)} - ${formatTimeLocal(
+                    registroDiario.horaSalida
+                  )}`
+            }
             size="small"
             color="secondary"
             variant="outlined"
           />
-          {registroDiario.esDiaLibre && (
+          {(isH2_2 ? dayConfigData.esDiaLibre : registroDiario.esDiaLibre) && (
             <Chip
               label="Día Libre"
               size="small"
