@@ -154,10 +154,7 @@ export const useDailyTimesheet = () => {
       }
       if (jornadaValue === "N") {
         const referenceDate = targetDate ?? currentDate;
-        const day = referenceDate.getDay();
-        if (day === 2) {
-          return { horaEntrada: "00:00", horaSalida: "07:00" };
-        }
+        void referenceDate;
         return { horaEntrada: "19:00", horaSalida: "07:00" };
       }
       return null;
@@ -645,6 +642,7 @@ export const useDailyTimesheet = () => {
             jobId: act.jobId,
             duracionHoras: act.duracionHoras,
             esExtra: act.esExtra,
+            esCompensatorio: act.esCompensatorio,
             className: act.className,
             descripcion: act.descripcion,
             horaInicio: act.horaInicio,
@@ -805,6 +803,26 @@ export const useDailyTimesheet = () => {
           prev
         );
 
+        // H2_2: Hora Corrida debe mantener constantes las horas laborables.
+        // Regla (igual que H1_1): al activar Hora Corrida se reduce 1h la horaSalida,
+        // y al desactivarla se aumenta 1h la horaSalida. (Solo para turno diurno)
+        if (isH2_2 && name === "esHoraCorrida") {
+          const entrada = next.horaEntrada;
+          const salida = next.horaSalida;
+          if (entrada && salida && entrada !== salida) {
+            const s = timeToMinutes(entrada);
+            const e = timeToMinutes(salida);
+            const esTurnoNoche = s > e;
+            if (!esTurnoNoche) {
+              const delta = Boolean(finalValue) ? -60 : 60;
+              let e2 = e + delta;
+              if (e2 < 0) e2 += 1440;
+              if (e2 >= 1440) e2 -= 1440;
+              next = { ...next, jornada: "D", horaSalida: minutesToHHMM(e2) };
+            }
+          }
+        }
+
         if (horarioValidado?.tipoHorario === "H2_1") {
           if (name === "esDiaLibre" || name === "esIncapacidad") {
             if (finalValue) {
@@ -844,16 +862,27 @@ export const useDailyTimesheet = () => {
             }
           }
         } else if (isH2_2 && name === "esIncapacidad") {
-          // En H2_2: Jornada siempre fija en día ("D").
+          // En H2_2:
           // - Día Libre NO es editable (lo define backend)
-          // - Incapacidad no debe alterar el horario fijo mostrado (solo bloquea actividades)
+          // - Incapacidad debe comportarse como Día Libre en UI: colapsar horario a 0 horas
+          //   (horaEntrada == horaSalida) para mantener consistencia con el cálculo.
           const defaults = getDefaultHorario("D");
-          next = {
-            ...next,
-            jornada: "D",
-            horaEntrada: defaults.horaEntrada,
-            horaSalida: defaults.horaSalida,
-          };
+          if (Boolean(finalValue)) {
+            next = {
+              ...next,
+              jornada: "D",
+              horaEntrada: "07:00",
+              horaSalida: "07:00",
+              esHoraCorrida: false,
+            };
+          } else {
+            next = {
+              ...next,
+              jornada: "D",
+              horaEntrada: defaults.horaEntrada,
+              horaSalida: defaults.horaSalida,
+            };
+          }
         } else if (name === "esDiaLibre" || name === "esIncapacidad") {
           const defaults = getDefaultHorario(prev.jornada || "D");
           if (finalValue) {
@@ -1013,6 +1042,7 @@ export const useDailyTimesheet = () => {
             jobId: act.jobId,
             duracionHoras: act.duracionHoras,
             esExtra: act.esExtra,
+            esCompensatorio: act.esCompensatorio,
             className: act.className,
             descripcion: act.descripcion,
             horaInicio: act.horaInicio,
