@@ -1722,8 +1722,42 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
           {/* Error */}
           {error && (
             <Alert severity="error" sx={{ mb: 3 }}>
-              {/* Check if it's a validation error with specific dates */}
-              {error.response?.data?.validationErrors ? (
+              {/* Check if it's a network/configuration error */}
+              {(error as any)?.userMessage ||
+              error?.message?.includes("fetch failed") ||
+              error?.message?.includes("Network Error") ||
+              error?.code === "ERR_NETWORK" ? (
+                <Box>
+                  <Typography variant="h6" gutterBottom>
+                    Error de conexión con el servidor
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    {(error as any)?.userMessage ||
+                      error?.message ||
+                      "No se pudo conectar con el servidor. Verifica tu conexión a internet."}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mt: 2, fontSize: "0.75rem" }}
+                  >
+                    <strong>Detalles técnicos:</strong>{" "}
+                    {error?.message || "N/A"}
+                    {error?.config?.baseURL && (
+                      <>
+                        <br />
+                        <strong>URL base:</strong> {error.config.baseURL}
+                      </>
+                    )}
+                    {error?.config?.url && (
+                      <>
+                        <br />
+                        <strong>Endpoint:</strong> {error.config.url}
+                      </>
+                    )}
+                  </Typography>
+                </Box>
+              ) : error.response?.data?.validationErrors ? (
                 <Box>
                   <Typography variant="h6" gutterBottom>
                     No se puede procesar la nómina

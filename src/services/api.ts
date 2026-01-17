@@ -106,17 +106,72 @@ api.interceptors.response.use(
       meta?.requestId ||
       cfg?.headers?.["X-Request-Id"];
 
+    // Detectar errores de red/URL (Fetch failed, Network Error, etc.)
+    const isNetworkError =
+      !error.response &&
+      (error.message?.includes("Network Error") ||
+        error.message?.includes("fetch failed") ||
+        error.message?.includes("Failed to fetch") ||
+        error.code === "ERR_NETWORK" ||
+        error.code === "ECONNREFUSED");
+
+    // Detectar problemas de URL/baseURL
+    const baseURL = cfg?.baseURL || API_CONFIG.BASE_URL;
+    const fullUrl = baseURL && cfg?.url ? `${baseURL}${cfg.url}` : cfg?.url || "N/A";
+    const hasInvalidUrl =
+      !baseURL ||
+      baseURL.includes("undefined") ||
+      baseURL === "/api" ||
+      fullUrl.includes("undefined");
+
+    if (isNetworkError || hasInvalidUrl) {
+      const diagnostic = {
+        phase: "response_error_network",
+        requestId,
+        errorType: isNetworkError ? "network" : "url_config",
+        message: error?.message,
+        baseURL,
+        url: cfg?.url,
+        fullUrl,
+        code: error?.code,
+        config: {
+          VITE_API_URL: import.meta.env.VITE_API_URL,
+          BASE_URL: API_CONFIG.BASE_URL,
+          MODE: import.meta.env.MODE,
+          PROD: import.meta.env.PROD,
+        },
+      };
+
+      console.error("[api] Error de red/configuración detectado:", diagnostic);
+
+      // Mejorar mensaje de error para el usuario
+      if (hasInvalidUrl) {
+        error.userMessage =
+          `Error de configuración: La URL base de la API no está definida correctamente. ` +
+          `VITE_API_URL=${import.meta.env.VITE_API_URL}, BASE_URL=${baseURL}. ` +
+          `Por favor, verifica las variables de entorno.`;
+      } else if (isNetworkError) {
+        error.userMessage =
+          `Error de conexión: No se pudo conectar con el servidor. ` +
+          `URL: ${fullUrl}. Verifica tu conexión a internet o que el servidor esté disponible.`;
+      }
+    }
+
     trace("error", {
       phase: "response_error",
       requestId,
       status: error?.response?.status,
       method: cfg?.method,
       url: cfg?.url,
-      baseURL: cfg?.baseURL,
+      baseURL,
+      fullUrl,
       durationMs,
       message: error?.message,
+      userMessage: error?.userMessage,
       responseMessage: error?.response?.data?.message,
       responseBody: safeJson(error?.response?.data),
+      isNetworkError,
+      hasInvalidUrl,
     });
 
     if (error.response?.status === 401) {
