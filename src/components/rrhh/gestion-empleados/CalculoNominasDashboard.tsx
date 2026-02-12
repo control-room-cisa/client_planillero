@@ -312,6 +312,11 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     enabled: !!empleado && rangoValido,
   });
 
+  // Cálculos de horas compensatorias
+  const horasCompensatoriasTomadas = resumenHoras?.conteoHoras?.cantidadHoras?.horasCompensatoriasTomadas ?? 0;
+  const horasCompensatoriasPagadas = resumenHoras?.conteoHoras?.cantidadHoras?.horasCompensatoriasPagadas ?? 0;
+  const totalCompensatoriasQuincena = horasCompensatoriasPagadas - horasCompensatoriasTomadas;
+
   // Cálculos de salario y montos
   const { sueldoMensual = 0 } = (empleado as any) || {};
   const conteoDias = resumenHoras?.conteoHoras?.conteoDias;
@@ -941,6 +946,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
         diasVacaciones: diasVacaciones || 0,
         // Se reemplaza díasIncapacidad por montos detallados
         diasIncapacidad: 0,
+        horasCompensatorias: totalCompensatoriasQuincena,
 
         subtotalQuincena: subtotalQuincena || 0,
         montoVacaciones: montoVacaciones || 0,
@@ -2342,6 +2348,36 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                       <Typography variant="body1">
                         {resumenHoras.conteoHoras.conteoDias?.inasistencias ??
                           0}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Horas compensatorias tomadas:</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {resumenHoras.conteoHoras.cantidadHoras?.horasCompensatoriasTomadas?.toFixed(2) ??
+                          "0.00"}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
+                        <strong>Horas compensatorias pagadas:</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {resumenHoras.conteoHoras.cantidadHoras?.horasCompensatoriasPagadas?.toFixed(2) ??
+                          "0.00"}
                       </Typography>
                     </Box>
                     {/* Incapacidad en horas comentado temporalmente */}
