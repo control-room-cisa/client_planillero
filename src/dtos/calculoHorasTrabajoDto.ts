@@ -24,6 +24,8 @@ export interface HorarioTrabajoDto {
 export interface ConteoHorasValidationErrorDto {
   fechasNoAprobadas: string[]; // Fechas que no han sido aprobadas por supervisor
   fechasSinRegistro: string[]; // Fechas que no tienen registro diario creado
+  /** E01 Job Desconocido: fechas con actividades cuyo job no está registrado. No se lanza excepción; se notifica en validationErrors. */
+  fechasConJobDesconocido?: string[];
 }
 
 export interface DeduccionAlimentacionDetalleDto {
@@ -48,8 +50,8 @@ export interface ConteoHorasTrabajadasDto {
     libre: number; // 0 del valor de la hora normal
     almuerzo: number; // 0 del valor de la hora normal
     // Variantes por jobs especiales en horas NORMALES
-    incapacidadEmpresa?: number; // E01 primeros 3 días consecutivos (alias: incapacidadCubreEmpresaHoras)
-    incapacidadIHSS?: number; // E01 del día 4 en adelante (alias: incapacidadCubreIHSSHoras)
+    incapacidadEmpresa?: number; // Primeros 3 días consecutivos (alias: incapacidadCubreEmpresaHoras)
+    incapacidadIHSS?: number; // Del día 4 en adelante (alias: incapacidadCubreIHSSHoras)
     // Aliases para compatibilidad con código existente
     incapacidadCubreEmpresaHoras?: number; // Alias de incapacidadEmpresa
     incapacidadCubreIHSSHoras?: number; // Alias de incapacidadIHSS
@@ -75,8 +77,8 @@ export interface ConteoHorasTrabajadasDto {
     permisoConSueldo: number; // E03 horas / 8
     permisoSinSueldo: number; // E04 horas / 8
     inasistencias: number; // E05 horas / 8
-    incapacidadEmpresa?: number; // E01 primeros 3 días consecutivos (alias: incapacidadCubreEmpresaDias)
-    incapacidadIHSS?: number; // E01 del día 4 en adelante (alias: incapacidadCubreIHSSDias)
+    incapacidadEmpresa?: number; // Primeros 3 días consecutivos (alias: incapacidadCubreEmpresaDias)
+    incapacidadIHSS?: number; // Del día 4 en adelante (alias: incapacidadCubreIHSSDias)
     // Aliases para compatibilidad con código existente
     incapacidadCubreEmpresaDias?: number; // Alias de incapacidadEmpresa
     incapacidadCubreIHSSDias?: number; // Alias de incapacidadIHSS

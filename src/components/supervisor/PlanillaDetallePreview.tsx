@@ -673,6 +673,15 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                   ? normales === 0 && extras === 0
                   : true;
 
+              // Validación E01: no puede haber actividades con job código "E01" (Job desconocido)
+              const tieneJobE01 = registro.actividades?.some(
+                (act) =>
+                  act.job?.codigo?.toUpperCase() === "E01" ||
+                  act.codigoJob?.toUpperCase() === "E01" ||
+                  act.jobCodigo?.toUpperCase() === "E01"
+              ) ?? false;
+              const validacionJobDesconocido = !tieneJobE01;
+
               // Determinar si cruza medianoche usando hora local (TZ Honduras)
               const entradaHM = formatTimeCorrectly(registro.horaEntrada); // HH:mm local
               const salidaHM = formatTimeCorrectly(registro.horaSalida); // HH:mm local
@@ -1309,7 +1318,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                     {!isPlaceholder &&
                       (validacionHorasNormales === false ||
                         !validacionHorasExtra.valido ||
-                        !validacionIncapacidad) && (
+                        !validacionIncapacidad ||
+                        !validacionJobDesconocido) && (
                         <Box sx={{ mt: 2, mb: 2 }}>
                           <Typography
                             variant="subtitle2"
@@ -1380,6 +1390,16 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                 </Typography>
                               ))}
                             </>
+                          )}
+
+                          {!validacionJobDesconocido && (
+                            <Typography
+                              variant="body2"
+                              color="error.main"
+                              sx={{ mb: 1 }}
+                            >
+                              ⚠️ Job desconocido seleccionado
+                            </Typography>
                           )}
                         </Box>
                       )}
@@ -1488,6 +1508,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                             !validacionHorasNormales ||
                             !validacionHorasExtra.valido ||
                             !validacionIncapacidad ||
+                            !validacionJobDesconocido ||
                             registro.aprobacionSupervisor === true
                           }
                           onClick={() => handleAprobar(registro.id!)}
