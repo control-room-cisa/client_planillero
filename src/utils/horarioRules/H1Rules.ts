@@ -94,6 +94,8 @@ export const H1Rules: HorarioRuleEngine = {
       }
       // Regla: NO inventar horas. Siempre justificar con (salida-entrada) y hora corrida.
       if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
+      // Si entrada y salida son iguales (ej: 7:00-7:00), 0 horas laborales
+      if (formData.horaEntrada === formData.horaSalida) return 0;
       const timeToMinutes = (t: string) => {
         const [h, m] = t.split(":").map(Number);
         return h * 60 + m;
