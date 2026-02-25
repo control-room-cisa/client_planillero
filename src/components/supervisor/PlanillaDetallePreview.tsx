@@ -674,12 +674,10 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                   : true;
 
               // Validación E01: no puede haber actividades con job código "E01" (Job desconocido)
-              const tieneJobE01 = registro.actividades?.some(
-                (act) =>
-                  act.job?.codigo?.toUpperCase() === "E01" ||
-                  act.codigoJob?.toUpperCase() === "E01" ||
-                  act.jobCodigo?.toUpperCase() === "E01"
-              ) ?? false;
+              const tieneJobE01 =
+                registro.actividades?.some(
+                  (act) => act.job?.codigo?.toUpperCase() === "E01"
+                ) ?? false;
               const validacionJobDesconocido = !tieneJobE01;
 
               // Determinar si cruza medianoche usando hora local (TZ Honduras)
