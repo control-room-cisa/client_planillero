@@ -55,6 +55,7 @@ import NominaService, {
 import CalculoHorasTrabajoService from "../../../services/calculoHorasTrabajoService";
 import DetalleRegistrosDiariosModal from "./detalleRegistrosDiariosModal";
 import type { DeduccionAlimentacionDetalleDto } from "../../../dtos/calculoHorasTrabajoDto";
+import { getTipoHorarioLabel } from "../../../enums/tipoHorario";
 
 interface CalculoNominasProps {
   empleado?: Empleado;
@@ -1918,7 +1919,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Departamento:</strong>
                     </Typography>
-                    <Typography variant="body1">
+                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
                       {(empleado as any).departamento ||
                         ((empleado as any).departamentoId
                           ? `Departamento ${(empleado as any).departamentoId}`
@@ -1935,7 +1936,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Tipo de Contrato:</strong>
                     </Typography>
-                    <Typography variant="body1">
+                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
                       {empleado.tipoContrato ?? "—"}
                     </Typography>
                   </Box>
@@ -1949,8 +1950,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Tipo de Horario:</strong>
                     </Typography>
-                    <Typography variant="body1">
-                      {empleado.tipoHorario ?? "—"}
+                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
+                      {empleado.tipoHorario
+                        ? getTipoHorarioLabel(empleado.tipoHorario)
+                        : "—"}
                     </Typography>
                   </Box>
                   <Divider sx={{ my: 2 }} />
@@ -1964,7 +1967,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Sueldo Mensual:</strong>
                     </Typography>
-                    <Typography variant="body1">
+                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
                       {empleado?.sueldoMensual != null
                         ? formatCurrency(empleado.sueldoMensual)
                         : "—"}
@@ -1980,7 +1983,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Sueldo Quincenal:</strong>
                     </Typography>
-                    <Typography variant="body1">
+                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
                       {empleado?.sueldoMensual != null
                         ? formatCurrency(empleado.sueldoMensual / 2)
                         : "—"}
@@ -1996,7 +1999,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Sueldo por hora:</strong>
                     </Typography>
-                    <Typography variant="body1">
+                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
                       {Number.isFinite(Number(empleado?.sueldoMensual))
                         ? formatCurrency(Number(empleado!.sueldoMensual) / 240)
                         : "—"}
@@ -2024,7 +2027,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Tiempo Compensatorio (horas):</strong>
                     </Typography>
-                    <Typography variant="body1">
+                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
                       {(empleado as any).tiempoCompensatorioHoras != null
                         ? `${(empleado as any).tiempoCompensatorioHoras}h`
                         : "—"}
@@ -2040,7 +2043,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Vacaciones (horas):</strong>
                     </Typography>
-                    <Typography variant="body1">
+                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
                       {(empleado as any).tiempoVacacionesHoras != null
                         ? `${(empleado as any).tiempoVacacionesHoras}h`
                         : "—"}
