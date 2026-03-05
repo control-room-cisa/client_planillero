@@ -166,38 +166,60 @@ const NotificationsEmployee: React.FC<NotificationsEmployeeProps> = ({
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1200, mx: "auto" }}>
-      <Typography
-        variant="h5"
-        color="primary"
-        fontWeight="bold"
-        gutterBottom
-        sx={{ mb: 3 }}
+    <Box
+      sx={{
+        maxWidth: 1200,
+        mx: "auto",
+        width: "100%",
+        height: "100%",
+        minHeight: 0,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Box
+        sx={{
+          pt: 3,
+          px: 3,
+          pb: 4,
+          overflowY: "auto",
+          flex: 1,
+          minHeight: 0,
+          pr: 3.5,
+        }}
       >
-        Notificaciones
-      </Typography>
-
-      {notifications.length === 0 ? (
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "40vh",
-            textAlign: "center",
-          }}
+        <Typography
+          variant="h5"
+          color="primary"
+          fontWeight="bold"
+          gutterBottom
+          sx={{ mb: 3 }}
         >
-          <CalendarIcon sx={{ fontSize: 80, color: "grey.300", mb: 2 }} />
-          <Typography variant="h6" color="text.primary" gutterBottom>
-            No tienes notificaciones
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            No hay registros rechazados en los últimos 20 días
-          </Typography>
-        </Box>
-      ) : (
-        <Stack spacing={2}>
+          Notificacioness
+        </Typography>
+
+        {notifications.length === 0 ? (
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: "40vh",
+              textAlign: "center",
+            }}
+          >
+            <CalendarIcon sx={{ fontSize: 80, color: "grey.300", mb: 2 }} />
+            <Typography variant="h6" color="text.primary" gutterBottom>
+              No tienes notificaciones
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              No hay registros rechazados en los últimos 20 días
+            </Typography>
+          </Box>
+        ) : (
+          <Stack spacing={2}>
           {notifications.map((notif) => (
             <Card
               key={notif.fecha}
@@ -303,8 +325,9 @@ const NotificationsEmployee: React.FC<NotificationsEmployeeProps> = ({
               </CardActionArea>
             </Card>
           ))}
-        </Stack>
-      )}
+          </Stack>
+        )}
+      </Box>
     </Box>
   );
 };
