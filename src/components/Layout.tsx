@@ -200,6 +200,12 @@ export default function Layout() {
     if (user?.rolId === Roles.SUPERVISOR_CONTABILIDAD) {
       return [
         {
+          id: "registro",
+          text: "Registro de actividades",
+          icon: <PostAddIcon />,
+          path: `/registro-actividades/${todayDateString}`,
+        },
+        {
           id: "contabilidad",
           text: "Jobs y Empresas",
           icon: <DashboardIcon />,
