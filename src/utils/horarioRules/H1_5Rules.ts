@@ -40,6 +40,7 @@ export const H1_5Rules: HorarioRuleEngine = {
       comentarioEmpleado: { visible: true, enabled: true, required: false },
     },
     calculateNormalHours: (formData, apiData) => {
+      if (formData?.esIncapacidad) return 0;
       // Feriado: 0 horas.
       if (apiData?.esFestivo || formData?.esFestivo) return 0;
       // Día libre (desde backend): 0 horas.

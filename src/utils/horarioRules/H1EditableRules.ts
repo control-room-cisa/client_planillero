@@ -41,6 +41,7 @@ export const H1EditableRules: HorarioRuleEngine = {
       comentarioEmpleado: { visible: true, enabled: true, required: false },
     },
     calculateNormalHours: (formData, apiData) => {
+      if (formData?.esIncapacidad) return 0;
       // Feriado: 0 horas.
       if (apiData?.esFestivo || formData?.esFestivo) return 0;
       // Día no laborable (client-only): 0 horas.

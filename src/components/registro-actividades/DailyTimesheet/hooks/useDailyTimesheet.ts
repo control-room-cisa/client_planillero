@@ -142,8 +142,9 @@ export const useDailyTimesheet = () => {
   // Mostrar "Día no laborable" para tipos que requieren esta UX (client-only).
   // - H1_3/H1_4/H1_6: no usan Día Libre (oculto), pero sí editan horas
   // - H1_5: Día Libre es read-only desde backend, pero aún requiere el toggle "Día no laborable"
+  // - H1_7: horas no editables, Día Libre desde backend; el usuario puede marcar "Día no laborable"
   const showDiaNoLaborable = Boolean(
-    ["H1_3", "H1_4", "H1_5"].includes(horarioValidado?.tipoHorario || "")
+    ["H1_3", "H1_4", "H1_5", "H1_7"].includes(horarioValidado?.tipoHorario || "")
   );
 
   // ===== Helpers de tiempo =====
@@ -471,13 +472,13 @@ export const useDailyTimesheet = () => {
               } else if (horarioData.tipoHorario === "H1_7") {
                 return {
                   ...base,
-                  // Jornada siempre fija en día para H1_7
                   jornada: "D",
-                  horaEntrada: formatTimeLocal(registro.horaEntrada),
-                  horaSalida: formatTimeLocal(registro.horaSalida),
-                  // Cargar esDiaLibre desde el registro guardado
-                  esDiaLibre: Boolean(registro.esDiaLibre),
+                  // H1_7: horas siempre desde backend, ignorar las del registro guardado
+                  horaEntrada: base.horaEntrada,
+                  horaSalida: base.horaSalida,
+                  esDiaLibre: Boolean(horarioData.esDiaLibre),
                   esDiaNoLaborable: false,
+                  esHoraCorrida: true,
                   esIncapacidad: registro.esIncapacidad || false,
                   comentarioEmpleado: registro.comentarioEmpleado || "",
                 };
@@ -508,15 +509,6 @@ export const useDailyTimesheet = () => {
                   ? horarioData.nombreDiaFestivo
                   : ""),
             };
-
-            // Para H1_7, aplicar las reglas de procesamiento de defaults
-            if (horarioData.tipoHorario === "H1_7") {
-              const processed = horarioRules.utils.processApiDefaults(
-                result,
-                Boolean(registro)
-              );
-              return processed;
-            }
 
             return result;
           });
@@ -755,6 +747,7 @@ export const useDailyTimesheet = () => {
 
       // Client-only: Día no laborable (no se envía al backend)
       if (name === "esDiaNoLaborable") {
+        const isH1_7 = horarioValidado?.tipoHorario === "H1_7";
         setDayConfigData((prev) => {
           if (Boolean(finalValue)) {
             return {
@@ -763,6 +756,21 @@ export const useDailyTimesheet = () => {
               jornada: "D",
               horaEntrada: "07:00",
               horaSalida: "07:00",
+              // H1_7: hora corrida siempre true, no desmarcar al activar día no laborable
+              ...(isH1_7 && { esHoraCorrida: true }),
+            };
+          }
+
+          // Al deseleccionar: H1_7 siempre restaura del backend, no del registro guardado
+          if (isH1_7) {
+            const defaults = getDefaultHorario("D");
+            return {
+              ...prev,
+              esDiaNoLaborable: false,
+              jornada: "D",
+              horaEntrada: defaults.horaEntrada,
+              horaSalida: defaults.horaSalida,
+              esHoraCorrida: true,
             };
           }
 
@@ -832,18 +840,23 @@ export const useDailyTimesheet = () => {
                 horaEntrada: "07:00",
                 horaSalida: "07:00",
               };
-              // En H2, si se marca incapacidad, deshabilitar Día Libre
-              if (name === "esIncapacidad" && finalValue) {
+              if (name === "esIncapacidad") {
                 next.esDiaLibre = false;
+                next.esDiaNoLaborable = false;
               }
             } else {
-              const schedule = getDefaultHorario(prev.jornada || "D");
-              next = {
-                ...next,
-                jornada: prev.jornada || "D",
-                horaEntrada: schedule.horaEntrada,
-                horaSalida: schedule.horaSalida,
-              };
+              // Al deseleccionar día libre mientras incapacidad sigue activa: no restaurar horario
+              if (name === "esDiaLibre" && next.esIncapacidad) {
+                // mantener horas colapsadas
+              } else {
+                const schedule = getDefaultHorario(prev.jornada || "D");
+                next = {
+                  ...next,
+                  jornada: prev.jornada || "D",
+                  horaEntrada: schedule.horaEntrada,
+                  horaSalida: schedule.horaSalida,
+                };
+              }
             }
           } else if (
             name === "jornada" &&
@@ -883,6 +896,15 @@ export const useDailyTimesheet = () => {
               horaSalida: defaults.horaSalida,
             };
           }
+        } else if (horarioValidado?.tipoHorario === "H1_7" && name === "esIncapacidad") {
+          // H1_7: horas siempre del backend; no colapsar horaEntrada/horaSalida al activar incapacidad.
+          // Solo gestionar los flags, manteniendo las horas intactas.
+          if (Boolean(finalValue)) {
+            next.esDiaLibre = false;
+            next.esDiaNoLaborable = false;
+            next.esHoraCorrida = true;
+          }
+          // Al desactivar incapacidad en H1_7, las horas ya son correctas (vienen del backend)
         } else if (name === "esDiaLibre" || name === "esIncapacidad") {
           const defaults = getDefaultHorario(prev.jornada || "D");
           if (finalValue) {
@@ -892,13 +914,23 @@ export const useDailyTimesheet = () => {
               horaEntrada: defaults.horaEntrada,
               horaSalida: defaults.horaEntrada,
             };
+            if (name === "esIncapacidad") {
+              next.esDiaLibre = false;
+              next.esDiaNoLaborable = false;
+              next.esHoraCorrida = false;
+            }
           } else {
-            next = {
-              ...next,
-              jornada: prev.jornada || "D",
-              horaEntrada: defaults.horaEntrada,
-              horaSalida: defaults.horaSalida,
-            };
+            // Al deseleccionar día libre mientras incapacidad sigue activa: no restaurar horario
+            if (name === "esDiaLibre" && next.esIncapacidad) {
+              // mantener horas colapsadas
+            } else {
+              next = {
+                ...next,
+                jornada: prev.jornada || "D",
+                horaEntrada: defaults.horaEntrada,
+                horaSalida: defaults.horaSalida,
+              };
+            }
           }
         }
 
@@ -1016,7 +1048,10 @@ export const useDailyTimesheet = () => {
           horarioValidado,
           { now: currentDate }
         ) === 0;
+      // H1_7: esHoraCorrida siempre true, sin importar si horasCero
       const esHoraCorridaFinal = isH2
+        ? true
+        : horarioValidado?.tipoHorario === "H1_7"
         ? true
         : horasCero
         ? false

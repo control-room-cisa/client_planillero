@@ -4,10 +4,31 @@ import type { HorarioRuleEngine } from "./interfaces";
  * REGLAS DE NEGOCIO PARA HORARIO H1_7
  *
  * Requisitos:
- * - Hora de entrada/salida EDITABLES
- * - Se carga hora guardada si hay, de lo contrario la hora generada por el horario
- * - Tiene botón de día libre usable por el usuario
- * - Al seleccionar día libre, se ponen todas las horas laborables en 0 (entrada==salida==07:00)
+ * - Hora de entrada/salida NO EDITABLES por el usuario.
+ * - Las horas se cargan SIEMPRE desde el backend (horarioTrabajo.inicio / fin).
+ *   Si existe un registro guardado para el día, sus horas se ignoran; prevalece el backend.
+ * - Excepción: si el usuario activa "Día no laborable", entrada y salida se fijan en 07:00
+ *   y las horas laborables pasan a 0.
+ * - Botón de Día Libre deshabilitado en H1_7; el backend lo activa automáticamente
+ *   (domingos / feriados → esDiaLibre = true desde el backend).
+ * - Hora Corrida siempre true y deshabilitada (el horario 07:00-19:00 no descuenta almuerzo
+ *   porque ya está incluido en las 12h laborables).
+ *
+ * EXCEPCIÓN CRÍTICA – DÍA LIBRE CON HORAS NORMALES:
+ *   En H1_7, cuando esDiaLibre = true las horas normales se calculan IGUAL que un día normal
+ *   (diferencia entrada - salida). Esto es porque los domingos son "día libre" pero el
+ *   empleado sigue trabajando 12h (las extras se pagan al 100%).
+ *   >>> ESTA EXCEPCIÓN SOLO APLICA A H1_7. <<<
+ *   Ningún otro subtipo de H1 (H1_1, H1_2, etc.) debe permitir horas normales en día libre.
+ *   Al pasar el filtro de supervisor y RRHH se debe contemplar esta condición especial
+ *   para H1_7: un registro con esDiaLibre = true Y horas normales > 0 es VÁLIDO.
+ *
+ * COMENTARIO (comentarioEmpleado):
+ * - Visible y editable (enabled: true). Opcional (required: false).
+ * - El empleado puede agregar un comentario al registro del día.
+ * - El valor se envía al backend en el upsert del registro diario y se usa en el dominio
+ *   de cálculo de horas (H1Base) como comentario asociado cuando no hay descripción por actividad.
+ * - No se aplican restricciones de longitud ni formato en esta regla.
  */
 export const H1_7Rules: HorarioRuleEngine = {
   type: "H1_7",
@@ -15,8 +36,18 @@ export const H1_7Rules: HorarioRuleEngine = {
   config: {
     type: "H1_7",
     fields: {
-      horaEntrada: { visible: true, enabled: true, required: true },
-      horaSalida: { visible: true, enabled: true, required: true },
+      horaEntrada: {
+        visible: true,
+        enabled: false, // Solo lectura: siempre proviene del backend
+        required: true,
+        helperText: "Se llena automáticamente desde el horario asignado",
+      },
+      horaSalida: {
+        visible: true,
+        enabled: false, // Solo lectura: siempre proviene del backend
+        required: true,
+        helperText: "Se llena automáticamente desde el horario asignado",
+      },
       jornada: {
         visible: false,
         enabled: false,
@@ -25,7 +56,7 @@ export const H1_7Rules: HorarioRuleEngine = {
       },
       esDiaLibre: {
         visible: true,
-        enabled: true,
+        enabled: false, // Solo lectura: lo activa el backend (domingo/feriado)
         required: false,
         defaultValue: false,
       },
@@ -38,10 +69,17 @@ export const H1_7Rules: HorarioRuleEngine = {
       comentarioEmpleado: { visible: true, enabled: true, required: false },
     },
     calculateNormalHours: (formData, apiData) => {
-      // Día libre: 0 horas
-      if (formData?.esDiaLibre) return 0;
+      if (formData?.esIncapacidad) return 0;
+      // Día no laborable (client-only): 0 horas
+      if (formData?.esDiaNoLaborable) return 0;
       // Feriado: 0 horas
       if (apiData?.esFestivo || formData?.esFestivo) return 0;
+
+      // EXCEPCIÓN H1_7: esDiaLibre = true NO reduce las horas normales a 0.
+      // Los domingos son "día libre" pero el empleado trabaja 12h igualmente;
+      // las horas extras se pagan al 100%.
+      // >>> En NINGÚN otro subtipo de H1 se permite esto. Solo H1_7. <<<
+
       if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
       if (formData.horaEntrada === formData.horaSalida) return 0;
 
@@ -53,81 +91,60 @@ export const H1_7Rules: HorarioRuleEngine = {
       let e = timeToMinutes(formData.horaSalida);
       if (e <= s) e += 24 * 60;
 
-      // Almuerzo: 1h si NO es hora corrida
       const almuerzo = formData.esHoraCorrida ? 0 : 1;
       return Math.max(0, (e - s) / 60 - almuerzo);
     },
     calculateLunchHours: (formData) => (formData.esHoraCorrida ? 0 : 1),
-    processApiDefaults: (prev, apiData, hasExisting) => {
+    processApiDefaults: (prev, apiData, _hasExisting) => {
       const next = { ...prev };
 
-      // Jornada siempre fija en "D"
+      // Invariantes H1_7
       next.jornada = "D";
-      // Hora Corrida siempre true en H1_7 (deshabilitado pero activo)
       next.esHoraCorrida = true;
 
-      // Feriado: setear 07:00 - 07:00
+      // Día libre siempre desde backend (domingo / feriado)
+      next.esDiaLibre = Boolean(apiData?.esDiaLibre);
+
+      // Si el usuario había activado "Día no laborable", respetar las horas colapsadas
+      if (prev.esDiaNoLaborable) {
+        next.horaEntrada = "07:00";
+        next.horaSalida = "07:00";
+        return next;
+      }
+
+      // Feriado: colapsar horas a 07:00-07:00
       if (apiData?.esFestivo) {
         next.horaEntrada = "07:00";
         next.horaSalida = "07:00";
-        next.esDiaLibre = true;
         return next;
       }
 
-      // Si hay registro existente, usar los valores guardados
-      if (hasExisting) {
-        // Mantener los valores existentes, pero forzar esHoraCorrida a true
-        next.esHoraCorrida = true;
-        return next;
-      }
-
-      // Si no hay registro existente, cargar desde backend (horario generado)
-      if (!prev.horaEntrada && apiData?.horarioTrabajo?.inicio) {
+      // Siempre cargar desde el backend, sin importar si hay registro guardado
+      if (apiData?.horarioTrabajo?.inicio) {
         next.horaEntrada = apiData.horarioTrabajo.inicio;
       }
-      if (!prev.horaSalida && apiData?.horarioTrabajo?.fin) {
+      if (apiData?.horarioTrabajo?.fin) {
         next.horaSalida = apiData.horarioTrabajo.fin;
-      }
-      // Cargar esDiaLibre desde backend si está disponible
-      if (apiData?.esDiaLibre !== undefined) {
-        next.esDiaLibre = apiData.esDiaLibre;
       }
 
       return next;
     },
     onFieldChange: (fieldName, nextValue, prevFormData) => {
-      const base = { ...prevFormData, jornada: "D", esHoraCorrida: true }; // Siempre true en H1_7
+      // Mantener invariantes H1_7 en cualquier cambio
+      const base = { ...prevFormData, jornada: "D", esHoraCorrida: true };
 
-      // Si se activa/desactiva día libre, ajustar horas
+      // Hora entrada/salida y hora corrida no son editables por el usuario
+      if (
+        fieldName === "horaEntrada" ||
+        fieldName === "horaSalida" ||
+        fieldName === "esHoraCorrida"
+      ) {
+        return base;
+      }
+
+      // esDiaLibre lo gestiona el backend; no se permite cambio manual
       if (fieldName === "esDiaLibre") {
-        if (nextValue === true) {
-          // Activar día libre: poner entrada y salida en 07:00
-          return {
-            ...base,
-            esDiaLibre: true,
-            horaEntrada: "07:00",
-            horaSalida: "07:00",
-            esHoraCorrida: true, // Mantener true
-          };
-        } else {
-          // Desactivar día libre: restaurar horario del backend si está disponible
-          // Si no hay horario del backend, mantener los valores actuales
-          return {
-            ...base,
-            esDiaLibre: false,
-            esHoraCorrida: true, // Mantener true
-          };
-        }
-      }
-
-      // Si día libre está activo, no permitir cambios en horas
-      if (base.esDiaLibre && (fieldName === "horaEntrada" || fieldName === "horaSalida")) {
-        return base; // No cambiar nada si es día libre
-      }
-
-      // Hora Corrida: no permitir cambios (siempre true en H1_7)
-      if (fieldName === "esHoraCorrida") {
-        return base; // Ignorar cambios, mantener true
+        return base;
       }
 
       return { ...base, [fieldName]: nextValue };

@@ -67,12 +67,17 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       >
-        {/* Registro (EMPLEADO + SUPERVISOR + ASISTENTE_CONTABILIDAD) */}
+        {/* Registro (EMPLEADO + SUPERVISOR + ASISTENTE_CONTABILIDAD + SUPERVISOR_CONTABILIDAD) */}
         <Route
           path="registro-actividades/:fecha?"
           element={
             <RoleProtectedRoute
-              allowedRoles={[Roles.EMPLEADO, Roles.SUPERVISOR, Roles.ASISTENTE_CONTABILIDAD]}
+              allowedRoles={[
+                Roles.EMPLEADO,
+                Roles.SUPERVISOR,
+                Roles.ASISTENTE_CONTABILIDAD,
+                Roles.SUPERVISOR_CONTABILIDAD,
+              ]}
             >
               <DailyTimesheet />
             </RoleProtectedRoute>

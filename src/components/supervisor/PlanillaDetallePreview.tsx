@@ -463,7 +463,11 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   const calcularHorasNormalesEsperadas = (
     registro: RegistroDiarioData
   ): number => {
-    if (registro.esDiaLibre) return 0;
+    // EXCEPCIÓN H1_7: esDiaLibre = true NO reduce horas normales a 0.
+    // Los domingos son "día libre" pero el empleado trabaja 12h igualmente.
+    // >>> Solo aplica a H1_7. En cualquier otro subtipo, día libre = 0 horas. <<<
+    const tipoHorario = horariosByFecha[registro.fecha ?? ""];
+    if (registro.esDiaLibre && tipoHorario !== "H1_7") return 0;
     // Regla: (salida - entrada) - 1h de almuerzo cuando NO es hora corrida
     const entrada = parseHNT(registro.horaEntrada);
     const salida = parseHNT(registro.horaSalida);
@@ -488,7 +492,9 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   const validarHorasExtra = (
     registro: RegistroDiarioData
   ): { valido: boolean; errores: string[] } => {
-    if (registro.esDiaLibre) return { valido: true, errores: [] };
+    const tipoH = horariosByFecha[registro.fecha ?? ""];
+    if (registro.esDiaLibre && tipoH !== "H1_7")
+      return { valido: true, errores: [] };
 
     const errores: string[] = [];
     const actividadesExtra =
@@ -842,16 +848,12 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                           ? formatDateInSpanish(registro.fecha)
                           : "Fecha no disponible"}
                       </Typography>
-                      {!registro.esDiaLibre && (
-                        <>
-                          <Typography variant="body2">
-                            Entrada: {formatTimeCorrectly(registro.horaEntrada)}
-                          </Typography>
-                          <Typography variant="body2">
-                            Salida: {formatTimeCorrectly(registro.horaSalida)}
-                          </Typography>
-                        </>
-                      )}
+                      <Typography variant="body2">
+                        Entrada: {formatTimeCorrectly(registro.horaEntrada)}
+                      </Typography>
+                      <Typography variant="body2">
+                        Salida: {formatTimeCorrectly(registro.horaSalida)}
+                      </Typography>
                       <Box sx={{ flexGrow: 1 }} />
                       <Stack
                         direction="row"
@@ -862,7 +864,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                         {registro.esDiaLibre && (
                           <Chip label="Día libre" color="info" size="small" />
                         )}
-                        {!registro.esDiaLibre &&
+                        {(!registro.esDiaLibre ||
+                          horariosByFecha[registro.fecha ?? ""] === "H1_7") &&
                           horariosByFecha[registro.fecha ?? ""] !== "H2_1" &&
                           registro.esHoraCorrida && (
                             <Chip
@@ -1364,7 +1367,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                 sx={{ mb: 1 }}
                               >
                                 📊 No debería haber horas normales registradas
-                                (horaEntrada = horaSalida)
+                                (horas esperadas: 0)
                               </Typography>
                             )}
 

@@ -405,7 +405,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                         readOnly ||
                         initialLoading ||
                         !horarioRules.utils.isFieldEnabled("esDiaLibre") ||
-                        (isH2 && isIncapacidad) // En H2, deshabilitar Día Libre cuando hay incapacidad
+                        isIncapacidad
                       }
                       name="esDiaLibre"
                       checked={dayConfigData.esDiaLibre}
@@ -429,6 +429,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                       disabled={
                         readOnly ||
                         initialLoading ||
+                        isIncapacidad ||
                         Boolean(
                           horarioData?.esFestivo || horarioValidado?.esFestivo
                         )
@@ -471,6 +472,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                         initialLoading ||
                         horasCero ||
                         disableHoraCorrida ||
+                        isIncapacidad ||
                         !horarioRules.utils.isFieldEnabled("esHoraCorrida")
                       }
                       name="esHoraCorrida"

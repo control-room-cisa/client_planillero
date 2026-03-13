@@ -11,8 +11,8 @@ import {
   CardActionArea,
 } from "@mui/material";
 import {
-  ErrorOutline as ErrorIcon,
   CalendarToday as CalendarIcon,
+  ChevronRight as ChevronRightIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import RegistroDiarioService from "../services/registroDiarioService";
@@ -196,7 +196,7 @@ const NotificationsEmployee: React.FC<NotificationsEmployeeProps> = ({
           gutterBottom
           sx={{ mb: 3 }}
         >
-          Notificacioness
+          Notificaciones
         </Typography>
 
         {notifications.length === 0 ? (
@@ -219,112 +219,146 @@ const NotificationsEmployee: React.FC<NotificationsEmployeeProps> = ({
             </Typography>
           </Box>
         ) : (
-          <Stack spacing={2}>
-          {notifications.map((notif) => (
-            <Card
-              key={notif.fecha}
-              sx={{
-                borderLeft: 4,
-                borderLeftColor: "error.main",
-                "&:hover": {
-                  boxShadow: 3,
-                  transform: "translateY(-2px)",
-                  transition: "all 0.2s",
-                },
-              }}
-            >
-              <CardActionArea onClick={() => handleCardClick(notif.fecha)}>
-                <CardContent>
-                  <Stack spacing={2}>
-                    <Stack
-                      direction="row"
-                      justifyContent="space-between"
-                      alignItems="flex-start"
-                      flexWrap="wrap"
-                      gap={1}
-                    >
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <ErrorIcon color="error" />
-                        <Typography variant="h6" fontWeight="bold">
-                          Registro Rechazado
+          <Stack spacing={1.5}>
+          {notifications.map((notif) => {
+            const badgeLabel =
+              notif.tipo === "ambos"
+                ? "Rechazado por ambos"
+                : notif.tipo === "supervisor"
+                ? "Rechazado por Supervisor"
+                : "Rechazado por RRHH";
+            return (
+              <Card
+                key={notif.fecha}
+                variant="outlined"
+                sx={{
+                  borderLeft: 3,
+                  borderLeftColor: "error.light",
+                  borderRadius: 1.5,
+                  "&:hover": {
+                    borderLeftColor: "error.main",
+                    bgcolor: "action.hover",
+                  },
+                }}
+              >
+                <CardActionArea
+                  onClick={() => handleCardClick(notif.fecha)}
+                  sx={{ py: 0.5 }}
+                >
+                  <CardContent sx={{ py: 1.5, px: 2, "&:last-child": { pb: 1.5 } }}>
+                    <Stack spacing={1.25}>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        flexWrap="wrap"
+                        gap={0.5}
+                      >
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ fontWeight: 500 }}
+                        >
+                          {formatDateInSpanish(notif.fecha)}
+                        </Typography>
+                        <Chip
+                          label={badgeLabel}
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                          sx={{
+                            height: 22,
+                            fontSize: "0.75rem",
+                            borderColor: "error.main",
+                            color: "error.dark",
+                          }}
+                        />
+                      </Stack>
+                      {(notif.tipo === "supervisor" || notif.tipo === "ambos") &&
+                        notif.registro.comentarioSupervisor && (
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontWeight: 600,
+                                color: "text.secondary",
+                                textTransform: "uppercase",
+                                letterSpacing: 0.5,
+                                display: "block",
+                                mb: 0.5,
+                              }}
+                            >
+                              Comentario del Supervisor
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{
+                                fontSize: "0.8125rem",
+                                lineHeight: 1.4,
+                                bgcolor: "grey.50",
+                                px: 1.25,
+                                py: 1,
+                                borderRadius: 1,
+                              }}
+                            >
+                              {notif.registro.comentarioSupervisor}
+                            </Typography>
+                          </Box>
+                        )}
+                      {(notif.tipo === "rrhh" || notif.tipo === "ambos") &&
+                        notif.registro.comentarioRrhh && (
+                          <Box>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontWeight: 600,
+                                color: "text.secondary",
+                                textTransform: "uppercase",
+                                letterSpacing: 0.5,
+                                display: "block",
+                                mb: 0.5,
+                              }}
+                            >
+                              Comentario de RRHH
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{
+                                fontSize: "0.8125rem",
+                                lineHeight: 1.4,
+                                bgcolor: "grey.50",
+                                px: 1.25,
+                                py: 1,
+                                borderRadius: 1,
+                              }}
+                            >
+                              {notif.registro.comentarioRrhh}
+                            </Typography>
+                          </Box>
+                        )}
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="flex-end"
+                        sx={{ pt: 0.25 }}
+                      >
+                        <Typography
+                          variant="caption"
+                          color="primary.main"
+                          sx={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 0.25 }}
+                        >
+                          Revisar registro
+                          <ChevronRightIcon sx={{ fontSize: 18 }} />
                         </Typography>
                       </Stack>
-                      <Stack direction="row" spacing={1} flexWrap="wrap">
-                        {notif.tipo === "supervisor" && (
-                          <Chip
-                            label="Rechazado por Supervisor"
-                            color="error"
-                            size="small"
-                          />
-                        )}
-                        {notif.tipo === "rrhh" && (
-                          <Chip
-                            label="Rechazado por RRHH"
-                            color="error"
-                            size="small"
-                          />
-                        )}
-                        {notif.tipo === "ambos" && (
-                          <>
-                            <Chip
-                              label="Rechazado por Supervisor"
-                              color="error"
-                              size="small"
-                            />
-                            <Chip
-                              label="Rechazado por RRHH"
-                              color="error"
-                              size="small"
-                            />
-                          </>
-                        )}
-                      </Stack>
                     </Stack>
-                    <Typography variant="body1" color="text.secondary">
-                      <strong>Fecha:</strong> {formatDateInSpanish(notif.fecha)}
-                    </Typography>
-                    {(notif.tipo === "supervisor" || notif.tipo === "ambos") &&
-                      notif.registro.comentarioSupervisor && (
-                        <Alert severity="error" variant="outlined">
-                          <Typography
-                            variant="subtitle2"
-                            fontWeight="bold"
-                            gutterBottom
-                          >
-                            Comentario del Supervisor
-                          </Typography>
-                          <Typography variant="body2">
-                            {notif.registro.comentarioSupervisor}
-                          </Typography>
-                        </Alert>
-                      )}
-                    {(notif.tipo === "rrhh" || notif.tipo === "ambos") &&
-                      notif.registro.comentarioRrhh && (
-                        <Alert severity="error" variant="outlined">
-                          <Typography
-                            variant="subtitle2"
-                            fontWeight="bold"
-                            gutterBottom
-                          >
-                            Comentario de RRHH
-                          </Typography>
-                          <Typography variant="body2">
-                            {notif.registro.comentarioRrhh}
-                          </Typography>
-                        </Alert>
-                      )}
-                    <Typography
-                      variant="body2"
-                      color="primary.main"
-                      sx={{ fontWeight: "medium", mt: 1 }}
-                    >
-                      Haz clic para revisar y corregir este registro
-                    </Typography>
-                  </Stack>
-                </CardContent>
-              </CardActionArea>
-            </Card>
-          ))}
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            );
+          })}
           </Stack>
         )}
       </Box>

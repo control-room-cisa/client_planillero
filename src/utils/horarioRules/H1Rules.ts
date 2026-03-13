@@ -77,6 +77,7 @@ export const H1Rules: HorarioRuleEngine = {
       comentarioEmpleado: { visible: true, enabled: true, required: false },
     },
     calculateNormalHours: (formData, apiData) => {
+      if (formData?.esIncapacidad) return 0;
       // Si es feriado, las horas laborables son 0 (normalmente 07:00-07:00).
       if (apiData?.esFestivo || formData?.esFestivo) {
         if (!formData?.horaEntrada || !formData?.horaSalida) return 0;

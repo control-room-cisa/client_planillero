@@ -62,6 +62,7 @@ export const DefaultRules: HorarioRuleEngine = {
       comentarioEmpleado: { visible: true, enabled: true, required: false },
     },
     calculateNormalHours: (formData, apiData) => {
+      if (formData?.esIncapacidad) return 0;
       // Si es feriado, las horas laborables son 0 (calculadas desde diferencia de horas)
       if (apiData?.esFestivo || formData?.esFestivo) {
         if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
