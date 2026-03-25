@@ -358,6 +358,7 @@ export default function Layout() {
   const handleCloseSnackbar = () =>
     setSnackbar((prev) => ({ ...prev, open: false }));
 
+
   // Obtener el identificador del usuario (email o DNI)
   const getUserIdentifier = (): string => {
     if (!user) return "";
@@ -403,15 +404,14 @@ export default function Layout() {
             >
               {/* Información del empleado (sin acción) */}
               <MenuItem
-                disabled
                 sx={{
                   py: 2,
                   px: 2,
                   backgroundColor: "action.hover",
-                  cursor: "default",
-                  "&.Mui-disabled": {
-                    opacity: 1,
-                  },
+                }}
+                onClick={() => {
+                  handleCloseUserMenu();
+                  navigate("/mi-perfil");
                 }}
               >
                 <Typography

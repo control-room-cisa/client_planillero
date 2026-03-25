@@ -15,6 +15,9 @@ interface Empleado {
   profesion?: string;
   cargo?: string;
   sueldoMensual?: number;
+  // Horas disponibles para UI: se muestran como "días" usando conversión horas/8
+  tiempoCompensatorioHoras?: number | null;
+  tiempoVacacionesHoras?: number | null;
   telefono?: string;
   direccion?: string;
   activo?: boolean;

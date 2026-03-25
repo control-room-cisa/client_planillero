@@ -50,6 +50,9 @@ const NominasManagement = React.lazy(
 const DepartamentosManagement = React.lazy(
   () => import("../components/rrhh/DepartamentosManagement")
 );
+const InformacionPersonalEmpleado = React.lazy(
+  () => import("../components/empleado/InformacionPersonalEmpleado")
+);
 
 const AppRoutes: React.FC = () => {
   return (
@@ -193,6 +196,24 @@ const AppRoutes: React.FC = () => {
           element={
             <RoleProtectedRoute allowedRoles={[Roles.EMPLEADO, Roles.ASISTENTE_CONTABILIDAD]}>
               <NotificationsEmployee />
+            </RoleProtectedRoute>
+          }
+        />
+
+        {/* Perfil (información personal del Empleado autenticado) */}
+        <Route
+          path="mi-perfil"
+          element={
+            <RoleProtectedRoute
+              allowedRoles={[
+                Roles.EMPLEADO,
+                Roles.SUPERVISOR,
+                Roles.ASISTENTE_CONTABILIDAD,
+                Roles.RRHH,
+                Roles.SUPERVISOR_CONTABILIDAD,
+              ]}
+            >
+              <InformacionPersonalEmpleado />
             </RoleProtectedRoute>
           }
         />
