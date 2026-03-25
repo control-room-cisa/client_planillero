@@ -134,7 +134,9 @@ export const useDailyTimesheet = () => {
   // === Banderas por tipo de horario (códigos canónicos del backend) ===
   const isH2 = horarioValidado?.tipoHorario === "H2_1";
   const isH2_2 = horarioValidado?.tipoHorario === "H2_2";
-  const isH1 = ["H1_1", "H1_2"].includes(horarioValidado?.tipoHorario || "");
+  const isH1 = ["H1_1", "H1_2", "H1_8"].includes(
+    horarioValidado?.tipoHorario || ""
+  );
   const isHoliday = Boolean(
     horarioData?.esFestivo || horarioValidado?.esFestivo
   );
@@ -420,7 +422,7 @@ export const useDailyTimesheet = () => {
             );
 
             if (datosExistentes && registro) {
-              if (["H1_1", "H1_2"].includes(horarioData.tipoHorario)) {
+              if (["H1_1", "H1_2", "H1_8"].includes(horarioData.tipoHorario)) {
                 return {
                   ...base,
                   jornada: registro.jornada || base.jornada,

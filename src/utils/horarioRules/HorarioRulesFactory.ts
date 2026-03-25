@@ -12,6 +12,7 @@ const registry = new Map<string, HorarioRuleEngine>([
   [H1Rules.type, H1Rules],
   // Alias pending/legacy variants
   ["H1_2", H1Rules],
+  ["H1_8", H1Rules],
   // H1 "editables" (aplica a H1.4 y otros H1_n que requieran edición de entrada/salida)
   ["H1_3", H1EditableRules],
   ["H1_4", H1EditableRules],
