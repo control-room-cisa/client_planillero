@@ -16,13 +16,36 @@ import {
   InputAdornment,
   Tooltip,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
 } from "@mui/material";
 import {
   Visibility as VisibilityIcon,
   Search as SearchIcon,
+  EventAvailable as EventAvailableIcon,
 } from "@mui/icons-material";
 import type { Empleado } from "../../../services/empleadoService";
 import { getImageUrl } from "../../../utils/imageUtils";
+
+function safeHoras(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatCompensatorioLabel(horas: number | null): string {
+  if (horas === null) return "—";
+  return `${horas} horas`;
+}
+
+function formatVacacionesLabel(horas: number | null): string {
+  if (horas === null) return "—";
+  const dias = horas / 8;
+  return `${dias.toFixed(2)} días (${horas} horas)`;
+}
 
 interface ColaboradoresListProps {
   empleados: Empleado[];
@@ -41,12 +64,15 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
   onDetalleClick,
   showSearch = true,
 }) => {
+  const [saldoModalEmpleado, setSaldoModalEmpleado] =
+    React.useState<Empleado | null>(null);
+
   const fullName = (e: Empleado) =>
     `${e.nombre ?? ""} ${e.apellido ?? ""}`.trim();
 
   // Determinar fecha de corte y filtrar rango relevante según reglas 12–26 y 27–11
   const computeStatus = (
-    e: Empleado
+    e: Empleado,
   ): {
     label: "Registros pendientes" | "Pendiente de aprobación" | "Completo";
     color: "warning" | "info" | "success";
@@ -104,7 +130,7 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
     const totalDays = allDates.length;
     const registeredDays = inRange.length; // Días que tienen registro
     const approvedSupervisorDays = inRange.filter(
-      (x) => x.aprobacionSupervisor === true
+      (x) => x.aprobacionSupervisor === true,
     ).length;
 
     if (!arr.length || inRange.length === 0 || registeredDays < totalDays) {
@@ -144,7 +170,7 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
     return [...(empleados ?? [])].sort((a, b) =>
       fullName(a)
         .toLocaleLowerCase()
-        .localeCompare(fullName(b).toLocaleLowerCase())
+        .localeCompare(fullName(b).toLocaleLowerCase()),
     );
   }, [empleados]);
 
@@ -302,13 +328,35 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
                   </TableCell>
 
                   <TableCell align="center">
-                    <IconButton
-                      color="primary"
-                      onClick={() => onDetalleClick(empleado)}
-                      title="Ver actividades"
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexWrap: "wrap",
+                        gap: 0.5,
+                      }}
                     >
-                      <VisibilityIcon />
-                    </IconButton>
+                      <Tooltip title="Ver actividades">
+                        <IconButton
+                          color="primary"
+                          onClick={() => onDetalleClick(empleado)}
+                          size="small"
+                        >
+                          <VisibilityIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Tiempo compensatorio y vacaciones">
+                        <IconButton
+                          color="primary"
+                          size="small"
+                          onClick={() => setSaldoModalEmpleado(empleado)}
+                          aria-label="Tiempo compensatorio y vacaciones"
+                        >
+                          <EventAvailableIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))
@@ -316,6 +364,48 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
           </TableBody>
         </Table>
       </TableContainer>
+
+      <Dialog
+        open={Boolean(saldoModalEmpleado)}
+        onClose={() => setSaldoModalEmpleado(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Tiempo compensatorio y vacaciones</DialogTitle>
+        <DialogContent dividers>
+          {saldoModalEmpleado ? (
+            <Box sx={{ pt: 1 }}>
+              <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+                {fullName(saldoModalEmpleado)}
+              </Typography>
+              {saldoModalEmpleado.codigo ? (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  Código: {saldoModalEmpleado.codigo}
+                </Typography>
+              ) : null}
+              <Typography variant="body1" sx={{ mb: 1 }}>
+                <strong>Tiempo compensatorio:</strong>{" "}
+                {formatCompensatorioLabel(
+                  safeHoras(saldoModalEmpleado.tiempoCompensatorioHoras),
+                )}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Vacaciones:</strong>{" "}
+                {formatVacacionesLabel(
+                  safeHoras(saldoModalEmpleado.tiempoVacacionesHoras),
+                )}
+              </Typography>
+            </Box>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSaldoModalEmpleado(null)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 };
