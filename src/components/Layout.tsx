@@ -35,6 +35,7 @@ import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import BusinessIcon from "@mui/icons-material/Business";
+import SettingsIcon from "@mui/icons-material/Settings";
 
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -286,6 +287,12 @@ export default function Layout() {
           text: "Gestión de Departamentos",
           icon: <BusinessIcon />,
           path: "/rrhh/departamentos",
+        },
+        {
+          id: "parametros-nomina",
+          text: "Parámetros de Nómina",
+          icon: <SettingsIcon />,
+          path: "/rrhh/parametros-nomina",
         },
       ];
     }

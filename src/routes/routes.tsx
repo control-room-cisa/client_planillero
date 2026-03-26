@@ -50,6 +50,9 @@ const NominasManagement = React.lazy(
 const DepartamentosManagement = React.lazy(
   () => import("../components/rrhh/DepartamentosManagement")
 );
+const ParametrosNominaManagement = React.lazy(
+  () => import("../components/rrhh/ParametrosNominaManagement")
+);
 const InformacionPersonalEmpleado = React.lazy(
   () => import("../components/empleado/InformacionPersonalEmpleado")
 );
@@ -160,6 +163,14 @@ const AppRoutes: React.FC = () => {
           element={
             <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
               <DepartamentosManagement />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="rrhh/parametros-nomina"
+          element={
+            <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
+              <ParametrosNominaManagement />
             </RoleProtectedRoute>
           }
         />

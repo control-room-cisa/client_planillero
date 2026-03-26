@@ -53,6 +53,7 @@ import NominaService, {
   type CrearNominaDto,
 } from "../../../services/nominaService";
 import CalculoHorasTrabajoService from "../../../services/calculoHorasTrabajoService";
+import { GlobalConfigService } from "../../../services/globalConfigService";
 import DetalleRegistrosDiariosModal from "./detalleRegistrosDiariosModal";
 import type { DeduccionAlimentacionDetalleDto } from "../../../dtos/calculoHorasTrabajoDto";
 import { getTipoHorarioLabel } from "../../../enums/tipoHorario";
@@ -333,6 +334,33 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   const diasIncapacidadCubreIHSS =
     conteoDias?.incapacidadIHSS ?? conteoDias?.incapacidadCubreIHSSDias ?? 0;
 
+  // Configuración global (no hardcode): PISO_IHSS y DEDUCCION_IHSS_FIJA
+  const [cfgPisoIhss, setCfgPisoIhss] = React.useState<number>(11903.13);
+  const [cfgDeduccionIhssFija, setCfgDeduccionIhssFija] =
+    React.useState<number>(595.16);
+
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [piso, ded] = await Promise.all([
+          GlobalConfigService.get("PISO_IHSS"),
+          GlobalConfigService.get("DEDUCCION_IHSS_FIJA"),
+        ]);
+        const pisoN = piso ? Number(piso.value) : NaN;
+        const dedN = ded ? Number(ded.value) : NaN;
+        if (!mounted) return;
+        if (Number.isFinite(pisoN) && pisoN > 0) setCfgPisoIhss(pisoN);
+        if (Number.isFinite(dedN) && dedN >= 0) setCfgDeduccionIhssFija(dedN);
+      } catch {
+        // Silencioso: se mantienen fallbacks
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // Días laborados: el backend ya resta incapacidades, vacaciones, permisos, etc.
   // Pero recalculamos aquí para asegurar consistencia con los datos mostrados
   const diasLaborados = Math.max(
@@ -391,7 +419,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   //   ) || 0;
 
   // Constantes y estados de deducciones/ajustes
-  const PISO_IHSS = 11903.13; // piso IHSS para cálculo de RAP
+  const PISO_IHSS = cfgPisoIhss; // desde global_config (fallback a 11903.13)
 
   // Cálculo de montos de incapacidad según fórmulas especificadas
   // Monto incapacidad IHSS: diasIncapacidadIHSS * (PISO_IHSS * 0.66) / 30
@@ -441,7 +469,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   const montoHoras100 = (horas?.p100 || 0) * salarioPorHora * 2.0;
 
   // Constantes y estados de deducciones/ajustes
-  const DEDUCCION_IHSS_FIJA = 595.16; // IHSS fijo constante
+  const DEDUCCION_IHSS_FIJA = cfgDeduccionIhssFija; // desde global_config (fallback a 595.16)
   const [ajuste, setAjuste] = React.useState<number>(0);
   const [montoExcedenteIHSS, setMontoExcedenteIHSS] = React.useState<number>(0);
   const [deduccionIHSS, setDeduccionIHSS] = React.useState<number>(0);
