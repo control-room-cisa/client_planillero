@@ -1408,10 +1408,22 @@ const NominasManagement: React.FC = () => {
                           color="text.secondary"
                           gutterBottom
                         >
-                          Días Incapacidad
+                          Días incap. empresa
                         </Typography>
                         <Typography variant="body1">
-                          {currentNomina.diasIncapacidad ?? "-"}
+                          {currentNomina.diasIncapacidadEmpresa ?? "-"}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          gutterBottom
+                        >
+                          Días incap. IHSS
+                        </Typography>
+                        <Typography variant="body1">
+                          {currentNomina.diasIncapacidadIHSS ?? "-"}
                         </Typography>
                       </Box>
                     </Box>

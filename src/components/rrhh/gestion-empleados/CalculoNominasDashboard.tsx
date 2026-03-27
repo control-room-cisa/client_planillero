@@ -146,13 +146,13 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
 
   // Empleado actual navegable
   const [empleado, setEmpleado] = React.useState<Empleado | null>(
-    empleadoInicial
+    empleadoInicial,
   );
 
   // Derivar índice (no se congela)
   const empleadosIndex: EmpleadoIndexItem[] = React.useMemo(
     () => indiceEntrante ?? [],
-    [indiceEntrante]
+    [indiceEntrante],
   );
 
   // Sincronizar empleado cuando cambia empleadoProp
@@ -175,7 +175,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
               codigoEmpleadoAnterior: empleadoActualCodigo,
               codigoEmpleadoNuevo: nuevoEmpleadoCodigo,
               codigoEmpleadoUrl: codigoEmpleado,
-            }
+            },
           );
         }
         setEmpleado(empleadoProp);
@@ -204,7 +204,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     const hoyNormalizado = new Date(
       hoy.getFullYear(),
       hoy.getMonth(),
-      hoy.getDate()
+      hoy.getDate(),
     );
 
     for (let i = 0; i < 30; i++) {
@@ -262,14 +262,18 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
 
     // Ordenar por fechaInicio (YYYY-MM-DD) descendente
     intervalos.sort((a: any, b: any) =>
-      a.fechaInicio < b.fechaInicio ? 1 : a.fechaInicio > b.fechaInicio ? -1 : 0
+      a.fechaInicio < b.fechaInicio
+        ? 1
+        : a.fechaInicio > b.fechaInicio
+          ? -1
+          : 0,
     );
     return intervalos;
   }, []);
 
   const intervalosDisponibles = React.useMemo(
     () => generarIntervalosFechas(),
-    [generarIntervalosFechas]
+    [generarIntervalosFechas],
   );
 
   const [intervaloSeleccionado, setIntervaloSeleccionado] =
@@ -315,9 +319,12 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   });
 
   // Cálculos de horas compensatorias
-  const horasCompensatoriasTomadas = resumenHoras?.conteoHoras?.cantidadHoras?.horasCompensatoriasTomadas ?? 0;
-  const horasCompensatoriasPagadas = resumenHoras?.conteoHoras?.cantidadHoras?.horasCompensatoriasPagadas ?? 0;
-  const totalCompensatoriasQuincena = horasCompensatoriasPagadas - horasCompensatoriasTomadas;
+  const horasCompensatoriasTomadas =
+    resumenHoras?.conteoHoras?.cantidadHoras?.horasCompensatoriasTomadas ?? 0;
+  const horasCompensatoriasPagadas =
+    resumenHoras?.conteoHoras?.cantidadHoras?.horasCompensatoriasPagadas ?? 0;
+  const totalCompensatoriasQuincena =
+    horasCompensatoriasPagadas - horasCompensatoriasTomadas;
 
   // Cálculos de salario y montos
   const { sueldoMensual = 0 } = (empleado as any) || {};
@@ -371,16 +378,16 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
       (diasIncapacidadCubreEmpresa || 0) -
       (diasIncapacidadCubreIHSS || 0) -
       ((conteoDias?.permisoSinSueldo ?? 0) || 0) -
-      ((conteoDias?.inasistencias ?? 0) || 0)
+      ((conteoDias?.inasistencias ?? 0) || 0),
   );
 
   const salarioQuincenal = React.useMemo(
     () => (sueldoMensual || 0) / 2,
-    [sueldoMensual]
+    [sueldoMensual],
   );
   const salarioPorHora = React.useMemo(
     () => (sueldoMensual || 0) / (30 * 8),
-    [sueldoMensual]
+    [sueldoMensual],
   );
   const formatCurrency = React.useCallback((valor: number) => {
     return `${(valor || 0).toLocaleString("es-HN", {
@@ -398,7 +405,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   const horasPermisosJustificados =
     Number(
       (resumenHoras as any)?.conteoHoras?.cantidadHoras
-        ?.permisoConSueldoHoras ?? diasPermisoCS * 8
+        ?.permisoConSueldoHoras ?? diasPermisoCS * 8,
     ) || 0;
   const montoPermisosJustificados = horasPermisosJustificados * salarioPorHora;
 
@@ -609,7 +616,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     setInputMontoIncapacidadEmpresa(
       montoIncapacidadCubreEmpresa > 0
         ? String(montoIncapacidadCubreEmpresa)
-        : ""
+        : "",
     );
   }, [montoIncapacidadCubreEmpresa]);
 
@@ -625,7 +632,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   // Sincronizar montoIncapacidadIHSS con su input string
   React.useEffect(() => {
     setInputMontoIncapacidadIHSS(
-      montoIncapacidadIHSS > 0 ? String(montoIncapacidadIHSS) : ""
+      montoIncapacidadIHSS > 0 ? String(montoIncapacidadIHSS) : "",
     );
   }, [montoIncapacidadIHSS]);
 
@@ -644,9 +651,9 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     () =>
       detalleDeduccionAlimentacion.reduce(
         (acum, item) => acum + (item.precio || 0),
-        0
+        0,
       ),
-    [detalleDeduccionAlimentacion]
+    [detalleDeduccionAlimentacion],
   );
 
   // Toast (MUI Snackbar)
@@ -658,13 +665,13 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   const showToast = React.useCallback(
     (
       message: string,
-      severity: "success" | "error" | "info" | "warning" = "info"
+      severity: "success" | "error" | "info" | "warning" = "info",
     ) => {
       setToastMessage(message);
       setToastSeverity(severity);
       setToastOpen(true);
     },
-    []
+    [],
   );
   const handleToastClose = React.useCallback(() => setToastOpen(false), []);
 
@@ -702,7 +709,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
       // si no coincide, usar mes/año de fin
       return `Quincena de ${mesFin} de ${añoFin}`;
     },
-    []
+    [],
   );
 
   const nombrePeriodoNomina = React.useMemo(
@@ -710,7 +717,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
       fechaInicio && fechaFin
         ? getNombrePeriodoNomina(fechaInicio, fechaFin)
         : "",
-    [fechaInicio, fechaFin, getNombrePeriodoNomina]
+    [fechaInicio, fechaFin, getNombrePeriodoNomina],
   );
 
   // Resetear inputs al cambiar período (excepto IHSS, RAP, Alimentación y Otros)
@@ -817,12 +824,12 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
           await CalculoHorasTrabajoService.getDeduccionesAlimentacion(
             codigoEmpleado,
             fechaInicio,
-            fechaFin
+            fechaFin,
           );
         const tiempoTranscurrido = Date.now() - t0;
         console.log(
           `[CalculoNominas] Deducciones obtenidas en ${tiempoTranscurrido}ms:`,
-          resultado
+          resultado,
         );
 
         // Solo manejar el error específico de alimentación que viene en el objeto
@@ -837,7 +844,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
           const valorCalculado = resultado.deduccionesAlimentacion ?? 0;
           setDeduccionAlimentacion(valorCalculado);
           setInputDeduccionAlimentacion(
-            valorCalculado > 0 ? String(valorCalculado) : ""
+            valorCalculado > 0 ? String(valorCalculado) : "",
           );
           setErrorAlimentacion(null);
           setDetalleDeduccionAlimentacion(resultado.detalle ?? []);
@@ -869,7 +876,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   // Crear nómina
   // Bloqueo por errores de validación (no se puede procesar la nómina)
   const bloqueaPorValidacion = Boolean(
-    (error as any)?.response?.data?.validationErrors
+    (error as any)?.response?.data?.validationErrors,
   );
 
   // Verificar automáticamente si existe una nómina con el mismo intervalo al cargar el período
@@ -937,7 +944,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
       if (bloqueaPorValidacion) {
         showToast(
           "No se puede procesar la nómina. Corrige las incidencias.",
-          "error"
+          "error",
         );
         return;
       }
@@ -959,7 +966,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
       if (overlapped) {
         showToast(
           "Ya existe una nómina que traslapa con el período seleccionado",
-          "error"
+          "error",
         );
         return;
       }
@@ -973,8 +980,8 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
 
         diasLaborados: diasLaborados || 0,
         diasVacaciones: diasVacaciones || 0,
-        // Se reemplaza díasIncapacidad por montos detallados
-        diasIncapacidad: 0,
+        diasIncapacidadEmpresa: diasIncapacidadCubreEmpresa || 0,
+        diasIncapacidadIHSS: diasIncapacidadCubreIHSS || 0,
         horasCompensatorias: totalCompensatoriasQuincena,
 
         subtotalQuincena: subtotalQuincena || 0,
@@ -1010,6 +1017,8 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
 
       const creada = await NominaService.create(payload);
       showToast(`Nómina creada (ID ${creada.id})`, "success");
+      setNominaExiste(true);
+      await refetch();
     } catch (err: any) {
       console.error("Error al crear nómina:", err);
       const apiMsg = err?.response?.data?.message;
@@ -1023,6 +1032,8 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     fechaFin,
     diasLaborados,
     diasVacaciones,
+    diasIncapacidadCubreEmpresa,
+    diasIncapacidadCubreIHSS,
     subtotalQuincena,
     montoVacaciones,
     montoDiasLaborados,
@@ -1049,6 +1060,8 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     totalNetoPagar,
     comentario,
     getNombrePeriodoNomina,
+    refetch,
+    totalCompensatoriasQuincena,
   ]);
 
   // Auto-refetch al cambiar empleado si ya hay rango
@@ -1057,7 +1070,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
       if (DEBUG)
         console.debug(
           "[CalculoNominas] empleado cambió → refetch",
-          empleado.id
+          empleado.id,
         );
       refetch();
     }
@@ -1098,7 +1111,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
 
     if ((empleado as any).codigo) {
       i = empleadosIndex.findIndex((x) =>
-        x.codigo ? eq(x.codigo, (empleado as any).codigo) : false
+        x.codigo ? eq(x.codigo, (empleado as any).codigo) : false,
       );
       if (DEBUG)
         console.debug("[CalculoNominas] búsqueda por código:", {
@@ -1112,7 +1125,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
       empleado.apellido ?? ""
     }`.trim();
     i = empleadosIndex.findIndex(
-      (x) => (x.nombreCompleto || "").trim() === nombreCompletoActual
+      (x) => (x.nombreCompleto || "").trim() === nombreCompletoActual,
     );
     if (DEBUG)
       console.debug("[CalculoNominas] búsqueda por nombre:", {
@@ -1134,7 +1147,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
 
     if ((empleado as any).codigo) {
       const j = empleadosIndex.findIndex(
-        (x) => x.codigo && eq(x.codigo, (empleado as any).codigo)
+        (x) => x.codigo && eq(x.codigo, (empleado as any).codigo),
       );
       if (j >= 0) {
         const target = empleadosIndex[j];
@@ -1149,7 +1162,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
               codigo: target.codigo ?? (prevEmp as any)?.codigo ?? null,
               nombre,
               apellido,
-            } as Empleado)
+            }) as Empleado,
         );
         return;
       }
@@ -1160,7 +1173,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     if (DEBUG)
       console.debug(
         "[CalculoNominas] realineado al primero del índice →",
-        first
+        first,
       );
     setEmpleado(
       (prevEmp) =>
@@ -1170,7 +1183,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
           codigo: first.codigo ?? (prevEmp as any)?.codigo ?? null,
           nombre,
           apellido,
-        } as Empleado)
+        }) as Empleado,
     );
   }, [idx, empleado, empleadosIndex]);
 
@@ -1209,7 +1222,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
         if (DEBUG)
           console.debug(
             "[CalculoNominas] Cargando empleado completo:",
-            empleadoId
+            empleadoId,
           );
         const empleadoCompleto = await EmpleadoService.getById(empleadoId);
         setEmpleado(empleadoCompleto);
@@ -1220,7 +1233,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
         const empleadoIndex = empleadosIndex.find((e) => e.id === empleadoId);
         if (empleadoIndex) {
           const { nombre, apellido } = splitNombre(
-            empleadoIndex.nombreCompleto
+            empleadoIndex.nombreCompleto,
           );
           setEmpleado(
             (prev) =>
@@ -1230,12 +1243,12 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                 codigo: empleadoIndex.codigo,
                 nombre,
                 apellido,
-              } as Empleado)
+              }) as Empleado,
           );
         }
       }
     },
-    [empleadosIndex]
+    [empleadosIndex],
   );
 
   const goPrev = () => {
@@ -1828,10 +1841,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                                   day: "2-digit",
                                   month: "2-digit",
                                   year: "numeric",
-                                }
+                                },
                               )}
                             </Typography>
-                          )
+                          ),
                         )}
                       </Box>
                     </Box>
@@ -1867,10 +1880,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                                   day: "2-digit",
                                   month: "2-digit",
                                   year: "numeric",
-                                }
+                                },
                               )}
                             </Typography>
-                          )
+                          ),
                         )}
                       </Box>
                     </Box>
@@ -1880,8 +1893,8 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     .filter(
                       ([k]) =>
                         !["fechasNoAprobadas", "fechasSinRegistro"].includes(
-                          k as string
-                        )
+                          k as string,
+                        ),
                     )
                     .map(([campo, mensajes]: any) => (
                       <Box key={campo} sx={{ mt: 1 }}>
@@ -1947,7 +1960,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Departamento:</strong>
                     </Typography>
-                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body1"
+                      sx={{ textAlign: "right", flex: 1, minWidth: 0 }}
+                    >
                       {(empleado as any).departamento ||
                         ((empleado as any).departamentoId
                           ? `Departamento ${(empleado as any).departamentoId}`
@@ -1964,7 +1980,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Tipo de Contrato:</strong>
                     </Typography>
-                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body1"
+                      sx={{ textAlign: "right", flex: 1, minWidth: 0 }}
+                    >
                       {empleado.tipoContrato ?? "—"}
                     </Typography>
                   </Box>
@@ -1978,7 +1997,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Tipo de Horario:</strong>
                     </Typography>
-                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body1"
+                      sx={{ textAlign: "right", flex: 1, minWidth: 0 }}
+                    >
                       {empleado.tipoHorario
                         ? getTipoHorarioLabel(empleado.tipoHorario)
                         : "—"}
@@ -1995,7 +2017,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Sueldo Mensual:</strong>
                     </Typography>
-                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body1"
+                      sx={{ textAlign: "right", flex: 1, minWidth: 0 }}
+                    >
                       {empleado?.sueldoMensual != null
                         ? formatCurrency(empleado.sueldoMensual)
                         : "—"}
@@ -2011,7 +2036,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Sueldo Quincenal:</strong>
                     </Typography>
-                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body1"
+                      sx={{ textAlign: "right", flex: 1, minWidth: 0 }}
+                    >
                       {empleado?.sueldoMensual != null
                         ? formatCurrency(empleado.sueldoMensual / 2)
                         : "—"}
@@ -2027,7 +2055,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Sueldo por hora:</strong>
                     </Typography>
-                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body1"
+                      sx={{ textAlign: "right", flex: 1, minWidth: 0 }}
+                    >
                       {Number.isFinite(Number(empleado?.sueldoMensual))
                         ? formatCurrency(Number(empleado!.sueldoMensual) / 240)
                         : "—"}
@@ -2055,7 +2086,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Tiempo Compensatorio (horas):</strong>
                     </Typography>
-                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body1"
+                      sx={{ textAlign: "right", flex: 1, minWidth: 0 }}
+                    >
                       {(empleado as any).tiempoCompensatorioHoras != null
                         ? `${(empleado as any).tiempoCompensatorioHoras}h`
                         : "—"}
@@ -2071,7 +2105,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <Typography variant="body1">
                       <strong>Vacaciones (horas):</strong>
                     </Typography>
-                    <Typography variant="body1" sx={{ textAlign: "right", flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body1"
+                      sx={{ textAlign: "right", flex: 1, minWidth: 0 }}
+                    >
                       {(empleado as any).tiempoVacacionesHoras != null
                         ? `${(empleado as any).tiempoVacacionesHoras}h`
                         : "—"}
@@ -2392,8 +2429,9 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                         <strong>Horas compensatorias tomadas:</strong>
                       </Typography>
                       <Typography variant="body1">
-                        {resumenHoras.conteoHoras.cantidadHoras?.horasCompensatoriasTomadas?.toFixed(2) ??
-                          "0.00"}
+                        {resumenHoras.conteoHoras.cantidadHoras?.horasCompensatoriasTomadas?.toFixed(
+                          2,
+                        ) ?? "0.00"}
                       </Typography>
                     </Box>
                     <Box
@@ -2407,8 +2445,9 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                         <strong>Horas compensatorias pagadas:</strong>
                       </Typography>
                       <Typography variant="body1">
-                        {resumenHoras.conteoHoras.cantidadHoras?.horasCompensatoriasPagadas?.toFixed(2) ??
-                          "0.00"}
+                        {resumenHoras.conteoHoras.cantidadHoras?.horasCompensatoriasPagadas?.toFixed(
+                          2,
+                        ) ?? "0.00"}
                       </Typography>
                     </Box>
                     {/* Incapacidad en horas comentado temporalmente */}
@@ -2505,7 +2544,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     const sanitized = sanitizeDecimalInput(e.target.value);
                     setInputMontoIncapacidadEmpresa(sanitized);
                     setMontoIncapacidadCubreEmpresa(
-                      parseDecimalValue(sanitized)
+                      parseDecimalValue(sanitized),
                     );
                   }}
                 />
@@ -2586,8 +2625,8 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     loadingAlimentacion
                       ? "Cargando datos..."
                       : errorAlimentacion?.tieneError
-                      ? errorAlimentacion.mensajeError
-                      : undefined
+                        ? errorAlimentacion.mensajeError
+                        : undefined
                   }
                   error={errorAlimentacion?.tieneError === true}
                 />
@@ -2658,7 +2697,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                 />
                 <TextField
                   label={`(-) Deducción RAP (1.5% excedente sobre ${formatCurrency(
-                    PISO_IHSS
+                    PISO_IHSS,
                   )})`}
                   type="text"
                   inputMode="decimal"
@@ -2748,9 +2787,9 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
               <Box sx={{ mt: 2 }}>
                 {nominaExiste && (
                   <Alert severity="info" sx={{ mb: 2 }}>
-                    Ya existe una nómina generada para el período seleccionado (
-                    {fechaInicio} - {fechaFin}). No se puede generar otra nómina
-                    para el mismo intervalo.
+                    Nómina generada para el período seleccionado ({fechaInicio}{" "}
+                    - {fechaFin}). No se puede generar otra nómina para el mismo
+                    intervalo.
                   </Alert>
                 )}
                 <Box sx={{ textAlign: "right" }}>

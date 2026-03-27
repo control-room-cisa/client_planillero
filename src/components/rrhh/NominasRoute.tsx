@@ -1,30 +1,51 @@
 // src/routes/NominasRoute.tsx (o donde prefieras)
 import * as React from "react";
-import { Navigate, useOutletContext, useParams } from "react-router-dom";
+import {
+  Navigate,
+  useOutletContext,
+  useParams,
+} from "react-router-dom";
 import { Fade, Box, CircularProgress } from "@mui/material";
 import type { LayoutOutletCtx } from "../Layout";
+import { readEmpleadosIndexSession } from "../../utils/nominasEmpleadosIndexSession";
 import CalculoNominas from "./gestion-empleados/CalculoNominasDashboard";
 import EmpleadoService from "../../services/empleadoService";
 import type { Empleado } from "../../services/empleadoService";
 
 const NominasRoute: React.FC = () => {
   const { codigoEmpleado } = useParams<{ codigoEmpleado: string }>();
-  const { empleadosIndex } = useOutletContext<LayoutOutletCtx>();
+  const { empleadosIndex, setEmpleadosIndex } =
+    useOutletContext<LayoutOutletCtx>();
+
+  // Si el Layout se montó de cero (p. ej. F5), recuperar la lista guardada al abrir Nóminas
+  React.useEffect(() => {
+    if (empleadosIndex.length > 0) return;
+    const restored = readEmpleadosIndexSession();
+    if (restored?.length) setEmpleadosIndex(restored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar; setEmpleadosIndex no es estable
+  }, []);
   const [empleado, setEmpleado] = React.useState<Empleado | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [isTransitioning, setIsTransitioning] = React.useState(false);
-  const empleadoAnteriorRef = React.useRef<Empleado | null>(null);
+
+  // Al cambiar colaborador en la URL: limpiar el anterior y marcar carga para no
+  // mostrar datos ajenos ni disparar redirect (!empleado && !loading) entre renders.
+  React.useLayoutEffect(() => {
+    if (!codigoEmpleado) return;
+    setLoading(true);
+    setEmpleado((prev) => {
+      if (prev != null && String(prev.codigo ?? "") !== String(codigoEmpleado)) {
+        return null;
+      }
+      return prev;
+    });
+  }, [codigoEmpleado]);
 
   React.useEffect(() => {
     const cargarEmpleado = async () => {
       if (!codigoEmpleado) {
         setLoading(false);
         return;
-      }
-
-      // Si hay un empleado anterior, guardarlo para la transición
-      if (empleado) {
-        empleadoAnteriorRef.current = empleado;
       }
 
       setIsTransitioning(true);
@@ -91,8 +112,10 @@ const NominasRoute: React.FC = () => {
     return <Navigate to="/rrhh/colaboradores" replace />;
   }
 
-  // Mostrar empleado anterior durante la transición si existe
-  const empleadoAMostrar = empleado || empleadoAnteriorRef.current;
+  const empleadoCoincideUrl =
+    empleado != null &&
+    String(empleado.codigo ?? "") === String(codigoEmpleado ?? "");
+  const empleadoAMostrar = empleadoCoincideUrl ? empleado : null;
 
   return (
     <>
@@ -129,6 +152,7 @@ const NominasRoute: React.FC = () => {
             }}
           >
             <CalculoNominas
+              key={empleadoAMostrar.id}
               empleado={empleadoAMostrar}
               empleadosIndex={empleadosIndex}
             />

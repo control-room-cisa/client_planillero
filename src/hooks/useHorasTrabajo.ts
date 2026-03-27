@@ -32,9 +32,11 @@ export const useHorasTrabajo = ({
 
   const fetchData = useCallback(async () => {
     if (!enabled || !empleadoId || !fechaInicio || !fechaFin) {
+      setResumenHoras(null);
       return;
     }
 
+    setResumenHoras(null);
     setLoading(true);
     setError(null);
 

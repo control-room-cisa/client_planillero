@@ -11,6 +11,7 @@ import EmpleadoFormModal from "./gestion-empleados/EmpleadoFormModal";
 import EmpleadoDetailModal from "./gestion-empleados/EmpleadoDetailModal";
 import EmpleadosFilters from "./gestion-empleados/EmpleadosFilters";
 import type { LayoutOutletCtx } from "../Layout";
+import { persistEmpleadosIndexSession } from "../../utils/nominasEmpleadosIndexSession";
 import ConfirmDialog from "../common/ConfirmDialog";
 
 const EmpleadosManagement: React.FC = () => {
@@ -189,6 +190,7 @@ const EmpleadosManagement: React.FC = () => {
   const handleNominaClick = (empleado: Empleado) => {
     // Persistir índice y empleado seleccionado en contexto
     setEmpleadosIndex(empleadosIndexList);
+    persistEmpleadosIndexSession(empleadosIndexList);
     setSelectedEmpleado(empleado);
     // Navegar a nóminas con el código del empleado en la URL, manteniendo filtros
     if (empleado.codigo) {

@@ -59,7 +59,10 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
   // Días
   const [formDiasLaborados, setFormDiasLaborados] = useState<number>(0);
   const [formDiasVacaciones, setFormDiasVacaciones] = useState<number>(0);
-  const [formDiasIncapacidad, setFormDiasIncapacidad] = useState<number>(0);
+  const [formDiasIncapacidadEmpresa, setFormDiasIncapacidadEmpresa] =
+    useState<number>(0);
+  const [formDiasIncapacidadIHSS, setFormDiasIncapacidadIHSS] =
+    useState<number>(0);
 
   // Percepciones
   const [formSubtotalQuincena, setFormSubtotalQuincena] = useState<number>(0);
@@ -282,7 +285,8 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       // Cargar todos los campos adicionales
       setFormDiasLaborados(nomina.diasLaborados ?? 0);
       setFormDiasVacaciones(nomina.diasVacaciones ?? 0);
-      setFormDiasIncapacidad(nomina.diasIncapacidad ?? 0);
+      setFormDiasIncapacidadEmpresa(nomina.diasIncapacidadEmpresa ?? 0);
+      setFormDiasIncapacidadIHSS(nomina.diasIncapacidadIHSS ?? 0);
       setFormSubtotalQuincena(nomina.subtotalQuincena ?? 0);
       setFormMontoVacaciones(nomina.montoVacaciones ?? 0);
       setFormMontoDiasLaborados(nomina.montoDiasLaborados ?? 0);
@@ -315,8 +319,14 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
           nomina.diasLaborados != null ? String(nomina.diasLaborados) : "",
         diasVacaciones:
           nomina.diasVacaciones != null ? String(nomina.diasVacaciones) : "",
-        diasIncapacidad:
-          nomina.diasIncapacidad != null ? String(nomina.diasIncapacidad) : "",
+        diasIncapacidadEmpresa:
+          nomina.diasIncapacidadEmpresa != null
+            ? String(nomina.diasIncapacidadEmpresa)
+            : "",
+        diasIncapacidadIHSS:
+          nomina.diasIncapacidadIHSS != null
+            ? String(nomina.diasIncapacidadIHSS)
+            : "",
         subtotalQuincena:
           nomina.subtotalQuincena != null
             ? String(nomina.subtotalQuincena)
@@ -380,7 +390,8 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       // Resetear todos los campos adicionales
       setFormDiasLaborados(0);
       setFormDiasVacaciones(0);
-      setFormDiasIncapacidad(0);
+      setFormDiasIncapacidadEmpresa(0);
+      setFormDiasIncapacidadIHSS(0);
       setFormSubtotalQuincena(0);
       setFormMontoVacaciones(0);
       setFormMontoDiasLaborados(0);
@@ -647,9 +658,14 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         label: "Días Vacaciones",
       },
       {
-        key: "diasIncapacidad",
-        value: formDiasIncapacidad,
-        label: "Días Incapacidad",
+        key: "diasIncapacidadEmpresa",
+        value: formDiasIncapacidadEmpresa,
+        label: "Días incapacidad empresa",
+      },
+      {
+        key: "diasIncapacidadIHSS",
+        value: formDiasIncapacidadIHSS,
+        label: "Días incapacidad IHSS",
       },
       {
         key: "subtotalQuincena",
@@ -767,7 +783,8 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         nombrePeriodoNomina: formNombrePeriodo,
         diasLaborados: formDiasLaborados ?? 0,
         diasVacaciones: formDiasVacaciones ?? 0,
-        diasIncapacidad: formDiasIncapacidad ?? 0,
+        diasIncapacidadEmpresa: formDiasIncapacidadEmpresa ?? 0,
+        diasIncapacidadIHSS: formDiasIncapacidadIHSS ?? 0,
         subtotalQuincena: formSubtotalQuincena ?? 0,
         montoVacaciones: formMontoVacaciones ?? 0,
         montoDiasLaborados: formMontoDiasLaborados ?? 0,
@@ -1148,25 +1165,46 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               helperText={formErrors.diasVacaciones}
             />
             <TextField
-              label="Días Incapacidad"
+              label="Días incapacidad empresa"
               type="text"
-              value={numericText.diasIncapacidad ?? ""}
+              value={numericText.diasIncapacidadEmpresa ?? ""}
               onChange={(e) =>
                 handleNumericChange(
                   e,
-                  "diasIncapacidad",
-                  setFormDiasIncapacidad,
+                  "diasIncapacidadEmpresa",
+                  setFormDiasIncapacidadEmpresa,
                   {
                     allowNegative: false,
-                    allowDecimal: false,
-                    maxDecimals: 0,
+                    allowDecimal: true,
+                    maxDecimals: 3,
                   }
                 )
               }
-              onKeyPress={(e) => handleNumericKeyPress(e, false, false)}
+              onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
-              error={!!formErrors.diasIncapacidad}
-              helperText={formErrors.diasIncapacidad}
+              error={!!formErrors.diasIncapacidadEmpresa}
+              helperText={formErrors.diasIncapacidadEmpresa}
+            />
+            <TextField
+              label="Días incapacidad IHSS"
+              type="text"
+              value={numericText.diasIncapacidadIHSS ?? ""}
+              onChange={(e) =>
+                handleNumericChange(
+                  e,
+                  "diasIncapacidadIHSS",
+                  setFormDiasIncapacidadIHSS,
+                  {
+                    allowNegative: false,
+                    allowDecimal: true,
+                    maxDecimals: 3,
+                  }
+                )
+              }
+              onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
+              fullWidth
+              error={!!formErrors.diasIncapacidadIHSS}
+              helperText={formErrors.diasIncapacidadIHSS}
             />
           </Box>
 

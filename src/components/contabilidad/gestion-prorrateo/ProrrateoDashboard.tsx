@@ -885,9 +885,16 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 </TableCell>
                               </TableRow>
                               <TableRow>
-                                <TableCell>Días incapacidad</TableCell>
+                                <TableCell>Días incap. empresa</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 100 }}>
-                                  {nominaSeleccionada?.diasIncapacidad ?? 0}
+                                  {nominaSeleccionada?.diasIncapacidadEmpresa ??
+                                    0}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Días incap. IHSS</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 100 }}>
+                                  {nominaSeleccionada?.diasIncapacidadIHSS ?? 0}
                                 </TableCell>
                               </TableRow>
                             </TableBody>
