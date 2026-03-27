@@ -26,12 +26,14 @@ import {
   Divider,
   Card,
   CardContent,
+  Tooltip,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import PrintIcon from "@mui/icons-material/Print";
 import NominaService, { type NominaDto } from "../../services/nominaService";
 import { empresaService } from "../../services/empresaService";
 import EmpleadoService from "../../services/empleadoService";
@@ -88,6 +90,7 @@ const NominasManagement: React.FC = () => {
     open: false,
     nomina: null,
   });
+  const [printingNominaId, setPrintingNominaId] = useState<number | null>(null);
 
   // Función para mostrar notificaciones
   const showSnackbar = useCallback(
@@ -480,6 +483,232 @@ const NominasManagement: React.FC = () => {
     }
   };
 
+  const handlePrintVoucher = async (nomina: NominaDto) => {
+    if (nomina.pagado !== true) return;
+    setPrintingNominaId(nomina.id);
+    try {
+      const n = await NominaService.getById(nomina.id);
+      if (n.pagado !== true) {
+        showSnackbar("Solo se imprime el voucher si la nómina está pagada", "error");
+        return;
+      }
+      const colaborador = getEmpleadoNombre(n.empleadoId);
+      const empresaNombre =
+        empresas.find((e) => e.id === n.empresaId)?.nombre ?? "";
+      const esc = (s: string) =>
+        s
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      const fc = (amount: number | null | undefined) => formatCurrency(amount);
+      const fd = (d: string) => formatDate(d);
+      const dias = (v: number | null | undefined) =>
+        v === null || v === undefined ? "-" : String(v);
+      const codigoNominaStr =
+        n.codigoNomina && String(n.codigoNomina).trim() !== ""
+          ? String(n.codigoNomina)
+          : "—";
+
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        showSnackbar("Permita ventanas emergentes para imprimir", "error");
+        return;
+      }
+
+      const rows = (items: [string, string][]) =>
+        items
+          .map(
+            ([label, val]) =>
+              `<tr><td class="l">${esc(label)}</td><td class="r">${val}</td></tr>`
+          )
+          .join("");
+
+      const card = (title: string, innerTable: string) =>
+        `<section class="card"><h2>${esc(title)}</h2><table class="data">${innerTable}</table></section>`;
+
+      const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Voucher nómina — ${esc(colaborador)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; font-size: 9.5px; margin: 10px; color: #222; line-height: 1.25; }
+    h1 { font-size: 14px; text-align: center; margin: 0 0 2px; }
+    .sub { text-align: center; color: #555; font-size: 9px; margin-bottom: 4px; }
+    .badge {
+      display: inline-block;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: bold;
+    }
+    .badge-pagado { background: #2e7d32; }
+    .badge-perc { background: #2e7d32; }
+    .badge-ded { background: #c62828; }
+    .badge-neto { background: #1565c0; }
+    .hdr-badge { text-align: center; margin-bottom: 8px; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      align-items: start;
+      margin-bottom: 8px;
+    }
+    .card {
+      border: 1px solid #bdbdbd;
+      border-radius: 4px;
+      padding: 6px 8px;
+      background: #fafafa;
+      page-break-inside: avoid;
+    }
+    .card h2 {
+      font-size: 10px;
+      margin: 0 0 5px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #ccc;
+      color: #333;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    table.data { width: 100%; border-collapse: collapse; margin: 0; }
+    table.data td { padding: 2px 4px; vertical-align: top; border-bottom: 1px solid #eee; font-size: 9.5px; }
+    table.data tr:last-child td { border-bottom: none; }
+    table.data td.l { font-weight: 600; width: 52%; color: #444; }
+    table.data td.r { text-align: right; }
+    .total-footer { text-align: right; margin-top: 6px; page-break-inside: avoid; }
+    .card-comment .comment-body {
+      margin: 0;
+      white-space: pre-wrap;
+      font-size: 9.5px;
+    }
+    .muted { color: #666; font-size: 8.5px; margin-top: 6px; text-align: center; }
+    @media print {
+      body { margin: 0; font-size: 9px; }
+      @page { margin: 8mm; size: letter; }
+      .grid-2 { gap: 6px; margin-bottom: 6px; }
+      .card { padding: 5px 6px; background: #fff; }
+      .card h2 { font-size: 9px; }
+      table.data td { font-size: 9px; padding: 1px 3px; }
+      .badge-pagado, .badge-perc, .badge-ded, .badge-neto { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Voucher de nómina</h1>
+  <div class="sub">${esc(empresaNombre)}${
+        empresaNombre ? " · " : ""
+      }${esc(n.nombrePeriodoNomina || "—")}</div>
+  <div class="hdr-badge"><span class="badge badge-pagado">PAGADO</span></div>
+
+  <div class="grid-2">
+    ${card(
+      "Información general",
+      rows([
+        ["ID nómina", esc(String(n.id))],
+        ["Código nómina", esc(codigoNominaStr)],
+        ["Colaborador", esc(colaborador)],
+        ["Empresa", esc(empresaNombre || "—")],
+        ["Período", esc(n.nombrePeriodoNomina || "—")],
+        ["Fecha inicio", esc(fd(n.fechaInicio))],
+        ["Fecha fin", esc(fd(n.fechaFin))],
+        ["Estado", "Pagado"],
+      ])
+    )}
+    ${card(
+      "Datos base",
+      rows([
+        ["Sueldo mensual", esc(fc(n.sueldoMensual))],
+        ["Días laborados", esc(dias(n.diasLaborados))],
+        ["Días vacaciones", esc(dias(n.diasVacaciones))],
+        ["Días incap. empresa", esc(dias(n.diasIncapacidadEmpresa))],
+        ["Días incap. IHSS", esc(dias(n.diasIncapacidadIHSS))],
+        ["Horas compensatorias", esc(dias(n.horasCompensatorias))],
+      ])
+    )}
+  </div>
+
+  <div class="grid-2">
+    ${card(
+      "Percepciones",
+      rows([
+        ["Subtotal quincena", esc(fc(n.subtotalQuincena))],
+        ["Monto vacaciones", esc(fc(n.montoVacaciones))],
+        ["Monto días laborados", esc(fc(n.montoDiasLaborados))],
+        ["Monto excedente IHSS", esc(fc(n.montoExcedenteIHSS))],
+        [
+          "Monto incap. cubre empresa",
+          esc(fc(n.montoIncapacidadCubreEmpresa)),
+        ],
+        ["Monto permisos justificados", esc(fc(n.montoPermisosJustificados))],
+        [
+          "Total percepciones",
+          `<span class="badge badge-perc">${esc(fc(n.totalPercepciones))}</span>`,
+        ],
+      ])
+    )}
+    ${card(
+      "Horas extra",
+      rows([
+        ["OT 25%", esc(fc(n.montoHoras25))],
+        ["OT 50%", esc(fc(n.montoHoras50))],
+        ["OT 75%", esc(fc(n.montoHoras75))],
+        ["OT 100%", esc(fc(n.montoHoras100))],
+      ])
+    )}
+  </div>
+
+  <div class="grid-2">
+    ${card(
+      "Deducciones",
+      rows([
+        ["IHSS", esc(fc(n.deduccionIHSS))],
+        ["ISR", esc(fc(n.deduccionISR))],
+        ["RAP", esc(fc(n.deduccionRAP))],
+        ["Alimentación", esc(fc(n.deduccionAlimentacion))],
+        ["Cobro préstamo", esc(fc(n.cobroPrestamo))],
+        ["Impuesto vecinal", esc(fc(n.impuestoVecinal))],
+        ["Otros", esc(fc(n.otros))],
+        ["Ajuste", esc(fc(n.ajuste))],
+        [
+          "Total deducciones",
+          `<span class="badge badge-ded">${esc(fc(n.totalDeducciones))}</span>`,
+        ],
+      ])
+    )}
+    <section class="card card-comment"><h2>Comentario</h2><p class="comment-body">${
+      n.comentario && String(n.comentario).trim() !== ""
+        ? esc(n.comentario)
+        : '<span class="muted">Sin comentario</span>'
+    }</p></section>
+  </div>
+
+  <div class="total-footer"><span class="badge badge-neto">Total neto a pagar: ${esc(fc(n.totalNetoPagar))}</span></div>
+  <p class="muted">Documento generado el ${esc(
+    new Date().toLocaleString("es-HN", {
+      dateStyle: "short",
+      timeStyle: "short",
+    })
+  )}</p>
+</body>
+</html>`;
+
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 200);
+    } catch (err) {
+      console.error("Error al imprimir voucher:", err);
+      showSnackbar("Error al preparar la impresión", "error");
+    } finally {
+      setPrintingNominaId(null);
+    }
+  };
+
   // Cerrar modales
   const handleCloseEditModal = () => {
     setOpenEditModal(false);
@@ -651,40 +880,62 @@ const NominasManagement: React.FC = () => {
             placeholder="Buscar por nombre..."
           />
 
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setSelectedEmpresaId(null);
-              setSearchTerm("");
-              setSelectedYear(null);
-              setSelectedPeriodo(null);
-            }}
-          >
-            Limpiar
-          </Button>
+          <Tooltip title="Limpiar filtros aplicados">
+            <span>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setSelectedEmpresaId(null);
+                  setSearchTerm("");
+                  setSelectedYear(null);
+                  setSelectedPeriodo(null);
+                }}
+              >
+                Limpiar
+              </Button>
+            </span>
+          </Tooltip>
 
-          <Button
-            variant="contained"
-            onClick={() => setOpenDetailTableModal(true)}
-            disabled={
-              !selectedEmpresaId || !codigoNominaFiltro || nominas.length === 0
+          <Tooltip
+            title={
+              !selectedEmpresaId || !codigoNominaFiltro
+                ? "Seleccionar filtros primero"
+                : nominas.length === 0
+                ? "Sin nóminas listadas"
+                : "Tabla ampliada período"
             }
           >
-            Ver Detalles
-          </Button>
+            <span>
+              <Button
+                variant="contained"
+                onClick={() => setOpenDetailTableModal(true)}
+                disabled={
+                  !selectedEmpresaId ||
+                  !codigoNominaFiltro ||
+                  nominas.length === 0
+                }
+              >
+                Ver Detalles
+              </Button>
+            </span>
+          </Tooltip>
         </Box>
 
         {/* Botón Crear Nómina - Separado para mayor visibilidad */}
         <Box sx={{ display: "flex", justifyContent: "flex-start", mt: 1 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            size="medium"
-            onClick={() => handleOpenCreateEditModal()}
-            sx={{ minWidth: 150 }}
-          >
-            Crear Nómina
-          </Button>
+          <Tooltip title="Registrar nueva nómina">
+            <span>
+              <Button
+                variant="contained"
+                color="primary"
+                size="medium"
+                onClick={() => handleOpenCreateEditModal()}
+                sx={{ minWidth: 150 }}
+              >
+                Crear Nómina
+              </Button>
+            </span>
+          </Tooltip>
         </Box>
       </Paper>
 
@@ -765,32 +1016,80 @@ const NominasManagement: React.FC = () => {
                       {formatCurrency(nomina.totalNetoPagar)}
                     </TableCell>
                     <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenDetailModal(nomina)}
-                        color="info"
-                        title="Ver detalles"
+                      <Tooltip title="Ver detalle nómina">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenDetailModal(nomina)}
+                          color="info"
+                          aria-label="Ver detalles de la nómina"
+                        >
+                          <VisibilityIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip
+                        title={
+                          nomina.pagado
+                            ? "Imprimir voucher pago"
+                            : "Solo nóminas pagadas"
+                        }
                       >
-                        <VisibilityIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenCreateEditModal(nomina)}
-                        disabled={nomina.pagado === true}
-                        color="primary"
-                        title="Editar"
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => handlePrintVoucher(nomina)}
+                            disabled={
+                              nomina.pagado !== true ||
+                              printingNominaId !== null
+                            }
+                            color="info"
+                            aria-label="Imprimir voucher de nómina pagada"
+                          >
+                            {printingNominaId === nomina.id ? (
+                              <CircularProgress size={18} color="inherit" />
+                            ) : (
+                              <PrintIcon />
+                            )}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip
+                        title={
+                          nomina.pagado
+                            ? "Nómina ya pagada"
+                            : "Modificar esta nómina"
+                        }
                       >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDelete(nomina)}
-                        disabled={nomina.pagado === true}
-                        color="error"
-                        title="Eliminar"
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleOpenCreateEditModal(nomina)}
+                            disabled={nomina.pagado === true}
+                            color="primary"
+                            aria-label="Editar nómina"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip
+                        title={
+                          nomina.pagado
+                            ? "Nómina ya pagada"
+                            : "Eliminar esta nómina"
+                        }
                       >
-                        <DeleteIcon />
-                      </IconButton>
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDelete(nomina)}
+                            disabled={nomina.pagado === true}
+                            color="error"
+                            aria-label="Eliminar nómina"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))
