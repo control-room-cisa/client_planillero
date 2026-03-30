@@ -321,10 +321,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   // Cálculos de horas compensatorias
   const horasCompensatoriasTomadas =
     resumenHoras?.conteoHoras?.cantidadHoras?.horasCompensatoriasTomadas ?? 0;
-  const horasCompensatoriasPagadas =
-    resumenHoras?.conteoHoras?.cantidadHoras?.horasCompensatoriasPagadas ?? 0;
+  const horasCompensatoriasDevueltas =
+    resumenHoras?.conteoHoras?.cantidadHoras?.horasCompensatoriasDevueltas ?? 0;
   const totalCompensatoriasQuincena =
-    horasCompensatoriasPagadas - horasCompensatoriasTomadas;
+    horasCompensatoriasDevueltas - horasCompensatoriasTomadas;
 
   // Cálculos de salario y montos
   const { sueldoMensual = 0 } = (empleado as any) || {};
@@ -340,6 +340,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     0;
   const diasIncapacidadCubreIHSS =
     conteoDias?.incapacidadIHSS ?? conteoDias?.incapacidadCubreIHSSDias ?? 0;
+  const diasCompensatoriasTomadas = conteoDias?.compensatoriasTomadas ?? 0;
 
   // Configuración global (no hardcode): PISO_IHSS y DEDUCCION_IHSS_FIJA
   const [cfgPisoIhss, setCfgPisoIhss] = React.useState<number>(11903.13);
@@ -368,8 +369,8 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     };
   }, []);
 
-  // Días laborados: el backend ya resta incapacidades, vacaciones, permisos, etc.
-  // Pero recalculamos aquí para asegurar consistencia con los datos mostrados
+  // Días laborados: el backend ya resta incapacidades, vacaciones, permisos, compensatorias tomadas, etc.
+  // Recalculamos aquí para asegurar consistencia con los datos mostrados
   const diasLaborados = Math.max(
     0,
     (periodoNomina || 15) -
@@ -378,7 +379,8 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
       (diasIncapacidadCubreEmpresa || 0) -
       (diasIncapacidadCubreIHSS || 0) -
       ((conteoDias?.permisoSinSueldo ?? 0) || 0) -
-      ((conteoDias?.inasistencias ?? 0) || 0),
+      ((conteoDias?.inasistencias ?? 0) || 0) -
+      (diasCompensatoriasTomadas || 0),
   );
 
   const salarioQuincenal = React.useMemo(
@@ -474,6 +476,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   const montoHoras50 = (horas?.p50 || 0) * salarioPorHora * 1.5;
   const montoHoras75 = (horas?.p75 || 0) * salarioPorHora * 1.75;
   const montoHoras100 = (horas?.p100 || 0) * salarioPorHora * 2.0;
+  /** Compensatorias tomadas se valorizan a tarifa hora normal y suman a percepciones */
+  const montoCompensatoriasTomadas = roundTo2Decimals(
+    (horas?.horasCompensatoriasTomadas || 0) * salarioPorHora,
+  );
 
   // Constantes y estados de deducciones/ajustes
   const DEDUCCION_IHSS_FIJA = cfgDeduccionIhssFija; // desde global_config (fallback a 595.16)
@@ -530,7 +536,6 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
 
   // Cálculos de totales según indicaciones
   // NOTA: montoIncapacidadIHSS NO se suma al total de percepciones
-  // Solo montoIncapacidadCubreEmpresa se suma en subtotalQuincena
   const totalPercepciones =
     (subtotalQuincena || 0) +
     (montoExcedenteIHSS || 0) +
@@ -538,6 +543,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     (montoHoras50 || 0) +
     (montoHoras75 || 0) +
     (montoHoras100 || 0) +
+    (montoCompensatoriasTomadas || 0) +
     (ajuste || 0);
 
   // Determinar si es primera quincena para reglas de deducciones
@@ -2249,6 +2255,21 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                       }}
                     >
                       <Typography variant="body1">
+                        <strong>Compensatorias tomadas (días):</strong>
+                      </Typography>
+                      <Typography variant="body1">
+                        {resumenHoras.conteoHoras.conteoDias
+                          ?.compensatoriasTomadas ?? 0}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="body1">
                         <strong>Incapacidad cubre empresa (días):</strong>
                       </Typography>
                       <Typography variant="body1">
@@ -2442,10 +2463,10 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                       }}
                     >
                       <Typography variant="body1">
-                        <strong>Horas compensatorias pagadas:</strong>
+                        <strong>Horas compensatorias devueltas:</strong>
                       </Typography>
                       <Typography variant="body1">
-                        {resumenHoras.conteoHoras.cantidadHoras?.horasCompensatoriasPagadas?.toFixed(
+                        {resumenHoras.conteoHoras.cantidadHoras?.horasCompensatoriasDevueltas?.toFixed(
                           2,
                         ) ?? "0.00"}
                       </Typography>
@@ -2504,6 +2525,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                 p50: montoHoras50,
                 p75: montoHoras75,
                 p100: montoHoras100,
+                compensatoriasTomadas: montoCompensatoriasTomadas,
               }}
               currencyFormatter={(n: number) => formatCurrency(n || 0)}
               horasNormales={horasNormales}
@@ -2746,9 +2768,6 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     {formatCurrency(totalPercepciones)}
                   </Typography>
                 </Box>
-                <Box
-                  sx={{ display: "flex", justifyContent: "space-between" }}
-                ></Box>
                 <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                   <Typography variant="body1">
                     <strong>Total Deducciones:</strong>

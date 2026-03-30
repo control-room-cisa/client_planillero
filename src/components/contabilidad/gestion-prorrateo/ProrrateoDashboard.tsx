@@ -89,12 +89,12 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     [];
 
   const [empleado, setEmpleado] = React.useState<Empleado | null>(
-    empleadoInicial
+    empleadoInicial,
   );
 
   const empleadosIndex: EmpleadoIndexItem[] = React.useMemo(
     () => indiceEntrante ?? [],
-    [indiceEntrante]
+    [indiceEntrante],
   );
 
   // intervalos locales eliminados: ahora todo se carga desde backend
@@ -102,7 +102,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   const [intervaloSeleccionado, setIntervaloSeleccionado] =
     React.useState<string>("");
   const [nominasResumen, setNominasResumen] = React.useState<NominaResumen[]>(
-    []
+    [],
   );
 
   const [fechaInicio, setFechaInicio] = React.useState<string>("");
@@ -148,7 +148,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
         const match = nominasResumen.find(
           (n) =>
             (n.fechaInicio || "").slice(0, 10) === ini &&
-            (n.fechaFin || "").slice(0, 10) === fin
+            (n.fechaFin || "").slice(0, 10) === fin,
         );
         if (!match) {
           setNominaSeleccionada(null);
@@ -159,12 +159,12 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       } catch (e) {
         console.error(
           "[ProrrateoDashboard] Error obteniendo nómina por ID:",
-          e
+          e,
         );
         setNominaSeleccionada(null);
       }
     },
-    [nominasResumen]
+    [nominasResumen],
   );
 
   React.useEffect(() => {
@@ -205,7 +205,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       if (!empleado?.id) return;
       try {
         const lista = await listarNominasResumenPorEmpleado(
-          Number(empleado.id)
+          Number(empleado.id),
         );
         setNominasResumen(lista || []);
       } catch (e) {
@@ -229,7 +229,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       if (DEBUG)
         console.debug(
           "[ProrrateoDashboard] empleado cambió → refetch",
-          empleado.id
+          empleado.id,
         );
       refetch();
     }
@@ -254,7 +254,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
 
     if ((empleado as any).codigo) {
       i = empleadosIndex.findIndex((x) =>
-        x.codigo ? eq(x.codigo, (empleado as any).codigo) : false
+        x.codigo ? eq(x.codigo, (empleado as any).codigo) : false,
       );
       if (i >= 0) return i;
     }
@@ -263,7 +263,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       empleado.apellido ?? ""
     }`.trim();
     i = empleadosIndex.findIndex(
-      (x) => (x.nombreCompleto || "").trim() === nombreCompletoActual
+      (x) => (x.nombreCompleto || "").trim() === nombreCompletoActual,
     );
 
     return i;
@@ -279,7 +279,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
 
     if ((empleado as any).codigo) {
       const j = empleadosIndex.findIndex(
-        (x) => x.codigo && eq(x.codigo, (empleado as any).codigo)
+        (x) => x.codigo && eq(x.codigo, (empleado as any).codigo),
       );
       if (j >= 0) {
         const target = empleadosIndex[j];
@@ -292,7 +292,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
               codigo: target.codigo ?? (prevEmp as any)?.codigo ?? null,
               nombre,
               apellido,
-            } as Empleado)
+            }) as Empleado,
         );
         return;
       }
@@ -308,7 +308,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
           codigo: first.codigo ?? (prevEmp as any)?.codigo ?? null,
           nombre,
           apellido,
-        } as Empleado)
+        }) as Empleado,
     );
   }, [idx, empleado, empleadosIndex]);
 
@@ -322,7 +322,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
         const empleadoIndex = empleadosIndex.find((e) => e.id === empleadoId);
         if (empleadoIndex) {
           const { nombre, apellido } = splitNombre(
-            empleadoIndex.nombreCompleto
+            empleadoIndex.nombreCompleto,
           );
           setEmpleado(
             (prev) =>
@@ -332,12 +332,12 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                 codigo: empleadoIndex.codigo,
                 nombre,
                 apellido,
-              } as Empleado)
+              }) as Empleado,
           );
         }
       }
     },
-    [empleadosIndex]
+    [empleadosIndex],
   );
 
   const goPrev = () => {
@@ -385,13 +385,13 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       }),
-    []
+    [],
   );
 
   const formatMonto = React.useCallback(
     (value: number | null | undefined) =>
       formatterMonto.format(Number(value ?? 0)),
-    [formatterMonto]
+    [formatterMonto],
   );
 
   const formatHoras = React.useCallback((value: number) => {
@@ -404,15 +404,49 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     (jobs: any[]) =>
       (jobs ?? []).reduce(
         (acc, j) => acc + Number(j?.cantidadHoras ?? j?.horas ?? 0),
-        0
+        0,
       ),
-    []
+    [],
   );
+
+  const sueldoMensualParaHora = Number(
+    nominaSeleccionada?.sueldoMensual ?? empleado?.sueldoMensual ?? 0,
+  );
+  const salarioPorHora = sueldoMensualParaHora / (30 * 8);
+
+  const horasCompensatoriasTomadasProrrateo =
+    prorrateo?.cantidadHoras?.horasCompensatoriasTomadas ?? 0;
+  const jobsCompensatoriasDevueltas =
+    prorrateo?.cantidadHoras?.horasCompensatoriasDevueltasPorJob ?? [];
+  const horasCompensatoriasDevueltasTotal = obtenerTotalHoras(
+    jobsCompensatoriasDevueltas,
+  );
+
+  const roundMonto2 = (n: number) => Math.round(n * 100) / 100;
+  const montoCompensatoriasTomadas = roundMonto2(
+    horasCompensatoriasTomadasProrrateo * salarioPorHora,
+  );
+  const montoCompensatoriasDevueltasRef = roundMonto2(
+    horasCompensatoriasDevueltasTotal * salarioPorHora,
+  );
+
+  const filasCompensatoriasTomadasProrrateo = React.useMemo(() => {
+    if (horasCompensatoriasTomadasProrrateo <= 0) return [];
+    return [
+      {
+        jobId: 0,
+        codigoJob: "—",
+        nombreJob: "Total período (sin desglose por job)",
+        cantidadHoras: horasCompensatoriasTomadasProrrateo,
+        comentarios: [] as string[],
+      },
+    ];
+  }, [horasCompensatoriasTomadasProrrateo]);
 
   const renderTabla = (
     titulo: string,
     items: any[],
-    options?: { totalHoras?: number; totalMonto?: number }
+    options?: { totalHoras?: number; totalMonto?: number },
   ) => {
     const totalHoras = Number(options?.totalHoras ?? 0);
     const totalMonto = Number(options?.totalMonto ?? 0);
@@ -436,19 +470,13 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
             </TableHead>
             <TableBody>
               {items.map((j) => {
-                const horas = Number(
-                  j.cantidadHoras ?? j.horas ?? 0
-                );
-                const monto = showMonto
-                  ? (horas / totalHoras) * totalMonto
-                  : 0;
+                const horas = Number(j.cantidadHoras ?? j.horas ?? 0);
+                const monto = showMonto ? (horas / totalHoras) * totalMonto : 0;
                 return (
                   <TableRow key={`${j.jobId}-${j.codigoJob}`}>
                     <TableCell>{j.codigoJob}</TableCell>
                     <TableCell>{j.nombreJob}</TableCell>
-                    <TableCell align="right">
-                      {formatHoras(horas)}
-                    </TableCell>
+                    <TableCell align="right">{formatHoras(horas)}</TableCell>
                     {showMonto && (
                       <TableCell align="right">
                         {formatterMonto.format(monto)}
@@ -467,10 +495,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                           Ver comentarios ({j.comentarios.length})
                         </Button>
                       ) : (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                        >
+                        <Typography variant="caption" color="text.secondary">
                           —
                         </Typography>
                       )}
@@ -484,7 +509,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                 </TableCell>
                 <TableCell />
                 <TableCell align="right">
-                <strong>{formatHoras(totalHoras)}</strong>
+                  <strong>{formatHoras(totalHoras)}</strong>
                 </TableCell>
                 {showMonto && (
                   <TableCell align="right">
@@ -742,10 +767,10 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                   day: "2-digit",
                                   month: "2-digit",
                                   year: "numeric",
-                                }
+                                },
                               )}
                             </Typography>
-                          )
+                          ),
                         )}
                       </Box>
                     </Box>
@@ -781,10 +806,10 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                   day: "2-digit",
                                   month: "2-digit",
                                   year: "numeric",
-                                }
+                                },
                               )}
                             </Typography>
-                          )
+                          ),
                         )}
                       </Box>
                     </Box>
@@ -873,6 +898,22 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 </TableCell>
                               </TableRow>
                               <TableRow>
+                                <TableCell>Horas comp. tomadas</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 100 }}>
+                                  {formatHoras(
+                                    horasCompensatoriasTomadasProrrateo,
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Horas comp. devueltas</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 100 }}>
+                                  {formatHoras(
+                                    horasCompensatoriasDevueltasTotal,
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
                                 <TableCell>Días laborados</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 100 }}>
                                   {nominaSeleccionada?.diasLaborados ?? 0}
@@ -919,7 +960,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Deducción IHSS</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.deduccionIHSS
+                                    nominaSeleccionada?.deduccionIHSS,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -927,7 +968,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Deducción ISR</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.deduccionISR
+                                    nominaSeleccionada?.deduccionISR,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -935,7 +976,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Deducción RAP</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.deduccionRAP
+                                    nominaSeleccionada?.deduccionRAP,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -943,7 +984,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Deducción Comida</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.deduccionAlimentacion
+                                    nominaSeleccionada?.deduccionAlimentacion,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -951,7 +992,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Impuesto Vecinal</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.impuestoVecinal
+                                    nominaSeleccionada?.impuestoVecinal,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -959,7 +1000,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Otros</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.otros
+                                    nominaSeleccionada?.otros,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -967,7 +1008,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Préstamo</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.cobroPrestamo
+                                    nominaSeleccionada?.cobroPrestamo,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -977,7 +1018,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 </TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   <strong>{`${formatMonto(
-                                    totalDeducciones
+                                    totalDeducciones,
                                   )} L`}</strong>
                                 </TableCell>
                               </TableRow>
@@ -997,7 +1038,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Sueldo mensual</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.sueldoMensual
+                                    nominaSeleccionada?.sueldoMensual,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -1005,7 +1046,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Monto días laborados</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.montoDiasLaborados
+                                    nominaSeleccionada?.montoDiasLaborados,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -1013,7 +1054,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Monto vacaciones</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.montoVacaciones
+                                    nominaSeleccionada?.montoVacaciones,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -1023,8 +1064,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 </TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada
-                                      ?.montoIncapacidadCubreEmpresa
+                                    nominaSeleccionada?.montoIncapacidadCubreEmpresa,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -1034,8 +1074,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 </TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada
-                                      ?.montoPermisosJustificados
+                                    nominaSeleccionada?.montoPermisosJustificados,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -1043,7 +1082,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Horas extra 25% (monto)</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.montoHoras25
+                                    nominaSeleccionada?.montoHoras25,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -1051,7 +1090,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Horas extra 50% (monto)</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.montoHoras50
+                                    nominaSeleccionada?.montoHoras50,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -1059,7 +1098,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Horas extra 75% (monto)</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.montoHoras75
+                                    nominaSeleccionada?.montoHoras75,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -1067,7 +1106,25 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Horas extra 100% (monto)</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.montoHoras100
+                                    nominaSeleccionada?.montoHoras100,
+                                  )} L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>
+                                  Comp. tomadas (×1, incluye en total percepc.)
+                                </TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${formatMonto(montoCompensatoriasTomadas)} L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>
+                                  Comp. devueltas ref. (×1, no se paga)
+                                </TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${formatMonto(
+                                    montoCompensatoriasDevueltasRef,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -1081,7 +1138,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Subtotal quincena</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   {`${formatMonto(
-                                    nominaSeleccionada?.subtotalQuincena
+                                    nominaSeleccionada?.subtotalQuincena,
                                   )} L`}
                                 </TableCell>
                               </TableRow>
@@ -1091,7 +1148,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 </TableCell>
                                 <TableCell align="right" sx={{ minWidth: 120 }}>
                                   <strong>{`${formatMonto(
-                                    nominaSeleccionada?.totalPercepciones
+                                    nominaSeleccionada?.totalPercepciones,
                                   )} L`}</strong>
                                 </TableCell>
                               </TableRow>
@@ -1115,6 +1172,8 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                       <Tab label="50%" />
                       <Tab label="75%" />
                       <Tab label="100%" />
+                      <Tab label="Comp. tomadas" />
+                      <Tab label="Comp. devueltas" />
                     </Tabs>
                     <Box sx={{ p: 2 }}>
                       {tab === 0 &&
@@ -1123,56 +1182,82 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                           prorrateo.cantidadHoras.normal,
                           {
                             totalHoras: obtenerTotalHoras(
-                              prorrateo.cantidadHoras.normal
+                              prorrateo.cantidadHoras.normal,
                             ),
                             totalMonto:
                               nominaSeleccionada?.montoDiasLaborados ?? 0,
-                          }
+                          },
                         )}
                       {tab === 1 &&
-                        renderTabla(
-                          "Horas 25%",
-                          prorrateo.cantidadHoras.p25,
-                          {
-                            totalHoras: obtenerTotalHoras(
-                              prorrateo.cantidadHoras.p25
-                            ),
-                            totalMonto: nominaSeleccionada?.montoHoras25 ?? 0,
-                          }
-                        )}
+                        renderTabla("Horas 25%", prorrateo.cantidadHoras.p25, {
+                          totalHoras: obtenerTotalHoras(
+                            prorrateo.cantidadHoras.p25,
+                          ),
+                          totalMonto: nominaSeleccionada?.montoHoras25 ?? 0,
+                        })}
                       {tab === 2 &&
-                        renderTabla(
-                          "Horas 50%",
-                          prorrateo.cantidadHoras.p50,
-                          {
-                            totalHoras: obtenerTotalHoras(
-                              prorrateo.cantidadHoras.p50
-                            ),
-                            totalMonto: nominaSeleccionada?.montoHoras50 ?? 0,
-                          }
-                        )}
+                        renderTabla("Horas 50%", prorrateo.cantidadHoras.p50, {
+                          totalHoras: obtenerTotalHoras(
+                            prorrateo.cantidadHoras.p50,
+                          ),
+                          totalMonto: nominaSeleccionada?.montoHoras50 ?? 0,
+                        })}
                       {tab === 3 &&
-                        renderTabla(
-                          "Horas 75%",
-                          prorrateo.cantidadHoras.p75,
-                          {
-                            totalHoras: obtenerTotalHoras(
-                              prorrateo.cantidadHoras.p75
-                            ),
-                            totalMonto: nominaSeleccionada?.montoHoras75 ?? 0,
-                          }
-                        )}
+                        renderTabla("Horas 75%", prorrateo.cantidadHoras.p75, {
+                          totalHoras: obtenerTotalHoras(
+                            prorrateo.cantidadHoras.p75,
+                          ),
+                          totalMonto: nominaSeleccionada?.montoHoras75 ?? 0,
+                        })}
                       {tab === 4 &&
                         renderTabla(
                           "Horas 100%",
                           prorrateo.cantidadHoras.p100,
                           {
                             totalHoras: obtenerTotalHoras(
-                              prorrateo.cantidadHoras.p100
+                              prorrateo.cantidadHoras.p100,
                             ),
                             totalMonto: nominaSeleccionada?.montoHoras100 ?? 0,
-                          }
+                          },
                         )}
+                      {tab === 5 &&
+                        (horasCompensatoriasTomadasProrrateo > 0 ? (
+                          renderTabla(
+                            "Compensatorias tomadas",
+                            filasCompensatoriasTomadasProrrateo,
+                            {
+                              totalHoras: horasCompensatoriasTomadasProrrateo,
+                              totalMonto: montoCompensatoriasTomadas,
+                            },
+                          )
+                        ) : (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ mt: 1 }}
+                          >
+                            No hay horas compensatorias tomadas en el período.
+                          </Typography>
+                        ))}
+                      {tab === 6 &&
+                        (horasCompensatoriasDevueltasTotal > 0 ? (
+                          renderTabla(
+                            "Compensatorias devueltas (no forman parte del pago)",
+                            jobsCompensatoriasDevueltas,
+                            {
+                              totalHoras: horasCompensatoriasDevueltasTotal,
+                              totalMonto: montoCompensatoriasDevueltasRef,
+                            },
+                          )
+                        ) : (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ mt: 1 }}
+                          >
+                            No hay horas compensatorias devueltas en el período.
+                          </Typography>
+                        ))}
                     </Box>
                   </Paper>
                 </>

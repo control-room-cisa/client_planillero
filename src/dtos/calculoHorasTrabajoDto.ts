@@ -63,12 +63,13 @@ export interface ConteoHorasTrabajadasDto {
     llegadasTarde?: number; // E05
     compensatorio?: number; // E06 y E07
     // Horas compensatorias (actividades con esCompensatorio=true)
-    horasCompensatoriasTomadas?: number; // Horas normales compensatorias (no se cuentan como normales)
-    horasCompensatoriasPagadas?: number; // Horas extras compensatorias (no se cuentan como extras, se suman al saldo)
+    horasCompensatoriasTomadas?: number; // Fuera de "normal"; conjunto propio (como jobs especiales)
+    /** Extras compensatorias devueltas: fuera de p25–p100; costo = tarifa hora normal. */
+    horasCompensatoriasDevueltas?: number;
   };
   /**
    * Conteo agregado en días para el período. Base 15 días por período.
-   * La suma debe cumplir: 15 = diasLaborados + vacaciones + permisoConSueldo + permisoSinSueldo + incapacidadCubreEmpresaDias + incapacidadCubreIHSSDias + inasistencias
+   * La suma debe cumplir: 15 = diasLaborados + vacaciones + permisos + incapacidades + inasistencias + compensatoriasTomadas
    */
   conteoDias?: {
     totalPeriodo: number; // siempre 15
@@ -79,6 +80,8 @@ export interface ConteoHorasTrabajadasDto {
     inasistencias: number; // E05 horas / 8
     incapacidadEmpresa?: number; // Primeros 3 días consecutivos (alias: incapacidadCubreEmpresaDias)
     incapacidadIHSS?: number; // Del día 4 en adelante (alias: incapacidadCubreIHSSDias)
+    /** Compensatorias tomadas: horas / 8 (descuentan de días laborados) */
+    compensatoriasTomadas?: number;
     // Aliases para compatibilidad con código existente
     incapacidadCubreEmpresaDias?: number; // Alias de incapacidadEmpresa
     incapacidadCubreIHSSDias?: number; // Alias de incapacidadIHSS
@@ -107,7 +110,6 @@ export interface ConteoHorasTrabajadasDto {
   totalHorasLaborables?: number;
 }
 
-/**
 /**
  * Tipos de intervalos en la línea de tiempo del día
  */
@@ -162,6 +164,9 @@ export interface ConteoHorasProrrateoDto {
     inasistenciasHoras: number;
 
     totalHorasLaborables: number;
+    horasCompensatoriasTomadas?: number;
+    horasCompensatoriasDevueltasPorJob?: HorasPorJobDto[];
+    horasFeriado?: number;
 
     deduccionesISR: number;
     deduccionesRAP: number;

@@ -484,14 +484,12 @@ const NominasManagement: React.FC = () => {
   };
 
   const handlePrintVoucher = async (nomina: NominaDto) => {
-    if (nomina.pagado !== true) return;
     setPrintingNominaId(nomina.id);
     try {
       const n = await NominaService.getById(nomina.id);
-      if (n.pagado !== true) {
-        showSnackbar("Solo se imprime el voucher si la nómina está pagada", "error");
-        return;
-      }
+      const estadoPagado = n.pagado === true;
+      const estadoLabel = estadoPagado ? "Pagado" : "Pendiente de Pago";
+      const estadoBadgeClass = estadoPagado ? "badge-pagado" : "badge-pendiente";
       const colaborador = getEmpleadoNombre(n.empleadoId);
       const empresaNombre =
         empresas.find((e) => e.id === n.empresaId)?.nombre ?? "";
@@ -531,7 +529,7 @@ const NominasManagement: React.FC = () => {
 <html lang="es">
 <head>
   <meta charset="UTF-8"/>
-  <title>Voucher nómina — ${esc(colaborador)}</title>
+  <title>Voucher ${esc(colaborador)} ${esc(n.nombrePeriodoNomina || "")}</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; font-size: 9.5px; margin: 10px; color: #222; line-height: 1.25; }
@@ -546,6 +544,7 @@ const NominasManagement: React.FC = () => {
       font-weight: bold;
     }
     .badge-pagado { background: #2e7d32; }
+    .badge-pendiente { background: #c62828; }
     .badge-perc { background: #2e7d32; }
     .badge-ded { background: #c62828; }
     .badge-neto { background: #1565c0; }
@@ -592,16 +591,16 @@ const NominasManagement: React.FC = () => {
       .card { padding: 5px 6px; background: #fff; }
       .card h2 { font-size: 9px; }
       table.data td { font-size: 9px; padding: 1px 3px; }
-      .badge-pagado, .badge-perc, .badge-ded, .badge-neto { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .badge-pagado, .badge-pendiente, .badge-perc, .badge-ded, .badge-neto { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
     }
   </style>
 </head>
 <body>
-  <h1>Voucher de nómina</h1>
+  <h1>Voucher ${esc(colaborador)}</h1>
   <div class="sub">${esc(empresaNombre)}${
         empresaNombre ? " · " : ""
       }${esc(n.nombrePeriodoNomina || "—")}</div>
-  <div class="hdr-badge"><span class="badge badge-pagado">PAGADO</span></div>
+  <div class="hdr-badge"><span class="badge ${estadoBadgeClass}">${esc(estadoLabel)}</span></div>
 
   <div class="grid-2">
     ${card(
@@ -614,7 +613,7 @@ const NominasManagement: React.FC = () => {
         ["Período", esc(n.nombrePeriodoNomina || "—")],
         ["Fecha inicio", esc(fd(n.fechaInicio))],
         ["Fecha fin", esc(fd(n.fechaFin))],
-        ["Estado", "Pagado"],
+        ["Estado", esc(estadoLabel)],
       ])
     )}
     ${card(
@@ -981,13 +980,14 @@ const NominasManagement: React.FC = () => {
                 <TableCell align="right">Total Percepciones</TableCell>
                 <TableCell align="right">Total Deducciones</TableCell>
                 <TableCell align="right">Total a Pagar</TableCell>
+                <TableCell align="center">Estado</TableCell>
                 <TableCell align="center">Acciones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {nominas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={9} align="center">
                     No hay nóminas registradas
                   </TableCell>
                 </TableRow>
@@ -1016,6 +1016,21 @@ const NominasManagement: React.FC = () => {
                       {formatCurrency(nomina.totalNetoPagar)}
                     </TableCell>
                     <TableCell align="center">
+                      {nomina.pagado ? (
+                        <Chip label="Pagado" color="success" size="small" />
+                      ) : (
+                        <Chip
+                          label="Pendiente"
+                          size="small"
+                          sx={{
+                            bgcolor: "grey.300",
+                            color: "text.primary",
+                            fontWeight: 500,
+                          }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell align="center">
                       <Tooltip title="Ver detalle nómina">
                         <IconButton
                           size="small"
@@ -1030,19 +1045,16 @@ const NominasManagement: React.FC = () => {
                         title={
                           nomina.pagado
                             ? "Imprimir voucher pago"
-                            : "Solo nóminas pagadas"
+                            : "Imprimir voucher pendiente"
                         }
                       >
                         <span>
                           <IconButton
                             size="small"
                             onClick={() => handlePrintVoucher(nomina)}
-                            disabled={
-                              nomina.pagado !== true ||
-                              printingNominaId !== null
-                            }
+                            disabled={printingNominaId !== null}
                             color="info"
-                            aria-label="Imprimir voucher de nómina pagada"
+                            aria-label="Imprimir voucher de nómina"
                           >
                             {printingNominaId === nomina.id ? (
                               <CircularProgress size={18} color="inherit" />
@@ -1120,6 +1132,7 @@ const NominasManagement: React.FC = () => {
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
                     {formatCurrency(aggregatedTotals.totalNeto)}
                   </TableCell>
+                  <TableCell />
                   <TableCell />
                 </TableRow>
               </TableFooter>

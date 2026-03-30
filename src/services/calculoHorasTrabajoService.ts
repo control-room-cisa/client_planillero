@@ -15,6 +15,10 @@ export interface DesgloseIncidencias {
   overtime50: { horas: number; porcentaje: string };
   overtime75: { horas: number; porcentaje: string };
   overtime100: { horas: number; porcentaje: string };
+  /** Compensatorias tomadas: no entran en horas normales (conjunto propio) */
+  compensatoriasTomadas: { horas: number; porcentaje: string };
+  /** Compensatorias devueltas: no se pagan como extra (sin recargos); monto ref. hora normal es solo informativo */
+  compensatoriasDevueltas: { horas: number; porcentaje: string };
   totalHoras: number;
   horasNormales: number;
   diferencia: number;
@@ -316,9 +320,18 @@ class CalculoHorasTrabajoService {
     const horasP50 = conteoHoras.cantidadHoras.p50 || 0;
     const horasP75 = conteoHoras.cantidadHoras.p75 || 0;
     const horasP100 = conteoHoras.cantidadHoras.p100 || 0;
+    const hCompTom = conteoHoras.cantidadHoras.horasCompensatoriasTomadas || 0;
+    const hCompDev =
+      conteoHoras.cantidadHoras.horasCompensatoriasDevueltas || 0;
 
     const totalHorasTrabajadas =
-      horasNormales + horasP25 + horasP50 + horasP75 + horasP100;
+      horasNormales +
+      horasP25 +
+      horasP50 +
+      horasP75 +
+      horasP100 +
+      hCompTom +
+      hCompDev;
     const totalHorasLaborables = conteoHoras.totalHorasLaborables || 0;
 
     // Si no hay horas trabajadas, retornar valores en cero
@@ -329,34 +342,45 @@ class CalculoHorasTrabajoService {
         overtime50: { horas: 0, porcentaje: "0%" },
         overtime75: { horas: 0, porcentaje: "0%" },
         overtime100: { horas: 0, porcentaje: "0%" },
+        compensatoriasTomadas: { horas: 0, porcentaje: "0%" },
+        compensatoriasDevueltas: { horas: 0, porcentaje: "0%" },
         totalHoras: 0,
         horasNormales: totalHorasLaborables,
         diferencia: -totalHorasLaborables,
       };
     }
 
+    const pct = (h: number) =>
+      `${((h / totalHorasTrabajadas) * 100).toFixed(1)}%`;
+
     return {
       normal: {
         horas: horasNormales,
-        porcentaje: `${((horasNormales / totalHorasTrabajadas) * 100).toFixed(
-          1
-        )}%`,
+        porcentaje: pct(horasNormales),
       },
       overtime25: {
         horas: horasP25,
-        porcentaje: `${((horasP25 / totalHorasTrabajadas) * 100).toFixed(1)}%`,
+        porcentaje: pct(horasP25),
       },
       overtime50: {
         horas: horasP50,
-        porcentaje: `${((horasP50 / totalHorasTrabajadas) * 100).toFixed(1)}%`,
+        porcentaje: pct(horasP50),
       },
       overtime75: {
         horas: horasP75,
-        porcentaje: `${((horasP75 / totalHorasTrabajadas) * 100).toFixed(1)}%`,
+        porcentaje: pct(horasP75),
       },
       overtime100: {
         horas: horasP100,
-        porcentaje: `${((horasP100 / totalHorasTrabajadas) * 100).toFixed(1)}%`,
+        porcentaje: pct(horasP100),
+      },
+      compensatoriasTomadas: {
+        horas: hCompTom,
+        porcentaje: pct(hCompTom),
+      },
+      compensatoriasDevueltas: {
+        horas: hCompDev,
+        porcentaje: pct(hCompDev),
       },
       totalHoras: totalHorasTrabajadas,
       horasNormales: totalHorasLaborables,

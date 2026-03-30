@@ -23,9 +23,9 @@ import {
   Button,
 } from "@mui/material";
 import {
-  Visibility as VisibilityIcon,
-  Search as SearchIcon,
   EventAvailable as EventAvailableIcon,
+  Search as SearchIcon,
+  AccessTime as AccessTimeIcon,
 } from "@mui/icons-material";
 import type { Empleado } from "../../../services/empleadoService";
 import { getImageUrl } from "../../../utils/imageUtils";
@@ -337,13 +337,14 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
                         gap: 0.5,
                       }}
                     >
-                      <Tooltip title="Ver actividades">
+                      <Tooltip title="Revisar actividades">
                         <IconButton
                           color="primary"
                           onClick={() => onDetalleClick(empleado)}
                           size="small"
+                          aria-label="Revisar actividades"
                         >
-                          <VisibilityIcon />
+                          <EventAvailableIcon />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Tiempo compensatorio y vacaciones">
@@ -353,7 +354,7 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
                           onClick={() => setSaldoModalEmpleado(empleado)}
                           aria-label="Tiempo compensatorio y vacaciones"
                         >
-                          <EventAvailableIcon />
+                          <AccessTimeIcon />
                         </IconButton>
                       </Tooltip>
                     </Box>
