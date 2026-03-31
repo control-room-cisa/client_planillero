@@ -146,6 +146,22 @@ interface UpdateEmpleadoDto {
   // Nota: contraseña no se incluye en actualizaciones por seguridad
 }
 
+interface UpdateMiPerfilDto {
+  profesion?: string;
+  correoElectronico?: string;
+  estadoCivil?: string;
+  nombreConyugue?: string;
+  condicionSalud?: string;
+  nombreContactoEmergencia?: string;
+  numeroContactoEmergencia?: string;
+  muerteBeneficiario?: string;
+  nombreMadre?: string;
+  nombrePadre?: string;
+  telefono?: string;
+  direccion?: string;
+  urlFotoPerfil?: string | null;
+}
+
 class EmpleadoService {
   static async getAll(empresaId?: number): Promise<Empleado[]> {
     try {
@@ -289,6 +305,36 @@ class EmpleadoService {
     }
   }
 
+  static async updateMyProfile(
+    perfilData: UpdateMiPerfilDto,
+    files?: { foto?: File }
+  ): Promise<Empleado> {
+    try {
+      const formData = new FormData();
+      formData.append("empleado", JSON.stringify(perfilData));
+      if (files?.foto) {
+        formData.append("foto", files.foto);
+      }
+
+      const response = await api.patch<EmpleadoResponse>(
+        "/empleados/me/profile",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      return response.data.data;
+    } catch (error: any) {
+      console.error("Error al actualizar perfil personal:", error);
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      }
+      throw new Error(error?.message || "Error al actualizar perfil personal");
+    }
+  }
+
   static async checkUsername(username: string): Promise<boolean> {
     try {
       const response = await api.get<{
@@ -306,4 +352,4 @@ class EmpleadoService {
 }
 
 export default EmpleadoService;
-export type { Empleado, CreateEmpleadoDto, UpdateEmpleadoDto };
+export type { Empleado, CreateEmpleadoDto, UpdateEmpleadoDto, UpdateMiPerfilDto };
