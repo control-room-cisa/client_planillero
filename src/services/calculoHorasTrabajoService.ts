@@ -190,110 +190,48 @@ class CalculoHorasTrabajoService {
     });
 
     try {
-      // === TEMP: Bypass backend ===
-      // Permite probar producción cuando el backend no tiene conectividad hacia el endpoint externo.
-      // Se puede activar en runtime (sin rebuild) con:
-      //   localStorage.setItem("gastos_alimentacion_direct", "1")
-      const bypassBackend =
-        import.meta.env.VITE_GASTOS_ALIMENTACION_DIRECT === "1" ||
-        localStorage.getItem("gastos_alimentacion_direct") === "1";
-
-      if (bypassBackend) {
-        console.warn(
-          "[getDeduccionesAlimentacion] BYPASS backend habilitado -> llamando endpoint externo desde el navegador"
-        );
-        const resp = await GastosAlimentacionService.obtenerConsumo({
-          codigoEmpleado: codigoEmpleado.trim(),
-          fechaInicio,
-          fechaFin,
-        });
-
-        if (!resp.success) {
-          return {
-            deduccionesAlimentacion: 0,
-            detalle: [],
-            errorAlimentacion: {
-              tieneError: true,
-              mensajeError:
-                resp.message ||
-                "Error al consultar gastos de alimentación (directo)",
-            },
-          };
-        }
-
-        const detalle =
-          (resp.items || []).map((it) => ({
-            producto: it.producto,
-            precio: Number(it.precio || 0),
-            fecha: it.fecha,
-          })) || [];
-        const deduccionesAlimentacion = detalle.reduce(
-          (acc, it) => acc + (it.precio || 0),
-          0
-        );
-
-        return {
-          deduccionesAlimentacion,
-          detalle,
-          errorAlimentacion: undefined,
-        };
-      }
-
-      // Llamar al endpoint del backend
-      const response = await api.get<
-        ApiResponse<{
-          deduccionesAlimentacion: number;
-          detalle: Array<{
-            producto: string;
-            precio: number;
-            fecha: string;
-          }>;
-          errorAlimentacion?: { tieneError: boolean; mensajeError: string };
-        }>
-      >("/deduccion-alimentacion", {
-        params: {
-          codigoEmpleado: codigoEmpleado.trim(),
-          fechaInicio,
-          fechaFin,
-        },
-        timeout: 30000, // 30 segundos
+      // Consumo directo desde frontend:
+      // el backend no tiene conectividad hacia el server de alimentos.
+      console.warn(
+        "[getDeduccionesAlimentacion] Consulta directa habilitada -> llamando endpoint externo desde el navegador"
+      );
+      const resp = await GastosAlimentacionService.obtenerConsumo({
+        codigoEmpleado: codigoEmpleado.trim(),
+        fechaInicio,
+        fechaFin,
       });
 
-      if (!response.data.success) {
+      if (!resp.success) {
         return {
           deduccionesAlimentacion: 0,
           detalle: [],
           errorAlimentacion: {
             tieneError: true,
             mensajeError:
-              response.data.message ||
-              "Error al obtener deducciones de alimentación",
+              resp.message ||
+              "Error al consultar gastos de alimentación (directo)",
           },
         };
       }
 
+      const detalle =
+        (resp.items || []).map((it) => ({
+          producto: it.producto,
+          precio: Number(it.precio || 0),
+          fecha: it.fecha,
+        })) || [];
+      const deduccionesAlimentacion = detalle.reduce(
+        (acc, it) => acc + (it.precio || 0),
+        0
+      );
+
       return {
-        deduccionesAlimentacion: response.data.data.deduccionesAlimentacion,
-        detalle: response.data.data.detalle || [],
-        errorAlimentacion: response.data.data.errorAlimentacion,
+        deduccionesAlimentacion,
+        detalle,
+        errorAlimentacion: undefined,
       };
     } catch (error: any) {
       console.error("Error al obtener deducciones de alimentación:", error);
-
-      // Manejar errores de respuesta del backend
-      if (error?.response?.data) {
-        const errorData = error.response.data;
-        return {
-          deduccionesAlimentacion: 0,
-          detalle: [],
-          errorAlimentacion: {
-            tieneError: true,
-            mensajeError:
-              errorData.message ||
-              "Error al obtener deducciones de alimentación",
-          },
-        };
-      }
 
       return {
         deduccionesAlimentacion: 0,
