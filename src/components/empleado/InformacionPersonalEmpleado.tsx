@@ -13,6 +13,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  MenuItem,
   Slider,
   Stack,
   TextField,
@@ -52,6 +53,11 @@ function cleanOptionalString(v?: string | null): string | undefined {
 }
 
 const MAX_IMAGE_SIZE = 1200;
+const ESTADO_CIVIL_OPTIONS = [
+  { value: "SOLTERO", label: "Soltero" },
+  { value: "CASADO", label: "Casado" },
+  { value: "UNION_LIBRE", label: "Unión libre" },
+] as const;
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -203,6 +209,7 @@ export default function InformacionPersonalEmpleado() {
         { foto: croppedFile }
       );
       setEmpleado(actualizado);
+      setPhotoDialogOpen(false);
       handleCloseCropDialog();
     } catch (e: any) {
       console.error(e);
@@ -592,7 +599,8 @@ export default function InformacionPersonalEmpleado() {
             </Avatar>
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ justifyContent: "space-between" }}>
+          <Button onClick={() => setPhotoDialogOpen(false)}>Cerrar</Button>
           <Button
             variant="contained"
             onClick={handleOpenFilePicker}
@@ -600,7 +608,6 @@ export default function InformacionPersonalEmpleado() {
           >
             Editar foto
           </Button>
-          <Button onClick={() => setPhotoDialogOpen(false)}>Cerrar</Button>
         </DialogActions>
       </Dialog>
 
@@ -644,7 +651,7 @@ export default function InformacionPersonalEmpleado() {
             </Typography>
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ justifyContent: "space-between" }}>
           <Button onClick={handleCloseCropDialog} disabled={updatingPhoto}>
             Cancelar
           </Button>
@@ -706,12 +713,20 @@ export default function InformacionPersonalEmpleado() {
             />
             <TextField
               label="Estado civil"
+              select
               value={profileForm.estadoCivil ?? ""}
               onChange={(e) =>
                 handleProfileInputChange("estadoCivil", e.target.value)
               }
               fullWidth
-            />
+            >
+              <MenuItem value="">Sin especificar</MenuItem>
+              {ESTADO_CIVIL_OPTIONS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
             <TextField
               label="Nombre del cónyuge"
               value={profileForm.nombreConyugue ?? ""}
