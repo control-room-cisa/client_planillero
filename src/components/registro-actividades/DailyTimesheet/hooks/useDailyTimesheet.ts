@@ -18,6 +18,7 @@ import {
   timeToMinutes,
   minutesToHHMM,
   isValidTimeFormat,
+  isTimeInLunchWindowInclusive,
   adjustTime,
   roundToQuarterHour,
   errorOutsideRange,
@@ -104,6 +105,11 @@ export const useDailyTimesheet = () => {
     severity: "success" as "success" | "error",
   });
 
+  const lunchWindowHoraCorridaRef = React.useRef<{
+    active: boolean;
+    prior: boolean;
+  }>({ active: false, prior: false });
+
   // Nuevo estado para validaciones de horario
   const [horarioValidado, setHorarioValidado] = React.useState<{
     horaInicio: string;
@@ -148,6 +154,50 @@ export const useDailyTimesheet = () => {
   const showDiaNoLaborable = Boolean(
     ["H1_3", "H1_4", "H1_5", "H1_7"].includes(horarioValidado?.tipoHorario || "")
   );
+
+  const horaCorridaForzadaPorVentanaAlmuerzo = React.useMemo(() => {
+    const e = dayConfigData.horaEntrada;
+    const s = dayConfigData.horaSalida;
+    const enVentana =
+      Boolean(e && isValidTimeFormat(e) && isTimeInLunchWindowInclusive(e)) ||
+      Boolean(s && isValidTimeFormat(s) && isTimeInLunchWindowInclusive(s));
+    if (!enVentana) return false;
+    if (isH2 || !horarioRules.utils.isFieldVisible("esHoraCorrida")) {
+      return false;
+    }
+    return true;
+  }, [
+    dayConfigData.horaEntrada,
+    dayConfigData.horaSalida,
+    isH2,
+    horarioRules.utils,
+  ]);
+
+  React.useEffect(() => {
+    if (initialLoading) return;
+
+    if (!horaCorridaForzadaPorVentanaAlmuerzo) {
+      if (lunchWindowHoraCorridaRef.current.active) {
+        const prior = lunchWindowHoraCorridaRef.current.prior;
+        lunchWindowHoraCorridaRef.current = { active: false, prior: false };
+        setDayConfigData((prev) => ({ ...prev, esHoraCorrida: prior }));
+      }
+      return;
+    }
+
+    setDayConfigData((prev) => {
+      if (!lunchWindowHoraCorridaRef.current.active) {
+        lunchWindowHoraCorridaRef.current = {
+          active: true,
+          prior: prev.esHoraCorrida,
+        };
+      }
+      if (!prev.esHoraCorrida) {
+        return { ...prev, esHoraCorrida: true };
+      }
+      return prev;
+    });
+  }, [horaCorridaForzadaPorVentanaAlmuerzo, initialLoading]);
 
   // ===== Helpers de tiempo =====
   const getH2Schedule = React.useCallback(
@@ -524,6 +574,7 @@ export const useDailyTimesheet = () => {
 
   const loadRegistroDiario = React.useCallback(async () => {
     try {
+      lunchWindowHoraCorridaRef.current = { active: false, prior: false };
       setLoading(true);
       const dateString = ymdInTZ(currentDate);
 
@@ -722,6 +773,10 @@ export const useDailyTimesheet = () => {
 
       // H2_2: Día Libre lo define el backend (fin de semana/feriado) y NO es editable en UI.
       if (isH2_2 && name === "esDiaLibre") {
+        return;
+      }
+
+      if (name === "esHoraCorrida" && horaCorridaForzadaPorVentanaAlmuerzo) {
         return;
       }
 
@@ -953,6 +1008,7 @@ export const useDailyTimesheet = () => {
       dayConfigData,
       dayConfigErrors,
       registroDiario,
+      horaCorridaForzadaPorVentanaAlmuerzo,
     ]
   );
 
@@ -1919,6 +1975,7 @@ export const useDailyTimesheet = () => {
     horasDisponiblesValidacionForm,
     canAddExtraHours,
     disableHoraCorrida,
+    horaCorridaForzadaPorVentanaAlmuerzo,
     disableTimeFields,
     exceededNormalHours,
     hasExceededNormalHours,

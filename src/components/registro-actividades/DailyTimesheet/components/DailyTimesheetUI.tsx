@@ -69,6 +69,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
     horasDisponiblesValidacionForm,
     canAddExtraHours,
     disableHoraCorrida,
+    horaCorridaForzadaPorVentanaAlmuerzo,
     disableTimeFields,
     exceededNormalHours,
     hasExceededNormalHours,
@@ -472,6 +473,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                         initialLoading ||
                         horasCero ||
                         disableHoraCorrida ||
+                        horaCorridaForzadaPorVentanaAlmuerzo ||
                         isIncapacidad ||
                         !horarioRules.utils.isFieldEnabled("esHoraCorrida")
                       }

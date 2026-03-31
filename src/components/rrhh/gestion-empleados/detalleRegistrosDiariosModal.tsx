@@ -44,6 +44,7 @@ interface Props {
   fechaInicio: string;
   fechaFin: string;
   nombreEmpleado?: string;
+  allowRejectActions?: boolean;
 }
 
 const DetalleRegistrosDiariosModal: React.FC<Props> = ({
@@ -53,6 +54,7 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
   fechaInicio,
   fechaFin,
   nombreEmpleado,
+  allowRejectActions = true,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -1697,23 +1699,24 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                       </Box>
                     )}
 
-                    {/* Botón Rechazar */}
-                    <Box
-                      sx={{
-                        mt: 2,
-                        display: "flex",
-                        justifyContent: "flex-end",
-                      }}
-                    >
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        onClick={() => handleRechazar(registro.id!)}
-                        disabled={registro.aprobacionRrhh === false}
+                    {allowRejectActions && (
+                      <Box
+                        sx={{
+                          mt: 2,
+                          display: "flex",
+                          justifyContent: "flex-end",
+                        }}
                       >
-                        Rechazar Registro
-                      </Button>
-                    </Box>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handleRechazar(registro.id!)}
+                          disabled={registro.aprobacionRrhh === false}
+                        >
+                          Rechazar Registro
+                        </Button>
+                      </Box>
+                    )}
                   </Paper>
                 </Grow>
               );
@@ -1753,50 +1756,51 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
         </Alert>
       </Snackbar>
 
-      {/* Diálogo de rechazo */}
-      <Dialog
-        open={rechazoDialogOpen}
-        onClose={handleCloseRechazoDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Rechazar registro</DialogTitle>
-        <DialogContent>
-          <DialogContentText sx={{ mb: 2 }}>
-            Ingrese el motivo de rechazo del registro. Este comentario será
-            visible para el empleado.
-          </DialogContentText>
-          <TextField
-            autoFocus
-            fullWidth
-            multiline
-            rows={4}
-            label="Comentario"
-            placeholder="Ingrese motivo de rechazo"
-            value={comentarioRechazo}
-            onChange={(e) => {
-              setComentarioRechazo(e.target.value);
-              if (errorComentario) setErrorComentario("");
-            }}
-            error={!!errorComentario}
-            helperText={errorComentario}
-            required
-          />
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: "space-between", px: 3 }}>
-          <Button onClick={handleCloseRechazoDialog} color="inherit">
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleConfirmarRechazo}
-            color="error"
-            variant="contained"
-            disabled={!comentarioRechazo.trim()}
-          >
-            Rechazar registro
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {allowRejectActions && (
+        <Dialog
+          open={rechazoDialogOpen}
+          onClose={handleCloseRechazoDialog}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Rechazar registro</DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ mb: 2 }}>
+              Ingrese el motivo de rechazo del registro. Este comentario será
+              visible para el empleado.
+            </DialogContentText>
+            <TextField
+              autoFocus
+              fullWidth
+              multiline
+              rows={4}
+              label="Comentario"
+              placeholder="Ingrese motivo de rechazo"
+              value={comentarioRechazo}
+              onChange={(e) => {
+                setComentarioRechazo(e.target.value);
+                if (errorComentario) setErrorComentario("");
+              }}
+              error={!!errorComentario}
+              helperText={errorComentario}
+              required
+            />
+          </DialogContent>
+          <DialogActions sx={{ justifyContent: "space-between", px: 3 }}>
+            <Button onClick={handleCloseRechazoDialog} color="inherit">
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmarRechazo}
+              color="error"
+              variant="contained"
+              disabled={!comentarioRechazo.trim()}
+            >
+              Rechazar registro
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Dialog>
   );
 };

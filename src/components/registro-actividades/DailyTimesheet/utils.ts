@@ -64,6 +64,14 @@ export const isValidTimeFormat = (time: string): boolean => {
   return true;
 };
 
+/** 12:00–13:00 inclusive (ventana de almuerzo). */
+export const isTimeInLunchWindowInclusive = (time: string): boolean => {
+  if (!time || !isValidTimeFormat(time)) return false;
+  if (time === "24:00") return false;
+  const m = timeToMinutes(time);
+  return m >= 12 * 60 && m <= 13 * 60;
+};
+
 // Función para incrementar/decrementar tiempo con teclas direccionales
 export const adjustTime = (
   timeStr: string,
