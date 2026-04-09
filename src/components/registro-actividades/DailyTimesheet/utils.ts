@@ -11,6 +11,22 @@ export const ymdInTZ = (d: Date) =>
     day: "2-digit",
   }).format(d);
 
+const ISO_YMD = /^\d{4}-\d{2}-\d{2}$/;
+
+/** `fecha` del backend como "YYYY-MM-DD" (sin interpretación UTC errónea). */
+export const registroFechaToYmd = (fecha: string | undefined | null): string | null => {
+  if (!fecha) return null;
+  const s = fecha.trim().slice(0, 10);
+  return ISO_YMD.test(s) ? s : null;
+};
+
+/** Suma días calendario en America/Tegucigalpa; entrada/salida "YYYY-MM-DD". */
+export const addCalendarDaysToYmd = (ymd: string, deltaDays: number): string => {
+  const d = new Date(`${ymd}T12:00:00${TZ_OFFSET}`);
+  d.setDate(d.getDate() + deltaDays);
+  return ymdInTZ(d);
+};
+
 // Formatear hora en zona local para mostrar lo que eligió el empleado
 export const formatTimeLocal = (iso?: string | null) => {
   if (!iso) return "";

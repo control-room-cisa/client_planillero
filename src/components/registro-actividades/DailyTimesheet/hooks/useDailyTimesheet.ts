@@ -11,8 +11,11 @@ import { HorarioRulesFactory } from "../../../../utils/horarioRules";
 import type { Job } from "../../../../services/jobService";
 import type { RegistroDiarioData } from "../../../../dtos/RegistrosDiariosDataDto";
 import type { Activity, ActivityData } from "../../types";
+import { TZ_OFFSET } from "../constants";
 import {
   ymdInTZ,
+  addCalendarDaysToYmd,
+  registroFechaToYmd,
   formatTimeLocal,
   buildISO,
   timeToMinutes,
@@ -324,8 +327,7 @@ export const useDailyTimesheet = () => {
         });
 
         setJobs(jobsConJerarquia);
-      } catch (e) {
-        console.error("Error al cargar jobs:", e);
+      } catch (_e) {
         setSnackbar({
           open: true,
           message: "Error al cargar la lista de jobs",
@@ -341,7 +343,8 @@ export const useDailyTimesheet = () => {
   /**
    * Lógica de habilitación/deshabilitación de edición de registros diarios:
    *
-   * 1. Validar rango de fechas permitido: (fechaActual - 3 días) a (fechaActual + 30 días)
+   * 1. Validar rango de fechas permitido en calendario America/Tegucigalpa:
+   *    (hoy - 3 días) a (hoy + 30 días), usando "YYYY-MM-DD" del backend sin parse UTC.
    * 2. Si la fecha está FUERA del rango:
    *    - Inhabilitar edición EXCEPTO si:
    *      * editTime > fechaActual (futuro) - permite editar fuera del rango
@@ -352,63 +355,40 @@ export const useDailyTimesheet = () => {
    *      * Habilitar si: aprobacionSupervisor !== true (null o false) O aprobacionRRHH === false
    */
   const readOnly = React.useMemo(() => {
-    const fechaActual = new Date();
-    fechaActual.setHours(0, 0, 0, 0); // Normalizar a inicio del día
+    // Calendario de negocio (America/Tegucigalpa), no medianoche del navegador ni
+    // `new Date("YYYY-MM-DD")` (UTC), que desplaza el día en Honduras.
+    const hoyYmd = ymdInTZ(new Date());
+    const registroYmd =
+      registroFechaToYmd(registroDiario?.fecha) ?? ymdInTZ(currentDate);
+    const minYmd = addCalendarDaysToYmd(hoyYmd, -3);
+    const maxYmd = addCalendarDaysToYmd(hoyYmd, 30);
+    const estaEnRango = registroYmd >= minYmd && registroYmd <= maxYmd;
 
-    // Obtener fecha del registro (usar fecha del registro diario si existe, sino usar currentDate)
-    const fechaRegistro = registroDiario?.fecha
-      ? new Date(registroDiario.fecha)
-      : new Date(currentDate);
-    fechaRegistro.setHours(0, 0, 0, 0); // Normalizar a inicio del día
-
-    // Calcular rango permitido: (fechaActual - 3 días) a (fechaActual + 30 días)
-    const fechaMin = new Date(fechaActual);
-    fechaMin.setDate(fechaMin.getDate() - 3);
-
-    const fechaMax = new Date(fechaActual);
-    fechaMax.setDate(fechaMax.getDate() + 30);
-
-    // Verificar si está dentro del rango permitido
-    const estaEnRango = fechaRegistro >= fechaMin && fechaRegistro <= fechaMax;
-
-    // Verificar si editTime es futuro
+    const inicioHoyNegocio = new Date(`${hoyYmd}T00:00:00${TZ_OFFSET}`);
     const editTimeFuturo = user?.editTime
-      ? new Date(user.editTime) > fechaActual
+      ? new Date(user.editTime) > inicioHoyNegocio
       : false;
+
+    let readOnlyResult: boolean;
 
     // Si no hay registro diario, validar solo el rango de fechas
     if (!registroDiario) {
-      // Si está dentro del rango O editTime es futuro, permitir crear/editar
-      if (estaEnRango || editTimeFuturo) {
-        return false; // Habilitar
-      }
-      // Fuera del rango y sin editTime futuro: inhabilitar
-      return true;
-    }
-
-    // Si hay registro diario, aplicar lógica completa con aprobaciones
-
-    // Si está dentro del rango O editTime es futuro, aplicar regla actual
-    if (estaEnRango || editTimeFuturo) {
-      // Deshabilitar si está aprobado por supervisor O por RRHH
-      // EXCEPTO si fue rechazado por RRHH (permite corregir)
+      readOnlyResult = !(estaEnRango || editTimeFuturo);
+    } else if (estaEnRango || editTimeFuturo) {
       if (registroDiario.aprobacionRrhh === false) {
-        return false; // Habilitar si fue rechazado por RRHH
+        readOnlyResult = false;
+      } else {
+        readOnlyResult = !!(
+          registroDiario.aprobacionSupervisor || registroDiario.aprobacionRrhh
+        );
       }
-
-      return !!(
-        registroDiario.aprobacionSupervisor || registroDiario.aprobacionRrhh
-      );
+    } else if (registroDiario.aprobacionRrhh === false) {
+      readOnlyResult = false;
+    } else {
+      readOnlyResult = true;
     }
 
-    // Si está fuera del rango Y editTime NO es futuro
-    // Solo habilitar si fue rechazado por RRHH (permite corregir)
-    if (registroDiario.aprobacionRrhh === false) {
-      return false; // Habilitar si fue rechazado por RRHH
-    }
-
-    // Fuera del rango y sin excepciones: inhabilitar
-    return true;
+    return readOnlyResult;
   }, [registroDiario, currentDate, user?.editTime]);
 
   // Nueva función para cargar validaciones de horario
@@ -421,9 +401,6 @@ export const useDailyTimesheet = () => {
           user.id,
           fecha
         );
-
-        console.log("[DEBUG] horarioData desde API:", horarioData);
-        console.log("[DEBUG] horarioData.esDiaLibre:", horarioData.esDiaLibre);
 
         const datosExistentes = Boolean(registro);
 
@@ -565,9 +542,7 @@ export const useDailyTimesheet = () => {
             return result;
           });
         }
-      } catch (error) {
-        console.error("Error al cargar validaciones de horario:", error);
-      }
+      } catch (_error) {}
     },
     [user?.id]
   );
@@ -597,8 +572,7 @@ export const useDailyTimesheet = () => {
 
       setRegistroDiario(registro);
       await loadHorarioValidations(dateString, registro);
-    } catch (e) {
-      console.error("Error al cargar registro diario:", e);
+    } catch (_e) {
       setSnackbar({
         open: true,
         message: "Error al cargar los datos del día",
@@ -712,8 +686,7 @@ export const useDailyTimesheet = () => {
           message: "Actividad eliminada correctamente",
           severity: "success",
         });
-      } catch (e) {
-        console.error("Error al eliminar actividad:", e);
+      } catch (_e) {
         setSnackbar({
           open: true,
           message: "Error al eliminar la actividad",
@@ -1150,8 +1123,7 @@ export const useDailyTimesheet = () => {
         message: "Configuración del día guardada correctamente",
         severity: "success",
       });
-    } catch (e) {
-      console.error("Error al guardar configuración del día:", e);
+    } catch (_e) {
       setSnackbar({
         open: true,
         message: "Error al guardar la configuración",
@@ -1742,7 +1714,6 @@ export const useDailyTimesheet = () => {
       setSnackbar({ open: true, message: actionMessage, severity: "success" });
       handleDrawerClose();
     } catch (e) {
-      console.error("Error al guardar actividad:", e);
       const message = (e as Error).message || "Error al guardar la actividad";
       setSnackbar({ open: true, message, severity: "error" });
     } finally {
