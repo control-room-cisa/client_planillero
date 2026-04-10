@@ -45,6 +45,7 @@ export interface Empleado {
   nombre: string;
   apellido: string;
   correoElectronico: string;
+  activo?: boolean;
   departamentoId: number;
   rolId: number;
   horasDiariasTrabajadas?: number | null;

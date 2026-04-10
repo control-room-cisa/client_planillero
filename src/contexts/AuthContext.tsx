@@ -126,6 +126,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const storedUser = authService.getStoredUser();
 
       if (storedToken && storedUser) {
+        if (storedUser.activo === false) {
+          authService.logout();
+          dispatch({ type: "SET_LOADING", payload: false });
+          return;
+        }
         dispatch({
           type: "RESTORE_SESSION",
           payload: {

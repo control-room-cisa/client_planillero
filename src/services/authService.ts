@@ -47,6 +47,12 @@ class AuthService {
       console.log('Datos recibidos:', data);
       
       if (data.success) {
+        if (data.data.empleado.activo === false) {
+          this.logout();
+          throw new Error(
+            "Su cuenta está desactivada. Comuníquese con recursos humanos."
+          );
+        }
         // Guardar token y datos del usuario en localStorage
         localStorage.setItem('authToken', data.data.token);
         localStorage.setItem('userData', JSON.stringify(data.data.empleado));
