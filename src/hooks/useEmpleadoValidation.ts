@@ -123,6 +123,9 @@ export const useEmpleadoValidation = (isEditing: boolean) => {
       case "departamentoId":
         if (!value) return "Departamento es requerido";
         break;
+      case "empresaId":
+        if (!value) return "Empresa es requerida";
+        break;
     }
     return null;
   };

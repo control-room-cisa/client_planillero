@@ -32,7 +32,10 @@ import type {
 } from "../../../services/empleadoService";
 
 import type { Departamento, Empresa } from "../../../types/auth";
-import { useEmpleadoValidation } from "../../../hooks/useEmpleadoValidation";
+import {
+  useEmpleadoValidation,
+  type ValidationErrors,
+} from "../../../hooks/useEmpleadoValidation";
 import EmpleadoService from "../../../services/empleadoService";
 import { Roles } from "../../../enums/roles";
 import { getTipoHorarioLabel, TIPOS_HORARIO } from "../../../enums/tipoHorario";
@@ -107,6 +110,8 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     clearErrors,
     hasErrors,
   } = useEmpleadoValidation(isEditing);
+
+  const dialogContentRef = React.useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = React.useState<EmpleadoFormData>({
     nombre: "",
@@ -497,11 +502,33 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     }
   };
 
+  const USERNAME_TAKEN_MSG = "Este nombre de usuario ya está en uso";
+
   const handleSubmit = async () => {
     const errors = validateForm(formData);
+    const errorEntries = Object.entries(errors).filter(([, v]) => Boolean(v));
 
-    if (Object.keys(errors).filter((key) => errors[key]).length > 0) {
+    if (errorEntries.length > 0) {
+      setFieldErrors((prev) => {
+        const next: ValidationErrors = Object.fromEntries(errorEntries);
+        if (prev.nombreUsuario === USERNAME_TAKEN_MSG && !next.nombreUsuario) {
+          next.nombreUsuario = USERNAME_TAKEN_MSG;
+        }
+        return next;
+      });
       onError("Por favor corrija los errores en el formulario");
+      requestAnimationFrame(() => {
+        const root = dialogContentRef.current;
+        if (!root) return;
+        const first =
+          root.querySelector<HTMLElement>(".MuiFormControl-root.Mui-error") ||
+          root.querySelector<HTMLElement>(".Mui-error");
+        first?.scrollIntoView({ block: "center", behavior: "smooth" });
+        const focusTarget = first?.querySelector<HTMLElement>(
+          "input,textarea,select,[role='combobox']"
+        );
+        focusTarget?.focus();
+      });
       return;
     }
 
@@ -589,7 +616,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       <DialogTitle>
         {isEditing ? "Editar Colaborador" : "Agregar Colaborador"}
       </DialogTitle>
-      <DialogContent>
+      <DialogContent ref={dialogContentRef}>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3, mt: 2 }}>
           {/* Información Básica */}
           <Divider textAlign="left">
@@ -901,7 +928,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
               </FormControl>
 
               {/* Empresa */}
-              <FormControl fullWidth>
+              <FormControl fullWidth error={!!fieldErrors.empresaId}>
                 <InputLabel>Empresa *</InputLabel>
                 <Select
                   name="empresaId"
@@ -909,6 +936,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   onChange={handleSelectChange}
                   label="Empresa *"
                   required
+                  error={!!fieldErrors.empresaId}
                 >
                   <MenuItem value={0} disabled>
                     <em>Seleccionar empresa</em>
@@ -921,6 +949,15 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                       </MenuItem>
                     ))}
                 </Select>
+                {fieldErrors.empresaId && (
+                  <Typography
+                    variant="caption"
+                    color="error"
+                    sx={{ mt: 0.5, ml: 1 }}
+                  >
+                    {fieldErrors.empresaId}
+                  </Typography>
+                )}
               </FormControl>
 
               {/* Departamento (dependiente de Empresa) */}
