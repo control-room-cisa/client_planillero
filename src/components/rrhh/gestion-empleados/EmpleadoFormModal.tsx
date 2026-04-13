@@ -93,6 +93,19 @@ type EmpleadoFormData = Omit<
   empresaId: number;
 };
 
+/** Copia para API: recorta strings; no altera `contrasena` ni el estado del formulario. */
+function trimEmpleadoFormForSubmit(data: EmpleadoFormData): EmpleadoFormData {
+  const out: EmpleadoFormData = { ...data };
+  (Object.keys(out) as (keyof EmpleadoFormData)[]).forEach((key) => {
+    if (key === "contrasena") return;
+    const v = out[key];
+    if (typeof v === "string") {
+      (out as Record<string, unknown>)[key as string] = v.trim();
+    }
+  });
+  return out;
+}
+
 const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
   open,
   onClose,
@@ -535,32 +548,32 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     try {
       setLoading(true);
 
+      const fd = trimEmpleadoFormForSubmit(formData);
+
       if (isEditing && empleado) {
-        const { contrasena, empresaId, ...updateFields } = formData;
+        const { contrasena, empresaId, ...updateFields } = fd;
         const updateData: UpdateEmpleadoDto = {
           id: empleado.id,
           ...updateFields,
-          // Asegurar que nombreUsuario siempre esté en minúsculas
           nombreUsuario:
-            formData.nombreUsuario?.toLowerCase() || formData.nombreUsuario,
-          // Solo incluir contraseña si no está vacía
-          ...(contrasena.trim() ? { contrasena } : {}),
-          // Incluir editTime si tiene un valor
-          ...(formData.editTime ? { editTime: formData.editTime } : {}),
+            fd.nombreUsuario?.toLowerCase() || fd.nombreUsuario,
+          // Solo enviar contraseña si hay contenido (sin trim del valor enviado)
+          ...(formData.contrasena.trim()
+            ? { contrasena: formData.contrasena }
+            : {}),
+          ...(fd.editTime ? { editTime: fd.editTime } : {}),
         };
         await EmpleadoService.update(updateData, selectedFiles);
         onSuccess("Colaborador actualizado exitosamente");
       } else {
-        // Ensure all required fields for CreateEmpleadoDto are present
         const createData: CreateEmpleadoDto = {
-          ...formData,
-          // Asegurar que nombreUsuario siempre esté en minúsculas
+          ...fd,
           nombreUsuario:
-            formData.nombreUsuario?.toLowerCase() || formData.nombreUsuario,
-          urlFotoPerfil: "", // or selectedFiles?.urlFotoPerfil if needed
-          codigo: "", // provide a default or generate as needed
-          departamento: "", // provide a default or map from departamentoId if needed
-          urlCv: "", // or selectedFiles?.urlCv if needed
+            fd.nombreUsuario?.toLowerCase() || fd.nombreUsuario,
+          urlFotoPerfil: "",
+          codigo: "",
+          departamento: "",
+          urlCv: "",
         };
         await EmpleadoService.create(createData, selectedFiles);
         onSuccess("Colaborador creado exitosamente");
