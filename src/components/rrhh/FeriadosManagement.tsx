@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -16,6 +16,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   CircularProgress,
   Snackbar,
   Alert,
@@ -58,6 +59,11 @@ const isPastDate = (dateString: string) => {
 const getDateChipColor = (dateString: string) =>
   isPastDate(dateString) ? "default" : "primary";
 
+const ROWS_PER_PAGE = 15;
+
+const compareFeriadoFechaDesc = (a: Feriado, b: Feriado) =>
+  parseLocalDate(b.fecha).getTime() - parseLocalDate(a.fecha).getTime();
+
 const FeriadosManagement: React.FC = () => {
   // Estados
   const [feriados, setFeriados] = useState<Feriado[]>([]);
@@ -90,6 +96,8 @@ const FeriadosManagement: React.FC = () => {
     feriadoId: null,
   });
 
+  const [page, setPage] = useState(0);
+
   // Función para mostrar notificaciones
   const showSnackbar = React.useCallback(
     (message: string, severity: "success" | "error") => {
@@ -107,12 +115,7 @@ const FeriadosManagement: React.FC = () => {
     setLoading(true);
     try {
       const data = await FeriadoService.getAll();
-      // Ordenar por fecha (más recientes primero) usando fecha LOCAL
-      const sortedData = data.sort(
-        (a, b) =>
-          parseLocalDate(b.fecha).getTime() - parseLocalDate(a.fecha).getTime()
-      );
-      setFeriados(sortedData);
+      setFeriados(data);
     } catch (err) {
       console.error("Error al cargar feriados:", err);
       showSnackbar("Error al cargar los feriados", "error");
@@ -167,6 +170,13 @@ const FeriadosManagement: React.FC = () => {
 
   // Funciones CRUD
   const handleCreateFeriado = async () => {
+    if (existeOtroFeriadoEnFecha(formData.fecha)) {
+      showSnackbar(
+        "Ya existe un feriado con esa fecha. No se permiten duplicados.",
+        "error",
+      );
+      return;
+    }
     try {
       await FeriadoService.create(formData);
       showSnackbar("Feriado creado exitosamente", "success");
@@ -180,6 +190,14 @@ const FeriadosManagement: React.FC = () => {
 
   const handleUpdateFeriado = async () => {
     if (!currentFeriado) return;
+
+    if (existeOtroFeriadoEnFecha(formData.fecha, currentFeriado.id)) {
+      showSnackbar(
+        "Ya existe otro feriado con esa fecha. No se permiten duplicados.",
+        "error",
+      );
+      return;
+    }
 
     try {
       // Si la fecha cambió, necesitamos eliminar el registro viejo y crear uno nuevo
@@ -241,15 +259,48 @@ const FeriadosManagement: React.FC = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Filtrar feriados por término de búsqueda
-  const filteredFeriados = feriados.filter((feriado) => {
-    const matchesSearchTerm =
-      feriado.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      feriado.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      feriado.fecha.includes(searchTerm);
+  /** Siempre por fecha del festivo (más futura / reciente primero), no por creación. */
+  const feriadosOrdenados = useMemo(
+    () => [...feriados].sort(compareFeriadoFechaDesc),
+    [feriados],
+  );
 
-    return matchesSearchTerm;
-  });
+  const filteredFeriados = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return feriadosOrdenados;
+    return feriadosOrdenados.filter((feriado) => {
+      return (
+        feriado.nombre?.toLowerCase().includes(q) ||
+        feriado.descripcion?.toLowerCase().includes(q) ||
+        feriado.fecha.includes(searchTerm.trim())
+      );
+    });
+  }, [feriadosOrdenados, searchTerm]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const maxPage = Math.max(
+      0,
+      Math.ceil(filteredFeriados.length / ROWS_PER_PAGE) - 1,
+    );
+    if (page > maxPage) setPage(maxPage);
+  }, [filteredFeriados.length, page]);
+
+  const paginatedFeriados = useMemo(() => {
+    const start = page * ROWS_PER_PAGE;
+    return filteredFeriados.slice(start, start + ROWS_PER_PAGE);
+  }, [filteredFeriados, page]);
+
+  const existeOtroFeriadoEnFecha = (
+    fecha: string,
+    excludeId?: number | null,
+  ) =>
+    feriados.some(
+      (f) => f.fecha === fecha && (excludeId == null || f.id !== excludeId),
+    );
 
   // Función para formatear fecha (usa fecha local)
   const formatDate = (dateString: string) => {
@@ -330,7 +381,7 @@ const FeriadosManagement: React.FC = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredFeriados.map((feriado) => (
+              paginatedFeriados.map((feriado) => (
                 <TableRow key={feriado.id}>
                   <TableCell>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -381,6 +432,18 @@ const FeriadosManagement: React.FC = () => {
             )}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={filteredFeriados.length}
+          page={page}
+          onPageChange={(_, newPage) => setPage(newPage)}
+          rowsPerPage={ROWS_PER_PAGE}
+          rowsPerPageOptions={[ROWS_PER_PAGE]}
+          labelRowsPerPage="Filas por página"
+          labelDisplayedRows={({ from, to, count }) =>
+            `${from}–${to} de ${count !== -1 ? count : to}`
+          }
+        />
       </TableContainer>
 
       {/* Diálogo para crear/editar */}
