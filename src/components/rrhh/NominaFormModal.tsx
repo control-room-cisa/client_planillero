@@ -20,6 +20,7 @@ import NominaService, { type NominaDto } from "../../services/nominaService";
 import EmpleadoService from "../../services/empleadoService";
 import type { Empresa } from "../../types/auth";
 import type { Empleado } from "../../services/empleadoService";
+import { trimFormTextValue } from "../../utils/formInput";
 
 interface NominaFormModalProps {
   open: boolean;
@@ -182,7 +183,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
 
   const normalizeNumericText = useCallback((raw: string) => {
     // Convertir coma a punto (teclados ES)
-    return raw.replace(/,/g, ".");
+    return raw.trim().replace(/,/g, ".");
   }, []);
 
   const isValidNumericText = useCallback(
@@ -1103,7 +1104,15 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
           <TextField
             label="Nombre Período"
             value={formNombrePeriodo}
-            onChange={(e) => setFormNombrePeriodo(e.target.value)}
+            onChange={(e) =>
+              setFormNombrePeriodo(
+                trimFormTextValue(
+                  "nombrePeriodo",
+                  e.target.value,
+                  e.target.type || "text"
+                )
+              )
+            }
             fullWidth
             required
             inputProps={{ maxLength: 100 }}
@@ -1610,7 +1619,15 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
           <TextField
             label="Comentario"
             value={formComentario}
-            onChange={(e) => setFormComentario(e.target.value)}
+            onChange={(e) =>
+              setFormComentario(
+                trimFormTextValue(
+                  "comentario",
+                  e.target.value,
+                  e.target.type || "text"
+                )
+              )
+            }
             multiline
             rows={3}
             fullWidth

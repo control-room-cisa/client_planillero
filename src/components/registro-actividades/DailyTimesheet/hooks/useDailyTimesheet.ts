@@ -8,6 +8,7 @@ import CalculoHorasTrabajoService from "../../../../services/calculoHorasTrabajo
 import { HorarioValidator } from "../../../../utils/horarioValidations";
 import useHorarioRules from "../../../../hooks/useHorarioRules";
 import { HorarioRulesFactory } from "../../../../utils/horarioRules";
+import { trimFormTextValue } from "../../../../utils/formInput";
 import type { Job } from "../../../../services/jobService";
 import type { RegistroDiarioData } from "../../../../dtos/RegistrosDiariosDataDto";
 import type { Activity, ActivityData } from "../../types";
@@ -742,7 +743,12 @@ export const useDailyTimesheet = () => {
   const handleDayConfigInputChange = React.useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const { name, value, type, checked } = event.target;
-      let finalValue = type === "checkbox" ? checked : value;
+      let finalValue: string | boolean =
+        type === "checkbox" ? checked : value;
+
+      if (type !== "checkbox" && name === "comentarioEmpleado") {
+        finalValue = trimFormTextValue(name, value, type || "text");
+      }
 
       // H2_2: Día Libre lo define el backend (fin de semana/feriado) y NO es editable en UI.
       if (isH2_2 && name === "esDiaLibre") {
@@ -831,7 +837,7 @@ export const useDailyTimesheet = () => {
         type !== "checkbox" &&
         (name === "horaEntrada" || name === "horaSalida")
       ) {
-        finalValue = roundToQuarterHour(value);
+        finalValue = roundToQuarterHour(value.trim());
       }
 
       setDayConfigData((prev) => {
@@ -1197,15 +1203,23 @@ export const useDailyTimesheet = () => {
       const { name, value, type, checked } = event.target;
 
       setFormData((prev) => {
-        let finalValue = type === "checkbox" ? checked : value;
+        let finalValue: string | boolean =
+          type === "checkbox" ? checked : value;
+
+        if (
+          type !== "checkbox" &&
+          (name === "descripcion" || name === "class")
+        ) {
+          finalValue = trimFormTextValue(name, value, type || "text");
+        }
 
         if (
           type !== "checkbox" &&
           (name === "horaInicio" || name === "horaFin")
         ) {
-          finalValue = roundToQuarterHour(value);
+          finalValue = roundToQuarterHour(value.trim());
 
-          if (name === "horaFin" && value === "00:00") {
+          if (name === "horaFin" && value.trim() === "00:00") {
             const inicioMinutos = timeToMinutes(prev.horaInicio || "00:00");
             if (inicioMinutos > 0) {
               finalValue = "24:00";
@@ -1217,7 +1231,7 @@ export const useDailyTimesheet = () => {
 
         // Para horas normales: restringir a formato numérico (máx 2 enteros, 2 decimales)
         if (!next.horaExtra && name === "horasInvertidas") {
-          const raw = (value as string).replace(",", ".");
+          const raw = (value as string).trim().replace(",", ".");
           // Regex: opcionalmente hasta 2 dígitos, opcionalmente punto y hasta 2 dígitos
           const match = raw.match(/^\d{0,2}(\.\d{0,2})?/);
           next.horasInvertidas = match ? match[0] : "";

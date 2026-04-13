@@ -24,6 +24,7 @@ import {
 import { useAuth } from "../../hooks/useAuth";
 import type { LoginRequest } from "../../types/auth";
 import { useNavigate } from "react-router-dom";
+import { trimFormTextValue } from "../../utils/formInput";
 
 export default function Login() {
   const { login, loading } = useAuth();
@@ -37,10 +38,10 @@ export default function Login() {
   const navigate = useNavigate();
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target;
+    const { name, value, type } = event.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: trimFormTextValue(name, value, type),
     }));
     // Limpiar error cuando el usuario empiece a escribir
     if (error) setError("");

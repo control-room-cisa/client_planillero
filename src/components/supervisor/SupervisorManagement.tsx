@@ -102,7 +102,7 @@ const SupervisorManagement: React.FC = () => {
           variant="outlined"
           size="small"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => setSearchTerm(e.target.value.trim())}
           fullWidth
           InputProps={{
             startAdornment: (

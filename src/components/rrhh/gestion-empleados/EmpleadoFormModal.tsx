@@ -39,6 +39,7 @@ import {
 import EmpleadoService from "../../../services/empleadoService";
 import { Roles } from "../../../enums/roles";
 import { getTipoHorarioLabel, TIPOS_HORARIO } from "../../../enums/tipoHorario";
+import { trimFormTextValue } from "../../../utils/formInput";
 
 /**
  * Convierte el valor mapeado de tipoContrato del backend al código del enum
@@ -328,11 +329,12 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    let newValue = type === "checkbox" ? checked : value;
+    let newValue: string | boolean =
+      type === "checkbox" ? checked : trimFormTextValue(name, value, type);
 
     // Transformar nombreUsuario a minúsculas siempre
-    if (name === "nombreUsuario") {
-      newValue = String(newValue).toLowerCase();
+    if (name === "nombreUsuario" && typeof newValue === "string") {
+      newValue = newValue.toLowerCase();
     }
 
     setFormData({
@@ -837,7 +839,9 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   setFormData({
                     ...formData,
                     sueldoMensual:
-                      parseFloat(Number(e.target.value).toFixed(2)) || 0,
+                      parseFloat(
+                        Number(e.target.value.trim()).toFixed(2)
+                      ) || 0,
                   })
                 }
                 fullWidth

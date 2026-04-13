@@ -872,7 +872,7 @@ const NominasManagement: React.FC = () => {
           <TextField
             label="Buscar colaborador"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value.trim())}
             size="small"
             disabled={!selectedEmpresaId || !codigoNominaFiltro}
             sx={{ minWidth: 250 }}
@@ -1389,7 +1389,7 @@ const NominasManagement: React.FC = () => {
               onChange={(e) =>
                 setEditFormData({
                   ...editFormData,
-                  comentario: e.target.value,
+                  comentario: e.target.value.trim(),
                 })
               }
               multiline

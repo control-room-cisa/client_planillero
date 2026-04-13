@@ -537,7 +537,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
           variant="outlined"
           size="small"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => setSearchTerm(e.target.value.trim())}
           sx={{ flexGrow: 1, minWidth: 200 }}
           InputProps={{
             startAdornment: (

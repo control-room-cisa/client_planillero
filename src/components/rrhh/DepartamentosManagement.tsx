@@ -395,7 +395,10 @@ const DepartamentosManagement: React.FC = () => {
               label="Nombre *"
               value={formData.nombre || ""}
               onChange={(e) =>
-                setFormData({ ...formData, nombre: e.target.value })
+                setFormData({
+                  ...formData,
+                  nombre: e.target.value.trim(),
+                })
               }
               fullWidth
               size="small"
@@ -405,7 +408,10 @@ const DepartamentosManagement: React.FC = () => {
               label="Código"
               value={formData.codigo || ""}
               onChange={(e) =>
-                setFormData({ ...formData, codigo: e.target.value })
+                setFormData({
+                  ...formData,
+                  codigo: e.target.value.trim(),
+                })
               }
               fullWidth
               size="small"
@@ -434,7 +440,10 @@ const DepartamentosManagement: React.FC = () => {
               label="Nombre *"
               value={formData.nombre || ""}
               onChange={(e) =>
-                setFormData({ ...formData, nombre: e.target.value })
+                setFormData({
+                  ...formData,
+                  nombre: e.target.value.trim(),
+                })
               }
               fullWidth
               size="small"
@@ -444,7 +453,10 @@ const DepartamentosManagement: React.FC = () => {
               label="Código"
               value={formData.codigo || ""}
               onChange={(e) =>
-                setFormData({ ...formData, codigo: e.target.value })
+                setFormData({
+                  ...formData,
+                  codigo: e.target.value.trim(),
+                })
               }
               fullWidth
               size="small"

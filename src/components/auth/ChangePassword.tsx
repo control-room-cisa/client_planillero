@@ -21,6 +21,7 @@ import {
 } from "@mui/icons-material";
 import { authService } from "../../services/authService";
 import type { ChangePasswordRequest } from "../../types/auth";
+import { trimFormTextValue } from "../../utils/formInput";
 
 interface ChangePasswordProps {
   open: boolean;
@@ -76,10 +77,10 @@ export default function ChangePassword({
   }, [userIdentifier, open]);
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target;
+    const { name, value, type } = event.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: trimFormTextValue(name, value, type),
     }));
     // Limpiar error cuando el usuario empiece a escribir
     if (error) setError("");
@@ -246,7 +247,11 @@ export default function ChangePassword({
               formData.usuario || formData.correoElectronico || formData.dni
             }
             onChange={(e) => {
-              const value = e.target.value;
+              const value = trimFormTextValue(
+                "usuario",
+                e.target.value,
+                e.target.type || "text"
+              );
               setFormData((prev) => ({
                 ...prev,
                 usuario: value,
