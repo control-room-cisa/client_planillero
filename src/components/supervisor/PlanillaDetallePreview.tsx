@@ -1570,7 +1570,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
             placeholder="Ingrese motivo de rechazo"
             value={comentarioRechazo}
             onChange={(e) => {
-              setComentarioRechazo(e.target.value.trim());
+              setComentarioRechazo(e.target.value);
               if (errorComentario) setErrorComentario("");
             }}
             error={!!errorComentario}
@@ -1607,9 +1607,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
             <TextField
               label="Descripción / Comentario"
               value={editedDescripcion}
-              onChange={(e) =>
-                setEditedDescripcion(e.target.value.trim())
-              }
+              onChange={(e) => setEditedDescripcion(e.target.value)}
               multiline
               rows={3}
               fullWidth

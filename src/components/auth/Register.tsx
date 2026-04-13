@@ -29,7 +29,6 @@ import { useAuth } from "../../hooks/useAuth";
 import type { RegisterRequest, Empresa, Departamento } from "../../types/auth";
 import { empresaService } from "../../services/empresaService";
 import { useNavigate } from "react-router-dom";
-import { trimFormTextValue } from "../../utils/formInput";
 
 interface RegisterProps {
   onRegistrationSuccess?: () => void;
@@ -99,15 +98,10 @@ export default function Register({
   }, [formData.empresaId, empresas]);
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type } = event.target;
-    const raw = String(value);
-    const next =
-      name === "empresaId" || name === "departamentoId"
-        ? parseInt(raw.trim(), 10)
-        : trimFormTextValue(name, raw, type || "text");
+    const { name, value } = event.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: next,
+      [name]: name === "departamentoId" ? parseInt(value) : value,
     }));
     // Limpiar mensajes cuando el usuario empiece a escribir
     if (error) setError("");

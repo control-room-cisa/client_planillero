@@ -159,7 +159,7 @@ const ParametrosNominaManagement: React.FC = () => {
               <TextField
                 label="PISO_IHSS"
                 value={pisoIhss}
-                onChange={(e) => setPisoIhss(e.target.value.trim())}
+                onChange={(e) => setPisoIhss(e.target.value)}
                 helperText="Ej: 11903.13"
                 sx={{ minWidth: 280, flex: "1 1 360px" }}
               />
@@ -167,7 +167,7 @@ const ParametrosNominaManagement: React.FC = () => {
               <TextField
                 label="DEDUCCION_IHSS_FIJA"
                 value={deduccionIhssFija}
-                onChange={(e) => setDeduccionIhssFija(e.target.value.trim())}
+                onChange={(e) => setDeduccionIhssFija(e.target.value)}
                 helperText="Ej: 595.16"
                 sx={{ minWidth: 280, flex: "1 1 360px" }}
               />

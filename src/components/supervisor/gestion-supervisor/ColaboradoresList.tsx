@@ -195,7 +195,7 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
             variant="outlined"
             size="small"
             value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value.trim())}
+            onChange={(e) => onSearchChange(e.target.value)}
             fullWidth
             InputProps={{
               startAdornment: (

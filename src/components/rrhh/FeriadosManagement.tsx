@@ -131,7 +131,7 @@ const FeriadosManagement: React.FC = () => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
-      [name]: value.trim(),
+      [name]: value,
     });
   };
 
@@ -284,7 +284,7 @@ const FeriadosManagement: React.FC = () => {
           variant="outlined"
           size="small"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value.trim())}
+          onChange={(e) => setSearchTerm(e.target.value)}
           sx={{ flexGrow: 1 }}
           InputProps={{
             startAdornment: (

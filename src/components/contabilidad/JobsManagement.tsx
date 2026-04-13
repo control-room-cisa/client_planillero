@@ -197,7 +197,7 @@ const JobsManagement: React.FC = () => {
     // Si es el campo código, solo permitir números y puntos con límites
     if (name === "codigo") {
       // Filtrar solo números y puntos
-      let filteredValue = value.trim().replace(/[^0-9.]/g, "");
+      let filteredValue = value.replace(/[^0-9.]/g, "");
 
       // Aplicar límites de formato NNNN.NNNN.NNNN
       const partes = filteredValue.split(".");
@@ -257,7 +257,7 @@ const JobsManagement: React.FC = () => {
       // Para otros campos, comportamiento normal
       setFormData({
         ...formData,
-        [name]: value.trim(),
+        [name]: value,
       });
     }
   };
@@ -700,7 +700,7 @@ const JobsManagement: React.FC = () => {
           variant="outlined"
           size="small"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value.trim())}
+          onChange={(e) => setSearchTerm(e.target.value)}
           sx={{ flexGrow: 1 }}
           InputProps={{
             startAdornment: (

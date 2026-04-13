@@ -81,7 +81,7 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
             variant="outlined"
             size="small"
             value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value.trim())}
+            onChange={(e) => onSearchChange(e.target.value)}
             fullWidth
             InputProps={{
               startAdornment: (

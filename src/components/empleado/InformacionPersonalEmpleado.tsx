@@ -34,7 +34,6 @@ import EmpleadoService, {
 } from "../../services/empleadoService";
 import { getImageUrl } from "../../utils/imageUtils";
 import { getTipoHorarioLabel } from "../../enums/tipoHorario";
-import { trimFormTextValue } from "../../utils/formInput";
 
 function safeToNumber(v: unknown): number | null {
   if (v === null || v === undefined) return null;
@@ -241,8 +240,7 @@ export default function InformacionPersonalEmpleado() {
 
   const handleProfileInputChange = React.useCallback(
     (field: keyof UpdateMiPerfilDto, value: string) => {
-      const trimmed = trimFormTextValue(String(field), value, "text");
-      setProfileForm((prev) => ({ ...prev, [field]: trimmed }));
+      setProfileForm((prev) => ({ ...prev, [field]: value }));
     },
     []
   );
@@ -701,9 +699,7 @@ export default function InformacionPersonalEmpleado() {
               label="Teléfono"
               value={profileForm.telefono ?? ""}
               onChange={(e) => {
-                const sanitized = e.target.value
-                  .trim()
-                  .replace(/(?!^\+)[^\d]/g, "");
+                const sanitized = e.target.value.replace(/(?!^\+)[^\d]/g, "");
                 handleProfileInputChange("telefono", sanitized);
               }}
               fullWidth
