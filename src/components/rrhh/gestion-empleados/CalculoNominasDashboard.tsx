@@ -17,6 +17,7 @@ import {
   Snackbar,
   Select,
   MenuItem,
+  ListSubheader,
   InputLabel,
   InputAdornment,
   Dialog,
@@ -108,6 +109,165 @@ const parseDecimalValue = (value: string): number => {
   return roundTo2Decimals(num);
 };
 
+/** Año mínimo del selector de nómina (inclusive). */
+const MIN_AÑO_NOMINA = 2025;
+
+type IntervaloNominaCalculo = {
+  label: string;
+  fechaInicio: string;
+  fechaFin: string;
+  valor: string;
+};
+
+/** YYYY-MM-DD en calendario local (evita corrimientos con toISOString). */
+const toYmdLocal = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+const MESES_LARGOS_ES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+] as const;
+
+/** Nombre del mes de la fecha de fin (ISO YYYY-MM-DD), para encabezados de grupo. */
+function nombreMesFinIso(fechaFinIso: string): string {
+  const m = Number(fechaFinIso.slice(5, 7));
+  if (!m || m < 1 || m > 12) return "";
+  return MESES_LARGOS_ES[m - 1];
+}
+
+/** A = primera quincena (fin día 11), B = segunda (fin día 26). */
+function etiquetaQuincenaAB(fin: Date): "A" | "B" {
+  return fin.getDate() === 11 ? "A" : "B";
+}
+
+/**
+ * Intervalos de quincena para un año de nómina atribuido por fecha de fin:
+ * - Segunda quincena: 12–26 del mes M (fin día 26, mismo mes).
+ * - Primera quincena: 27 del mes M−1 al 11 del mes M (fin día 11; ej. 27 dic – 11 ene → enero del año de fin).
+ * Si `año` es el año calendario actual, solo se incluyen períodos con fechaFin <= hoy (medianoche local).
+ */
+function construirIntervalosParaAño(
+  año: number,
+  hoy: Date = new Date(),
+): IntervaloNominaCalculo[] {
+  const hoyNorm = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  const esAñoActual = año === hoyNorm.getFullYear();
+  const intervalos: IntervaloNominaCalculo[] = [];
+
+  const formatearFecha = (fecha: Date) => {
+    const dia = fecha.getDate().toString().padStart(2, "0");
+    const mes = (fecha.getMonth() + 1).toString().padStart(2, "0");
+    const yy = String(fecha.getFullYear() % 100).padStart(2, "0");
+    return `${dia}/${mes}/${yy}`;
+  };
+
+  for (let m = 0; m < 12; m++) {
+    const inicio2q = new Date(año, m, 12);
+    const fin2q = new Date(año, m, 26);
+    if (!esAñoActual || fin2q <= hoyNorm) {
+      const fi = toYmdLocal(inicio2q);
+      const ff = toYmdLocal(fin2q);
+      intervalos.push({
+        label: `${formatearFecha(inicio2q)} - ${formatearFecha(fin2q)} ${etiquetaQuincenaAB(fin2q)}`,
+        fechaInicio: fi,
+        fechaFin: ff,
+        valor: `${fi}_${ff}`,
+      });
+    }
+
+    const inicio1q = new Date(año, m - 1, 27);
+    const fin1q = new Date(año, m, 11);
+    if (!esAñoActual || fin1q <= hoyNorm) {
+      const fi = toYmdLocal(inicio1q);
+      const ff = toYmdLocal(fin1q);
+      intervalos.push({
+        label: `${formatearFecha(inicio1q)} - ${formatearFecha(fin1q)} ${etiquetaQuincenaAB(fin1q)}`,
+        fechaInicio: fi,
+        fechaFin: ff,
+        valor: `${fi}_${ff}`,
+      });
+    }
+  }
+
+  intervalos.sort((a, b) =>
+    a.fechaFin < b.fechaFin ? 1 : a.fechaFin > b.fechaFin ? -1 : 0,
+  );
+  return intervalos;
+}
+
+/** YYYY-MM de fechaFin: agrupa A y B del mismo mes sin línea entre ellas. */
+function claveMesFinIso(fechaFin: string): string {
+  return fechaFin.length >= 7 ? fechaFin.slice(0, 7) : fechaFin;
+}
+
+function IntervalosNominasSelectItems({
+  intervalos,
+}: {
+  intervalos: IntervaloNominaCalculo[];
+}) {
+  return (
+    <>
+      {intervalos.map((intervalo, index) => {
+        const anterior = index > 0 ? intervalos[index - 1] : null;
+        const nuevoGrupoMes =
+          index === 0 ||
+          (anterior != null &&
+            claveMesFinIso(intervalo.fechaFin) !==
+              claveMesFinIso(anterior.fechaFin));
+        return (
+          <React.Fragment key={intervalo.valor}>
+            {nuevoGrupoMes ? (
+              <>
+                <Divider
+                  component="li"
+                  role="presentation"
+                  aria-hidden
+                  sx={{
+                    my: 0.5,
+                    listStyle: "none",
+                    borderColor: "divider",
+                  }}
+                />
+                <ListSubheader
+                  disableSticky
+                  sx={{
+                    fontWeight: 600,
+                    fontSize: "0.8125rem",
+                    lineHeight: 2,
+                    py: 0.25,
+                    color: "text.secondary",
+                    bgcolor: "transparent",
+                    backgroundImage: "none",
+                    pointerEvents: "none",
+                    userSelect: "none",
+                  }}
+                >
+                  {nombreMesFinIso(intervalo.fechaFin)}
+                </ListSubheader>
+              </>
+            ) : null}
+            <MenuItem value={intervalo.valor}>{intervalo.label}</MenuItem>
+          </React.Fragment>
+        );
+      })}
+    </>
+  );
+}
+
 const CalculoNominas: React.FC<CalculoNominasProps> = ({
   empleado: empleadoProp,
   empleadosIndex: empleadosIndexProp,
@@ -195,85 +355,20 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     }
   }, []); // mount
 
-  // Función para generar los intervalos de fechas predefinidos
-  const generarIntervalosFechas = React.useCallback(() => {
-    const intervalos = [];
-    const valoresUnicos = new Set<string>(); // Para evitar duplicados
-    const hoy = new Date();
-    // Normalizar la fecha de hoy a medianoche para comparación
-    const hoyNormalizado = new Date(
-      hoy.getFullYear(),
-      hoy.getMonth(),
-      hoy.getDate(),
-    );
+  const [añoNominas, setAñoNominas] = React.useState<number>(() =>
+    new Date().getFullYear(),
+  );
 
-    for (let i = 0; i < 30; i++) {
-      const fechaBase = new Date(hoy);
-      fechaBase.setMonth(hoy.getMonth() - i);
-
-      const año = fechaBase.getFullYear();
-      const mes = fechaBase.getMonth();
-
-      const inicio1 = new Date(año, mes, 12);
-      const fin1 = new Date(año, mes, 26);
-
-      const inicio2 = new Date(año, mes, 27);
-      const fin2 = new Date(año, mes + 1, 11);
-
-      const formatearFecha = (fecha: Date) => {
-        const dia = fecha.getDate().toString().padStart(2, "0");
-        const mes = (fecha.getMonth() + 1).toString().padStart(2, "0");
-        const año = fecha.getFullYear();
-        return `${dia}/${mes}/${año}`;
-      };
-
-      // Solo agregar período 1 si su fecha de inicio no es futura y no está duplicado
-      if (inicio1 <= hoyNormalizado) {
-        const valor1 = `${inicio1.toISOString().split("T")[0]}_${
-          fin1.toISOString().split("T")[0]
-        }`;
-        if (!valoresUnicos.has(valor1)) {
-          valoresUnicos.add(valor1);
-          intervalos.push({
-            label: `${formatearFecha(inicio1)} - ${formatearFecha(fin1)}`,
-            fechaInicio: inicio1.toISOString().split("T")[0],
-            fechaFin: fin1.toISOString().split("T")[0],
-            valor: valor1,
-          });
-        }
-      }
-
-      // Solo agregar período 2 si su fecha de inicio no es futura y no está duplicado
-      if (inicio2 <= hoyNormalizado) {
-        const valor2 = `${inicio2.toISOString().split("T")[0]}_${
-          fin2.toISOString().split("T")[0]
-        }`;
-        if (!valoresUnicos.has(valor2)) {
-          valoresUnicos.add(valor2);
-          intervalos.push({
-            label: `${formatearFecha(inicio2)} - ${formatearFecha(fin2)}`,
-            fechaInicio: inicio2.toISOString().split("T")[0],
-            fechaFin: fin2.toISOString().split("T")[0],
-            valor: valor2,
-          });
-        }
-      }
-    }
-
-    // Ordenar por fechaInicio (YYYY-MM-DD) descendente
-    intervalos.sort((a: any, b: any) =>
-      a.fechaInicio < b.fechaInicio
-        ? 1
-        : a.fechaInicio > b.fechaInicio
-          ? -1
-          : 0,
-    );
-    return intervalos;
+  const añosDisponibles = React.useMemo(() => {
+    const y = new Date().getFullYear();
+    const list: number[] = [];
+    for (let a = MIN_AÑO_NOMINA; a <= y; a++) list.push(a);
+    return list.reverse();
   }, []);
 
-  const intervalosDisponibles = React.useMemo(
-    () => generarIntervalosFechas(),
-    [generarIntervalosFechas],
+  const intervalosDelAño = React.useMemo(
+    () => construirIntervalosParaAño(añoNominas, new Date()),
+    [añoNominas],
   );
 
   const [intervaloSeleccionado, setIntervaloSeleccionado] =
@@ -283,18 +378,37 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   const [fechaInicio, setFechaInicio] = React.useState<string>("");
   const [fechaFin, setFechaFin] = React.useState<string>("");
 
-  // Auto-seleccionar el período más reciente por defecto para disparar la carga
+  // Sincronizar período cuando cambia el año o la lista: por defecto la última quincena (mayor fechaFin)
   React.useEffect(() => {
-    if (!intervaloSeleccionado && intervalosDisponibles.length > 0) {
-      const primero = intervalosDisponibles[0];
-      setIntervaloSeleccionado(primero.valor);
-      setFechaInicio(primero.fechaInicio);
-      setFechaFin(primero.fechaFin);
+    if (intervalosDelAño.length === 0) {
+      setIntervaloSeleccionado("");
+      setFechaInicio("");
+      setFechaFin("");
+      return;
     }
-  }, [intervalosDisponibles, intervaloSeleccionado]);
+    const sigueSiendoValido = intervalosDelAño.some(
+      (x) => x.valor === intervaloSeleccionado,
+    );
+    if (sigueSiendoValido) return;
+    const ultima = intervalosDelAño[0];
+    setIntervaloSeleccionado(ultima.valor);
+    setFechaInicio(ultima.fechaInicio);
+    setFechaFin(ultima.fechaFin);
+  }, [añoNominas, intervalosDelAño, intervaloSeleccionado]);
 
   const rangoValido =
     !!fechaInicio && !!fechaFin && new Date(fechaFin) >= new Date(fechaInicio);
+
+  const handleAñoNominasChange = (event: any) => {
+    const v = Number(event.target.value);
+    if (
+      Number.isFinite(v) &&
+      v >= MIN_AÑO_NOMINA &&
+      v <= new Date().getFullYear()
+    ) {
+      setAñoNominas(v);
+    }
+  };
 
   const handleIntervaloChange = (event: any) => {
     const valor = event.target.value;
@@ -1544,18 +1658,57 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     </Typography>
                   </Box>
 
-                  {/* Selector de período - dentro del contenedor de datos del empleado en pantallas no pequeñas */}
+                  {/* Año + período de nómina (pantallas sm+) */}
                   <Box
                     sx={{
                       display: { xs: "none", sm: "flex" },
                       alignItems: "center",
                       flexShrink: 0,
+                      gap: 1.5,
+                      flexWrap: "wrap",
+                      justifyContent: "flex-end",
                     }}
                   >
                     <FormControl
                       size="small"
+                      sx={{ minWidth: 96, width: { sm: "auto" } }}
+                    >
+                      <InputLabel
+                        sx={{
+                          color: "rgba(255,255,255,0.7)",
+                          fontSize: "0.875rem",
+                        }}
+                      >
+                        Año
+                      </InputLabel>
+                      <Select
+                        value={añoNominas}
+                        onChange={handleAñoNominasChange}
+                        label="Año"
+                        size="small"
+                        sx={{
+                          color: "white",
+                          backgroundColor: "rgba(255, 255, 255, 0.1)",
+                          "& .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "rgba(255,255,255,0.3)",
+                          },
+                          "&:hover .MuiOutlinedInput-notchedOutline": {
+                            borderColor: "rgba(255,255,255,0.5)",
+                          },
+                          "& .MuiSelect-icon": { color: "white" },
+                        }}
+                      >
+                        {añosDisponibles.map((año) => (
+                          <MenuItem key={año} value={año}>
+                            {año}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <FormControl
+                      size="small"
                       sx={{
-                        minWidth: { sm: 250, md: 300 },
+                        minWidth: { sm: 220, md: 280 },
                         width: { sm: "auto" },
                       }}
                     >
@@ -1565,13 +1718,14 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                           fontSize: "0.875rem",
                         }}
                       >
-                        Período de Nómina
+                        Período
                       </InputLabel>
                       <Select
                         value={intervaloSeleccionado}
                         onChange={handleIntervaloChange}
-                        label="Período de Nómina"
+                        label="Período"
                         size="small"
+                        disabled={intervalosDelAño.length === 0}
                         sx={{
                           color: "white",
                           backgroundColor: "rgba(255, 255, 255, 0.1)",
@@ -1592,14 +1746,9 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                         <MenuItem value="">
                           <em>Selecciona un período</em>
                         </MenuItem>
-                        {intervalosDisponibles.map((intervalo) => (
-                          <MenuItem
-                            key={intervalo.valor}
-                            value={intervalo.valor}
-                          >
-                            {intervalo.label}
-                          </MenuItem>
-                        ))}
+                        <IntervalosNominasSelectItems
+                          intervalos={intervalosDelAño}
+                        />
                       </Select>
                     </FormControl>
                   </Box>
@@ -1642,7 +1791,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                 </Box>
               </Box>
 
-              {/* Selector de período - solo visible en móvil (xs) */}
+              {/* Año + período — solo visible en móvil (xs) */}
               <Box
                 sx={{
                   display: { xs: "flex", sm: "none" },
@@ -1651,25 +1800,54 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                   alignItems: "stretch",
                 }}
               >
-                <FormControl
-                  size="small"
-                  sx={{
-                    width: "100%",
-                  }}
-                >
+                <FormControl size="small" sx={{ width: "100%" }}>
                   <InputLabel
                     sx={{
                       color: "rgba(255,255,255,0.7)",
                       fontSize: "0.875rem",
                     }}
                   >
-                    Período de Nómina
+                    Año
+                  </InputLabel>
+                  <Select
+                    value={añoNominas}
+                    onChange={handleAñoNominasChange}
+                    label="Año"
+                    size="small"
+                    sx={{
+                      color: "white",
+                      backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "rgba(255,255,255,0.3)",
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "rgba(255,255,255,0.5)",
+                      },
+                      "& .MuiSelect-icon": { color: "white" },
+                    }}
+                  >
+                    {añosDisponibles.map((año) => (
+                      <MenuItem key={año} value={año}>
+                        {año}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ width: "100%" }}>
+                  <InputLabel
+                    sx={{
+                      color: "rgba(255,255,255,0.7)",
+                      fontSize: "0.875rem",
+                    }}
+                  >
+                    Período
                   </InputLabel>
                   <Select
                     value={intervaloSeleccionado}
                     onChange={handleIntervaloChange}
-                    label="Período de Nómina"
+                    label="Período"
                     size="small"
+                    disabled={intervalosDelAño.length === 0}
                     sx={{
                       color: "white",
                       backgroundColor: "rgba(255, 255, 255, 0.1)",
@@ -1690,11 +1868,9 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <MenuItem value="">
                       <em>Selecciona un período</em>
                     </MenuItem>
-                    {intervalosDisponibles.map((intervalo) => (
-                      <MenuItem key={intervalo.valor} value={intervalo.valor}>
-                        {intervalo.label}
-                      </MenuItem>
-                    ))}
+                    <IntervalosNominasSelectItems
+                      intervalos={intervalosDelAño}
+                    />
                   </Select>
                 </FormControl>
               </Box>
@@ -1765,8 +1941,9 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
             {!intervaloSeleccionado && (
               <Box sx={{ mt: 2, textAlign: "center" }}>
                 <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                  💡 Los períodos de nómina se calculan automáticamente en
-                  intervalos de ~15 días. Selecciona un período para ver la
+                  💡 Elige el año y la quincena (12–26 o 27–11 según reglas de
+                  nómina). En el año en curso solo aparecen períodos ya cerrados
+                  (fecha fin ≤ hoy). Selecciona un período para ver la
                   información.
                 </Typography>
               </Box>
