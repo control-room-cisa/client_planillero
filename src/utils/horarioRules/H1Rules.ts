@@ -26,13 +26,9 @@ import type { HorarioRuleEngine } from "./interfaces";
  *    - Cuando se activa/desactiva, ajusta automáticamente la hora de salida ±60 minutos.
  *    - Mantiene las horas laborables constantes.
  *
- * 5. FERIADO (esFestivo):
- *    - Cuando esFestivo = true, se establecen horaEntrada y horaSalida a "07:00".
- *    - Las horas laborables se calculan como diferencia: (horaSalida - horaEntrada).
- *    - Como ambas horas son iguales (7:00 - 7:00), el resultado es 0 horas laborables.
- *    - NO se asignan 0 horas arbitrariamente; se justifican mediante el cálculo de diferencia.
- *    - Los campos de hora entrada/salida se deshabilitan automáticamente.
- *    - RAZÓN: Un día feriado no tiene horas laborables, pero debe justificarse mediante cálculo.
+ * 5. FERIADO (esFestivo desde API):
+ *    - Horas normales siempre 0; la UI puede mostrar 07:00-07:00 en primera carga.
+ *    - Los campos de hora entrada/salida se deshabilitan cuando aplica.
  *
  * NOTA PARA IA: No modificar estos comportamientos sin revisar primero el impacto
  * en DailyTimesheet.tsx y otros componentes que dependen de estas reglas.
@@ -78,21 +74,7 @@ export const H1Rules: HorarioRuleEngine = {
     },
     calculateNormalHours: (formData, apiData) => {
       if (formData?.esIncapacidad) return 0;
-      // Si es feriado, las horas laborables son 0 (normalmente 07:00-07:00).
-      if (apiData?.esFestivo || formData?.esFestivo) {
-        if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
-        // Calcular diferencia: si ambas son iguales (ej: 7:00 - 7:00), retornar 0
-        if (formData.horaEntrada === formData.horaSalida) return 0;
-        const timeToMinutes = (t: string) => {
-          const [h, m] = t.split(":").map(Number);
-          return h * 60 + m;
-        };
-        const s = timeToMinutes(formData.horaEntrada);
-        let e = timeToMinutes(formData.horaSalida);
-        if (e <= s) e += 24 * 60;
-        const almuerzo = formData.esHoraCorrida ? 0 : 1;
-        return Math.max(0, (e - s) / 60 - almuerzo);
-      }
+      if (apiData?.esFestivo || formData?.esFestivo) return 0;
       // Regla: NO inventar horas. Siempre justificar con (salida-entrada) y hora corrida.
       if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
       // Si entrada y salida son iguales (ej: 7:00-7:00), 0 horas laborales

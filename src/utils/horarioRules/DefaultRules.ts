@@ -22,13 +22,10 @@ import type { HorarioRuleEngine } from "./interfaces";
  *    - El almuerzo es 1 hora si NO es hora corrida, 0 horas si es hora corrida.
  *    - Por defecto: 8 horas si no hay datos de entrada/salida.
  *
- * 4. FERIADO (esFestivo):
- *    - Cuando esFestivo = true, se establecen horaEntrada y horaSalida a "07:00".
- *    - Las horas laborables se calculan como diferencia: (horaSalida - horaEntrada).
- *    - Como ambas horas son iguales (7:00 - 7:00), el resultado es 0 horas laborables.
- *    - NO se asignan 0 horas arbitrariamente; se justifican mediante el cálculo de diferencia.
- *    - Los campos de hora entrada/salida se deshabilitan automáticamente.
- *    - RAZÓN: Un día feriado no tiene horas laborables, pero debe justificarse mediante cálculo.
+ * 4. FERIADO (esFestivo desde API):
+ *    - Las horas normales del día son siempre 0 (no dependen de horaEntrada/horaSalida en UI).
+ *    - En primera carga, processApiDefaults fija 07:00-07:00 para coherencia visual.
+ *    - Si el usuario marca/desmarca día libre u otros flags, el feriado sigue implicando 0 horas normales.
  *
  * NOTA PARA IA: No modificar estos comportamientos sin revisar primero el impacto
  * en DailyTimesheet.tsx y otros componentes que dependen de estas reglas.
@@ -63,21 +60,8 @@ export const DefaultRules: HorarioRuleEngine = {
     },
     calculateNormalHours: (formData, apiData) => {
       if (formData?.esIncapacidad) return 0;
-      // Si es feriado, las horas laborables son 0 (calculadas desde diferencia de horas)
-      if (apiData?.esFestivo || formData?.esFestivo) {
-        if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
-        // Calcular diferencia: si ambas son iguales (ej: 7:00 - 7:00), retornar 0
-        if (formData.horaEntrada === formData.horaSalida) return 0;
-        const timeToMinutes = (t: string) => {
-          const [h, m] = t.split(":").map(Number);
-          return h * 60 + m;
-        };
-        const s = timeToMinutes(formData.horaEntrada);
-        let e = timeToMinutes(formData.horaSalida);
-        if (e <= s) e += 24 * 60;
-        const almuerzo = formData.esHoraCorrida ? 0 : 1;
-        return Math.max(0, (e - s) / 60 - almuerzo);
-      }
+      // Feriado (API): siempre 0 horas normales aunque entrada/salida difieran tras toggles en UI
+      if (apiData?.esFestivo || formData?.esFestivo) return 0;
       // Regla: NO inventar horas. Siempre justificar con (salida-entrada) y hora corrida.
       if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
       const timeToMinutes = (t: string) => {

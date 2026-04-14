@@ -31,13 +31,8 @@ import type { HorarioRuleEngine } from "./interfaces";
  * 5. HORA CORRIDA:
  *    - NO aplica a H2 (siempre false, campo oculto y deshabilitado).
  *
- * 6. FERIADO (esFestivo):
- *    - Cuando esFestivo = true, se establecen horaEntrada y horaSalida a "07:00".
- *    - Las horas laborables se calculan como diferencia: (horaSalida - horaEntrada).
- *    - Como ambas horas son iguales (7:00 - 7:00), el resultado es 0 horas laborables.
- *    - NO se asignan 0 horas arbitrariamente; se justifican mediante el cálculo de diferencia.
- *    - Los campos de hora entrada/salida se deshabilitan automáticamente.
- *    - RAZÓN: Un día feriado no tiene horas laborables, pero debe justificarse mediante cálculo.
+ * 6. FERIADO (esFestivo desde API):
+ *    - Horas normales siempre 0; no recalcular desde entrada/salida tras cambios en UI.
  *
  * NOTA PARA IA: No modificar estos comportamientos sin revisar primero el impacto
  * en DailyTimesheet.tsx y otros componentes que dependen de estas reglas.
@@ -73,20 +68,7 @@ export const H2Rules: HorarioRuleEngine = {
     },
     calculateNormalHours: (formData, apiData) => {
       if (formData?.esIncapacidad) return 0;
-      // Si es feriado, calcular desde diferencia de horas (debe dar 0 cuando ambas son 7:00)
-      if (apiData?.esFestivo || formData?.esFestivo) {
-        if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
-        // Si entrada == salida, retornar 0 horas
-        if (formData.horaEntrada === formData.horaSalida) return 0;
-        const timeToMinutes = (t: string) => {
-          const [h, m] = t.split(":").map(Number);
-          return h * 60 + m;
-        };
-        const s = timeToMinutes(formData.horaEntrada);
-        let e = timeToMinutes(formData.horaSalida);
-        if (e <= s) e += 24 * 60;
-        return Math.max(0, (e - s) / 60);
-      }
+      if (apiData?.esFestivo || formData?.esFestivo) return 0;
       if (formData?.esDiaLibre) return 0;
       if (!formData?.horaEntrada || !formData?.horaSalida) return 0;
       // Si entrada == salida, retornar 0 horas (igual que H1)
