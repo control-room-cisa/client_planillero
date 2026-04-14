@@ -256,8 +256,10 @@ const NominasManagement: React.FC = () => {
 
   // Formatear fecha
   const formatDate = (dateString: string) => {
+    if (!dateString) return "";
     const date = new Date(dateString);
     return date.toLocaleDateString("es-ES", {
+      timeZone: "UTC",
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
