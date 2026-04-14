@@ -214,59 +214,57 @@ function claveMesFinIso(fechaFin: string): string {
   return fechaFin.length >= 7 ? fechaFin.slice(0, 7) : fechaFin;
 }
 
-function IntervalosNominasSelectItems({
-  intervalos,
-}: {
-  intervalos: IntervaloNominaCalculo[];
-}) {
-  return (
-    <>
-      {intervalos.map((intervalo, index) => {
-        const anterior = index > 0 ? intervalos[index - 1] : null;
-        const nuevoGrupoMes =
-          index === 0 ||
-          (anterior != null &&
-            claveMesFinIso(intervalo.fechaFin) !==
-              claveMesFinIso(anterior.fechaFin));
-        return (
-          <React.Fragment key={intervalo.valor}>
-            {nuevoGrupoMes ? (
-              <>
-                <Divider
-                  component="li"
-                  role="presentation"
-                  aria-hidden
-                  sx={{
-                    my: 0.5,
-                    listStyle: "none",
-                    borderColor: "divider",
-                  }}
-                />
-                <ListSubheader
-                  disableSticky
-                  sx={{
-                    fontWeight: 600,
-                    fontSize: "0.8125rem",
-                    lineHeight: 2,
-                    py: 0.25,
-                    color: "text.secondary",
-                    bgcolor: "transparent",
-                    backgroundImage: "none",
-                    pointerEvents: "none",
-                    userSelect: "none",
-                  }}
-                >
-                  {nombreMesFinIso(intervalo.fechaFin)}
-                </ListSubheader>
-              </>
-            ) : null}
-            <MenuItem value={intervalo.valor}>{intervalo.label}</MenuItem>
-          </React.Fragment>
+  const renderIntervalosSelectItems = (intervalos: IntervaloNominaCalculo[]) => {
+    return intervalos.map((intervalo, index) => {
+      const anterior = index > 0 ? intervalos[index - 1] : null;
+      const nuevoGrupoMes =
+        index === 0 ||
+        (anterior != null &&
+          claveMesFinIso(intervalo.fechaFin) !==
+            claveMesFinIso(anterior.fechaFin));
+      
+      const items = [];
+      
+      if (nuevoGrupoMes) {
+        items.push(
+          <Divider
+            key={`div-${intervalo.valor}`}
+            sx={{
+              my: 0.5,
+              borderColor: "divider",
+            }}
+          />
         );
-      })}
-    </>
-  );
-}
+        items.push(
+          <ListSubheader
+            key={`sub-${intervalo.valor}`}
+            disableSticky
+            sx={{
+              fontWeight: 600,
+              fontSize: "0.8125rem",
+              lineHeight: 2,
+              py: 0.25,
+              color: "text.secondary",
+              bgcolor: "transparent",
+              backgroundImage: "none",
+              pointerEvents: "none",
+              userSelect: "none",
+            }}
+          >
+            {nombreMesFinIso(intervalo.fechaFin)}
+          </ListSubheader>
+        );
+      }
+      
+      items.push(
+        <MenuItem key={intervalo.valor} value={intervalo.valor}>
+          {intervalo.label}
+        </MenuItem>
+      );
+      
+      return items;
+    });
+  };
 
 const CalculoNominas: React.FC<CalculoNominasProps> = ({
   empleado: empleadoProp,
@@ -374,11 +372,15 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   const [intervaloSeleccionado, setIntervaloSeleccionado] =
     React.useState<string>("");
 
+  /** Evita depender de `intervaloSeleccionado` en el efecto de sync (re-disparaba el efecto en cada click y podía anular la selección). */
+  const intervaloSeleccionadoRef = React.useRef(intervaloSeleccionado);
+  intervaloSeleccionadoRef.current = intervaloSeleccionado;
+
   // Rango de fechas
   const [fechaInicio, setFechaInicio] = React.useState<string>("");
   const [fechaFin, setFechaFin] = React.useState<string>("");
 
-  // Sincronizar período cuando cambia el año o la lista: por defecto la última quincena (mayor fechaFin)
+  // Sincronizar período solo cuando cambia el año o la lista de intervalos (no al elegir otro período en el Select)
   React.useEffect(() => {
     if (intervalosDelAño.length === 0) {
       setIntervaloSeleccionado("");
@@ -386,15 +388,14 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
       setFechaFin("");
       return;
     }
-    const sigueSiendoValido = intervalosDelAño.some(
-      (x) => x.valor === intervaloSeleccionado,
-    );
+    const actual = intervaloSeleccionadoRef.current;
+    const sigueSiendoValido = intervalosDelAño.some((x) => x.valor === actual);
     if (sigueSiendoValido) return;
     const ultima = intervalosDelAño[0];
     setIntervaloSeleccionado(ultima.valor);
     setFechaInicio(ultima.fechaInicio);
     setFechaFin(ultima.fechaFin);
-  }, [añoNominas, intervalosDelAño, intervaloSeleccionado]);
+  }, [añoNominas, intervalosDelAño]);
 
   const rangoValido =
     !!fechaInicio && !!fechaFin && new Date(fechaFin) >= new Date(fechaInicio);
@@ -411,8 +412,9 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
   };
 
   const handleIntervaloChange = (event: any) => {
-    const valor = event.target.value;
+    const valor = String(event.target.value ?? "");
     setIntervaloSeleccionado(valor);
+    intervaloSeleccionadoRef.current = valor;
 
     if (valor) {
       const [inicio, fin] = valor.split("_");
@@ -1746,9 +1748,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                         <MenuItem value="">
                           <em>Selecciona un período</em>
                         </MenuItem>
-                        <IntervalosNominasSelectItems
-                          intervalos={intervalosDelAño}
-                        />
+                        {renderIntervalosSelectItems(intervalosDelAño)}
                       </Select>
                     </FormControl>
                   </Box>
@@ -1868,9 +1868,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     <MenuItem value="">
                       <em>Selecciona un período</em>
                     </MenuItem>
-                    <IntervalosNominasSelectItems
-                      intervalos={intervalosDelAño}
-                    />
+                    {renderIntervalosSelectItems(intervalosDelAño)}
                   </Select>
                 </FormControl>
               </Box>
