@@ -1,14 +1,10 @@
 // src/routes/NominasRoute.tsx (o donde prefieras)
 import * as React from "react";
-import {
-  Navigate,
-  useOutletContext,
-  useParams,
-} from "react-router-dom";
+import { Navigate, useOutletContext, useParams } from "react-router-dom";
 import { Fade, Box, CircularProgress } from "@mui/material";
 import type { LayoutOutletCtx } from "../Layout";
 import { readEmpleadosIndexSession } from "../../utils/nominasEmpleadosIndexSession";
-import CalculoNominas from "./gestion-empleados/CalculoNominasDashboard";
+import CalculoNominas from "./gestion-empleados/calculo-nominas/CalculoNominasDashboard";
 import EmpleadoService from "../../services/empleadoService";
 import type { Empleado } from "../../services/empleadoService";
 
@@ -34,7 +30,10 @@ const NominasRoute: React.FC = () => {
     if (!codigoEmpleado) return;
     setLoading(true);
     setEmpleado((prev) => {
-      if (prev != null && String(prev.codigo ?? "") !== String(codigoEmpleado)) {
+      if (
+        prev != null &&
+        String(prev.codigo ?? "") !== String(codigoEmpleado)
+      ) {
         return null;
       }
       return prev;
@@ -58,12 +57,12 @@ const NominasRoute: React.FC = () => {
         // Primero intentar buscar en el índice si está disponible
         if (empleadosIndex && empleadosIndex.length > 0) {
           const empleadoEncontrado = empleadosIndex.find(
-            (e) => e.codigo === codigoEmpleado
+            (e) => e.codigo === codigoEmpleado,
           );
           if (empleadoEncontrado) {
             // Cargar empleado completo por ID
             const empleadoCompleto = await EmpleadoService.getById(
-              empleadoEncontrado.id
+              empleadoEncontrado.id,
             );
             setEmpleado(empleadoCompleto);
             setLoading(false);
@@ -77,13 +76,13 @@ const NominasRoute: React.FC = () => {
         // Necesitamos listar empleados y buscar por código
         const empleados = await EmpleadoService.getAll();
         const empleadoEncontrado = empleados.find(
-          (e: Empleado) => e.codigo === codigoEmpleado
+          (e: Empleado) => e.codigo === codigoEmpleado,
         );
 
         if (empleadoEncontrado) {
           // Cargar empleado completo por ID
           const empleadoCompleto = await EmpleadoService.getById(
-            empleadoEncontrado.id
+            empleadoEncontrado.id,
           );
           setEmpleado(empleadoCompleto);
         } else {
