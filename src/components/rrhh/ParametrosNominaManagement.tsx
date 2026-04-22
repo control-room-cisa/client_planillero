@@ -59,7 +59,10 @@ function construirCodigoNomina(
 }
 
 function mensajeErrorApi(e: unknown, fallback: string) {
-  const x = e as { response?: { data?: { message?: string } }; message?: string };
+  const x = e as {
+    response?: { data?: { message?: string } };
+    message?: string;
+  };
   return x?.response?.data?.message || x?.message || fallback;
 }
 
@@ -69,7 +72,6 @@ const ParametrosNominaManagement: React.FC = () => {
   const mesCalendario = ahora.getMonth() + 1;
 
   const [loading, setLoading] = React.useState(true);
-  const [reloading, setReloading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [loadedKeys, setLoadedKeys] = React.useState<{
     pisoIhss: boolean;
@@ -91,9 +93,8 @@ const ParametrosNominaManagement: React.FC = () => {
   const [listRangosLoading, setListRangosLoading] = React.useState(false);
   const [nuevoInicio, setNuevoInicio] = React.useState<string>("");
   const [nuevoFin, setNuevoFin] = React.useState<string>("");
-  const [edicion, setEdicion] = React.useState<RangoFechasAlimentacionDto | null>(
-    null,
-  );
+  const [edicion, setEdicion] =
+    React.useState<RangoFechasAlimentacionDto | null>(null);
 
   const [pisoIhss, setPisoIhss] = React.useState<string>("");
   const [deduccionIhssFija, setDeduccionIhssFija] = React.useState<string>("");
@@ -111,15 +112,15 @@ const ParametrosNominaManagement: React.FC = () => {
 
   const aniosSelect = React.useMemo(() => {
     const out: number[] = [];
-    for (let y = ANO_MIN_ALIMENTACION; y <= anioCalendario; y++) out.push(y);
+    for (let y = anioCalendario; y >= ANO_MIN_ALIMENTACION; y--) out.push(y);
     return out;
   }, [anioCalendario]);
 
   const mesesDisponibles = React.useMemo(() => {
     if (anioAlim === anioCalendario) {
-      return [mesCalendario];
+      return Array.from({ length: mesCalendario }, (_, i) => mesCalendario - i);
     }
-    return Array.from({ length: 12 }, (_, i) => i + 1);
+    return Array.from({ length: 12 }, (_, i) => 12 - i);
   }, [anioAlim, anioCalendario, mesCalendario]);
 
   const showToast = React.useCallback(
@@ -128,28 +129,25 @@ const ParametrosNominaManagement: React.FC = () => {
     [],
   );
 
-  const cargarIhss = React.useCallback(
-    async (mode: "initial" | "refresh") => {
-      if (mode === "initial") setLoading(true);
-      try {
-        const [piso, ded] = await Promise.all([
-          GlobalConfigService.get("PISO_IHSS"),
-          GlobalConfigService.get("DEDUCCION_IHSS_FIJA"),
-        ]);
-        setLoadedKeys({
-          pisoIhss: Boolean(piso),
-          deduccionIhssFija: Boolean(ded),
-        });
-        setPisoIhss(piso?.value ?? "11903.13");
-        setDeduccionIhssFija(ded?.value ?? "595.16");
-      } catch (e: unknown) {
-        showToast(mensajeErrorApi(e, "Error cargando parámetros"), "error");
-      } finally {
-        if (mode === "initial") setLoading(false);
-      }
-    },
-    [showToast],
-  );
+  const cargarIhss = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const [piso, ded] = await Promise.all([
+        GlobalConfigService.get("PISO_IHSS"),
+        GlobalConfigService.get("DEDUCCION_IHSS_FIJA"),
+      ]);
+      setLoadedKeys({
+        pisoIhss: Boolean(piso),
+        deduccionIhssFija: Boolean(ded),
+      });
+      setPisoIhss(piso?.value ?? "11903.13");
+      setDeduccionIhssFija(ded?.value ?? "595.16");
+    } catch (e: unknown) {
+      showToast(mensajeErrorApi(e, "Error cargando parámetros"), "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
 
   const recargarRangos = React.useCallback(async () => {
     if (tabActiva !== "alimentacion") return;
@@ -172,7 +170,7 @@ const ParametrosNominaManagement: React.FC = () => {
   }, [tabActiva, codigoNomina, showToast]);
 
   React.useEffect(() => {
-    void cargarIhss("initial");
+    void cargarIhss();
   }, [cargarIhss]);
 
   React.useEffect(() => {
@@ -190,7 +188,10 @@ const ParametrosNominaManagement: React.FC = () => {
       return;
     }
     if (nuevoInicio > nuevoFin) {
-      showToast("La fecha de inicio no puede ser mayor que la fecha de fin", "error");
+      showToast(
+        "La fecha de inicio no puede ser mayor que la fecha de fin",
+        "error",
+      );
       return;
     }
     setSaving(true);
@@ -218,7 +219,10 @@ const ParametrosNominaManagement: React.FC = () => {
       return;
     }
     if (edicion.fechaInicio > edicion.fechaFin) {
-      showToast("La fecha de inicio no puede ser mayor que la fecha de fin", "error");
+      showToast(
+        "La fecha de inicio no puede ser mayor que la fecha de fin",
+        "error",
+      );
       return;
     }
     setSaving(true);
@@ -272,16 +276,6 @@ const ParametrosNominaManagement: React.FC = () => {
       showToast(mensajeErrorApi(e, "Error guardando parámetros"), "error");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleRecargar = async () => {
-    setReloading(true);
-    try {
-      await cargarIhss("refresh");
-      if (tabActiva === "alimentacion") await recargarRangos();
-    } finally {
-      setReloading(false);
     }
   };
 
@@ -361,7 +355,7 @@ const ParametrosNominaManagement: React.FC = () => {
                         if (y === anioCalendario) {
                           setMesAlim(mesCalendario);
                         } else {
-                          setMesAlim(1);
+                          setMesAlim(12);
                         }
                       }}
                     >
@@ -404,38 +398,25 @@ const ParametrosNominaManagement: React.FC = () => {
                     </Select>
                   </FormControl>
 
-                  <Box
-                    sx={{
-                      minWidth: 200,
-                      px: 1.5,
-                      py: 1,
-                      borderRadius: 1,
-                      bgcolor: (t) => t.palette.action.hover,
-                      border: 1,
-                      borderColor: "divider",
-                    }}
-                  >
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      Código de nómina
-                    </Typography>
-                    <Typography
-                      component="p"
-                      variant="body1"
-                      sx={{ fontFamily: "ui-monospace, monospace", m: 0, mt: 0.5 }}
-                    >
-                      {codigoNomina}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                      Año, mes (4+2) y A o B (quincena). Solo lectura.
-                    </Typography>
-                  </Box>
+                  <TextField
+                    label="Código de nómina"
+                    value={codigoNomina}
+                    disabled
+                    helperText="Año + mes + quincena (A o B)"
+                    sx={{ minWidth: 240 }}
+                  />
                 </Box>
 
                 <Typography variant="subtitle2" sx={{ pt: 1 }}>
                   Nuevo rango (este período)
                 </Typography>
                 <Box
-                  sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center" }}
+                  sx={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 2,
+                    alignItems: "center",
+                  }}
                 >
                   <TextField
                     label="Fecha de inicio"
@@ -458,9 +439,7 @@ const ParametrosNominaManagement: React.FC = () => {
                   <Button
                     variant="outlined"
                     onClick={agregarRango}
-                    disabled={
-                      saving || listRangosLoading || rangos.length >= 1
-                    }
+                    disabled={saving || listRangosLoading || rangos.length >= 1}
                   >
                     Agregar rango
                   </Button>
@@ -468,8 +447,7 @@ const ParametrosNominaManagement: React.FC = () => {
                 {rangos.length >= 1 && (
                   <Typography variant="caption" color="text.secondary">
                     Ya existe un rango para este código. No se pueden eliminar
-                    registros; solo se puede editar el rango con la mayor fecha
-                    de fin en todo el sistema.
+                    registros; solo se puede editar el rango más reciente.
                   </Typography>
                 )}
 
@@ -576,28 +554,17 @@ const ParametrosNominaManagement: React.FC = () => {
                 <Button
                   variant="contained"
                   onClick={handleSaveIhss}
-                  disabled={saving || reloading}
+                  disabled={saving}
                   sx={{ minWidth: 120 }}
                   endIcon={
-                    saving ? <CircularProgress size={16} color="inherit" /> : null
+                    saving ? (
+                      <CircularProgress size={16} color="inherit" />
+                    ) : null
                   }
                 >
                   Guardar
                 </Button>
               )}
-              <Button
-                variant="outlined"
-                onClick={() => void handleRecargar()}
-                disabled={saving || reloading}
-                sx={{ minWidth: 120 }}
-                endIcon={
-                  reloading ? (
-                    <CircularProgress size={16} color="inherit" />
-                  ) : null
-                }
-              >
-                Recargar
-              </Button>
             </Box>
           </Stack>
         )}

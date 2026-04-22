@@ -55,6 +55,7 @@ import NominaService, {
 } from "../../../services/nominaService";
 import CalculoHorasTrabajoService from "../../../services/calculoHorasTrabajoService";
 import { GlobalConfigService } from "../../../services/globalConfigService";
+import { RangosFechasAlimentacionService } from "../../../services/rangosFechasAlimentacionService";
 import DetalleRegistrosDiariosModal from "./detalleRegistrosDiariosModal";
 import type { DeduccionAlimentacionDetalleDto } from "../../../dtos/calculoHorasTrabajoDto";
 import { getTipoHorarioLabel } from "../../../enums/tipoHorario";
@@ -702,6 +703,15 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     // Fallback: si el día fin es <= 15, es primera quincena (A)
     return diaFin <= 15;
   }, [fechaInicio, fechaFin]);
+  const codigoNominaPeriodo = React.useMemo(() => {
+    if (!fechaFin) return "";
+    const fin = new Date(fechaFin + (fechaFin.length === 10 ? "T00:00:00" : ""));
+    if (Number.isNaN(fin.getTime())) return "";
+    const anio = fin.getFullYear();
+    const mes = String(fin.getMonth() + 1).padStart(2, "0");
+    const periodo = codigoNominaTerminaEnA ? "A" : "B";
+    return `${anio}${mes}${periodo}`;
+  }, [fechaFin, codigoNominaTerminaEnA]);
 
   // Cálculo de RAP: 1.5% (0.015) del excedente sobre piso IHSS
   // Si Salario ≤ 11,903.13 → Base = 0
@@ -923,38 +933,66 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
       setLoadingAlimentacion(true);
       setErrorAlimentacion(null);
       setModalDetalleAlimentacionOpen(false);
-
-      // Verificar formato de fechas (deben ser YYYY-MM-DD)
-      const fechaInicioFormato = fechaInicio.match(/^\d{4}-\d{2}-\d{2}$/);
-      const fechaFinFormato = fechaFin.match(/^\d{4}-\d{2}-\d{2}$/);
-
-      console.log("[CalculoNominas] Cargando deducciones de alimentación:", {
-        codigoEmpleado,
-        fechaInicio,
-        fechaFin,
-        fechaInicioValida: !!fechaInicioFormato,
-        fechaFinValida: !!fechaFinFormato,
-        rangoValido,
-      });
-
-      if (!fechaInicioFormato || !fechaFinFormato) {
+      const codigoNomina = codigoNominaPeriodo;
+      if (!codigoNomina) {
         setErrorAlimentacion({
           tieneError: true,
-          mensajeError: `Formato de fecha inválido. Fecha inicio: ${fechaInicio}, Fecha fin: ${fechaFin}. Se espera formato YYYY-MM-DD`,
+          mensajeError:
+            "No se pudo generar el código de nómina del período seleccionado",
         });
         setLoadingAlimentacion(false);
         return;
       }
 
+      console.log("[CalculoNominas] Cargando deducciones de alimentación:", {
+        codigoEmpleado,
+        codigoNomina,
+        rangoValido,
+      });
+
       try {
+        const { items } = await RangosFechasAlimentacionService.listByCodigo(
+          codigoNomina,
+        );
+        const rangoAlimentacion = items[0];
+        if (!rangoAlimentacion) {
+          setErrorAlimentacion({
+            tieneError: true,
+            mensajeError: `No se ha registrado un rango de fechas de alimentación para el código de nómina ${codigoNomina}`,
+          });
+          setDeduccionAlimentacion(0);
+          setInputDeduccionAlimentacion("");
+          setDetalleDeduccionAlimentacion([]);
+          setLoadingAlimentacion(false);
+          return;
+        }
+
+        const fechaInicioAlimentacion = rangoAlimentacion.fechaInicio;
+        const fechaFinAlimentacion = rangoAlimentacion.fechaFin;
+        const fechaInicioFormato = fechaInicioAlimentacion.match(
+          /^\d{4}-\d{2}-\d{2}$/,
+        );
+        const fechaFinFormato = fechaFinAlimentacion.match(/^\d{4}-\d{2}-\d{2}$/);
+
+        if (!fechaInicioFormato || !fechaFinFormato) {
+          setErrorAlimentacion({
+            tieneError: true,
+            mensajeError: `Formato de fecha inválido en parámetros de alimentación para el código ${codigoNomina}`,
+          });
+          setDeduccionAlimentacion(0);
+          setInputDeduccionAlimentacion("");
+          setDetalleDeduccionAlimentacion([]);
+          setLoadingAlimentacion(false);
+          return;
+        }
+
         // Llamar al endpoint del backend que a su vez llama a la API externa
         const t0 = Date.now();
-        const resultado =
-          await CalculoHorasTrabajoService.getDeduccionesAlimentacion(
-            codigoEmpleado,
-            fechaInicio,
-            fechaFin,
-          );
+        const resultado = await CalculoHorasTrabajoService.getDeduccionesAlimentacion(
+          codigoEmpleado,
+          fechaInicioAlimentacion,
+          fechaFinAlimentacion,
+        );
         const tiempoTranscurrido = Date.now() - t0;
         console.log(
           `[CalculoNominas] Deducciones obtenidas en ${tiempoTranscurrido}ms:`,
@@ -983,12 +1021,16 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
         setErrorAlimentacion({
           tieneError: true,
           mensajeError:
-            err?.message || "Error al obtener deducciones de alimentación",
+            err?.response?.data?.message ||
+            err?.message ||
+            "Error al obtener deducciones de alimentación",
         });
         setDeduccionAlimentacion(0);
         setInputDeduccionAlimentacion("");
         setDetalleDeduccionAlimentacion([]);
-      } finally {
+        setLoadingAlimentacion(false);
+      }
+      finally {
         setLoadingAlimentacion(false);
       }
     };
@@ -1000,6 +1042,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     fechaInicio,
     fechaFin,
     rangoValido,
+    codigoNominaPeriodo,
   ]);
 
   // Crear nómina
@@ -2932,6 +2975,14 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
                     setInputOtros(sanitized);
                     setOtros(parseDecimalValue(sanitized));
                   }}
+                />
+                <TextField
+                  label="Código de nómina"
+                  size="small"
+                  value={codigoNominaPeriodo}
+                  disabled
+                  helperText="Generado automáticamente según el período seleccionado"
+                  sx={{ gridColumn: { xs: "1", md: "2" } }}
                 />
               </Box>
               <Divider sx={{ my: 2 }} />
