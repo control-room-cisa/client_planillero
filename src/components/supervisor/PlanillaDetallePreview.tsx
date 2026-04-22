@@ -99,6 +99,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobConJerarquia | null>(null);
   const [editedDescripcion, setEditedDescripcion] = useState("");
+  const [editedClassName, setEditedClassName] = useState("");
   // Mapa fecha -> tipoHorario (H1, H2, ...)
   const [horariosByFecha, setHorariosByFecha] = useState<
     Record<string, string>
@@ -259,6 +260,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     setTargetRegistro(registro);
     setTargetActividad(actividad);
     setEditedDescripcion(actividad.descripcion || "");
+    setEditedClassName(actividad.className || "");
 
     // Solo incluir especiales cuando la actividad NO es extra
     const list = await loadJobs(!(actividad.esExtra === true));
@@ -277,6 +279,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     setJobDialogOpen(false);
     setSelectedJob(null);
     setEditedDescripcion("");
+    setEditedClassName("");
     setTargetActividad(null);
     setTargetRegistro(null);
   };
@@ -306,7 +309,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
         empleado.id,
         targetActividad.id,
         selectedJob.id,
-        editedDescripcion
+        editedDescripcion,
+        editedClassName
       );
 
       setSnackbar({
@@ -1063,10 +1067,10 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                       {act.className || "-"}
                                     </TableCell>
                                     <TableCell align="right">
-                                      <Tooltip title="Editar job">
+                                      <Tooltip title="Editar actividad">
                                         <span>
                                           <IconButton
-                                            aria-label="Editar job"
+                                            aria-label="Editar actividad"
                                             size="small"
                                             onClick={() =>
                                               openJobDialog(registro, act)
@@ -1612,6 +1616,13 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
               rows={3}
               fullWidth
               placeholder="Ingresa una descripción para esta actividad"
+            />
+            <TextField
+              label="Class"
+              value={editedClassName}
+              onChange={(e) => setEditedClassName(e.target.value)}
+              fullWidth
+              placeholder="Ej: class-operativa"
             />
 
             <Autocomplete

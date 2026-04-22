@@ -157,7 +157,8 @@ class RegistroDiarioService {
     empleadoId: number,
     actividadId: number,
     nuevoJobId: number,
-    descripcion?: string
+    descripcion?: string,
+    className?: string
   ): Promise<RegistroDiarioData> {
     const response = await api.patch<ApiResponse<RegistroDiarioData>>(
       "/registrodiario/update-job-supervisor",
@@ -166,6 +167,7 @@ class RegistroDiarioService {
         actividadId,
         nuevoJobId,
         descripcion,
+        className,
       }
     );
     return response.data.data;
