@@ -348,11 +348,13 @@ export const useDailyTimesheet = () => {
    * 2. Si la fecha está FUERA del rango:
    *    - Inhabilitar edición EXCEPTO si:
    *      * editTime > fechaActual (futuro) - permite editar fuera del rango
-   *      * aprobacionRRHH === false (rechazado) - permite corregir
+ *      * aprobacionRRHH === false (rechazado) - permite corregir
+ *      * aprobacionSupervisor === false - permite corregir incluso fuera de rango
    * 3. Si la fecha está DENTRO del rango o editTime > now:
    *    - Aplicar regla actual:
-   *      * Deshabilitar si: aprobacionSupervisor === true
-   *      * Habilitar si: aprobacionSupervisor !== true (null o false) O aprobacionRRHH === false
+ *      * Si aprobacionRRHH === true: NO editable siempre
+ *      * Si aprobacionRRHH === false: editable
+ *      * Si aprobacionRRHH === null: editable solo cuando aprobacionSupervisor !== true
    */
   const readOnly = React.useMemo(() => {
     // Calendario de negocio (America/Tegucigalpa), no medianoche del navegador ni
@@ -377,12 +379,17 @@ export const useDailyTimesheet = () => {
     } else if (estaEnRango || editTimeFuturo) {
       if (registroDiario.aprobacionRrhh === false) {
         readOnlyResult = false;
+      } else if (registroDiario.aprobacionRrhh === true) {
+        readOnlyResult = true;
       } else {
-        readOnlyResult = !!(
-          registroDiario.aprobacionSupervisor || registroDiario.aprobacionRrhh
-        );
+        readOnlyResult = !!registroDiario.aprobacionSupervisor;
       }
-    } else if (registroDiario.aprobacionRrhh === false) {
+    } else if (registroDiario.aprobacionRrhh === true) {
+      readOnlyResult = true;
+    } else if (
+      registroDiario.aprobacionRrhh === false ||
+      registroDiario.aprobacionSupervisor === false
+    ) {
       readOnlyResult = false;
     } else {
       readOnlyResult = true;
