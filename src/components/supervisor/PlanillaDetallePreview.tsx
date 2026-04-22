@@ -46,7 +46,11 @@ import type {
 } from "../../dtos/RegistrosDiariosDataDto";
 import type { Empleado } from "../../services/empleadoService";
 import type { PlanillaStatus } from "../rrhh/planillaConstants";
-import ymdInTZ from "../../utils/timeZone";
+import {
+  ymdInTimeZone,
+  formatTimeInTimeZone,
+  formatDateSpanishFromYmd,
+} from "../../utils/dateTime";
 import JobService from "../../services/jobService";
 
 interface Props {
@@ -132,7 +136,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
       endLocal.setHours(0, 0, 0, 0);
 
       while (cursor.getTime() <= endLocal.getTime()) {
-        const ymd = ymdInTZ(cursor);
+        const ymd = ymdInTimeZone(cursor);
         if (ymd) days.push(ymd);
         cursor.setDate(cursor.getDate() + 1);
       }
@@ -419,49 +423,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     if (!dateString) return "-";
     const localDate = parseHNT(dateString);
     if (!localDate) return "-";
-    return new Intl.DateTimeFormat("es-HN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      timeZone: TZ,
-    }).format(localDate);
-  };
-
-  const formatDateInSpanish = (ymd: string) => {
-    if (!ymd) return "Fecha no disponible";
-    const [y, m, d] = ymd.split("-").map(Number);
-    const date = new Date(y, m - 1, d);
-
-    const days = [
-      "domingo",
-      "lunes",
-      "martes",
-      "miércoles",
-      "jueves",
-      "viernes",
-      "sábado",
-    ];
-    const months = [
-      "enero",
-      "febrero",
-      "marzo",
-      "abril",
-      "mayo",
-      "junio",
-      "julio",
-      "agosto",
-      "septiembre",
-      "octubre",
-      "noviembre",
-      "diciembre",
-    ];
-
-    const dayName = days[date.getDay()];
-    const day = date.getDate();
-    const month = months[date.getMonth()];
-    const year = date.getFullYear();
-
-    return `${dayName} ${day} de ${month} del ${year}`;
+    return formatTimeInTimeZone(localDate.toISOString(), TZ);
   };
 
   const calcularHorasNormalesEsperadas = (
@@ -849,7 +811,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                     >
                       <Typography variant="subtitle1">
                         {registro.fecha
-                          ? formatDateInSpanish(registro.fecha)
+                          ? formatDateSpanishFromYmd(registro.fecha)
                           : "Fecha no disponible"}
                       </Typography>
                       <Typography variant="body2">

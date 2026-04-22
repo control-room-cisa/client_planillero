@@ -1,42 +1,29 @@
 import type { Activity } from "../types";
 import { TZ, TZ_OFFSET } from "./constants";
+import {
+  ymdInTimeZone,
+  registroFechaToYmdSafe,
+  addCalendarDaysYmdInTimeZone,
+  formatTimeInTimeZone,
+} from "../../../utils/dateTime";
 
 // ===== Funciones de fecha y hora =====
 
-export const ymdInTZ = (d: Date) =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone: TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-
-const ISO_YMD = /^\d{4}-\d{2}-\d{2}$/;
+export const ymdInTZ = (d: Date) => ymdInTimeZone(d, TZ);
 
 /** `fecha` del backend como "YYYY-MM-DD" (sin interpretación UTC errónea). */
 export const registroFechaToYmd = (fecha: string | undefined | null): string | null => {
-  if (!fecha) return null;
-  const s = fecha.trim().slice(0, 10);
-  return ISO_YMD.test(s) ? s : null;
+  return registroFechaToYmdSafe(fecha);
 };
 
 /** Suma días calendario en America/Tegucigalpa; entrada/salida "YYYY-MM-DD". */
 export const addCalendarDaysToYmd = (ymd: string, deltaDays: number): string => {
-  const d = new Date(`${ymd}T12:00:00${TZ_OFFSET}`);
-  d.setDate(d.getDate() + deltaDays);
-  return ymdInTZ(d);
+  return addCalendarDaysYmdInTimeZone(ymd, deltaDays, TZ, TZ_OFFSET);
 };
 
 // Formatear hora en zona local para mostrar lo que eligió el empleado
 export const formatTimeLocal = (iso?: string | null) => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return new Intl.DateTimeFormat("es-HN", {
-    timeZone: TZ,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(d);
+  return formatTimeInTimeZone(iso, TZ);
 };
 
 export const buildISO = (baseDate: Date, hhmmStr: string, addDays = 0) => {

@@ -29,6 +29,7 @@ import {
 } from "@mui/icons-material";
 import type { Empleado } from "../../../services/empleadoService";
 import { getImageUrl } from "../../../utils/imageUtils";
+import { ymdInTimeZone } from "../../../utils/dateTime";
 
 function safeHoras(v: unknown): number | null {
   if (v === null || v === undefined) return null;
@@ -113,8 +114,8 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
     start.setHours(0, 0, 0, 0);
     end.setHours(0, 0, 0, 0);
 
-    const startStr = start.toISOString().split("T")[0];
-    const endStr = end.toISOString().split("T")[0];
+    const startStr = ymdInTimeZone(start);
+    const endStr = ymdInTimeZone(end);
 
     // Filtrar registros que estén en el rango del intervalo completo
     const inRange = arr.filter((x) => x.fecha >= startStr && x.fecha <= endStr);
@@ -123,7 +124,7 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
     const allDates: string[] = [];
     const cursor = new Date(start);
     while (cursor <= end) {
-      allDates.push(cursor.toISOString().split("T")[0]);
+      allDates.push(ymdInTimeZone(cursor));
       cursor.setDate(cursor.getDate() + 1);
     }
 

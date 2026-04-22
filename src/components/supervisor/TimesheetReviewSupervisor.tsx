@@ -33,6 +33,7 @@ import { Chip, CircularProgress } from "@mui/material";
 import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
 import type { EmpleadoIndexItem, LayoutOutletCtx } from "../Layout";
 import EmpleadoService from "../../services/empleadoService";
+import { ymdInTimeZone } from "../../utils/dateTime";
 
 interface TimesheetReviewSupervisorProps {
   empleado?: Empleado;
@@ -180,10 +181,7 @@ const TimesheetReviewSupervisor: React.FC<TimesheetReviewSupervisorProps> = ({
     const cursor = clampToMidnight(s);
     const end = clampToMidnight(e);
     while (cursor.getTime() <= end.getTime()) {
-      const y = cursor.getFullYear();
-      const m = String(cursor.getMonth() + 1).padStart(2, "0");
-      const d2 = String(cursor.getDate()).padStart(2, "0");
-      days.push(`${y}-${m}-${d2}`);
+      days.push(ymdInTimeZone(cursor));
       cursor.setDate(cursor.getDate() + 1);
     }
     return days;

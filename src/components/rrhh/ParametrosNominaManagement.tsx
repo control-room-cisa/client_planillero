@@ -32,6 +32,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import { GlobalConfigService } from "../../services/globalConfigService";
 import { RangosFechasAlimentacionService } from "../../services/rangosFechasAlimentacionService";
 import type { RangoFechasAlimentacionDto } from "../../services/rangosFechasAlimentacionService";
+import { registroFechaToYmdSafe, ymdInTimeZone } from "../../utils/dateTime";
 
 const ANO_MIN_ALIMENTACION = 2025;
 
@@ -66,10 +67,16 @@ function mensajeErrorApi(e: unknown, fallback: string) {
   return x?.response?.data?.message || x?.message || fallback;
 }
 
+function normalizarYmdOrEmpty(fecha?: string | null): string {
+  return registroFechaToYmdSafe(fecha) ?? "";
+}
+
 const ParametrosNominaManagement: React.FC = () => {
-  const ahora = React.useMemo(() => new Date(), []);
-  const anioCalendario = ahora.getFullYear();
-  const mesCalendario = ahora.getMonth() + 1;
+  const hoyYmd = React.useMemo(() => ymdInTimeZone(new Date()), []);
+  const [anioCalendario, mesCalendario] = React.useMemo(() => {
+    const [y, m] = hoyYmd.split("-").map(Number);
+    return [y, m];
+  }, [hoyYmd]);
 
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -155,7 +162,13 @@ const ParametrosNominaManagement: React.FC = () => {
     try {
       const { items, idPermiteEdicion: idEdit } =
         await RangosFechasAlimentacionService.listByCodigo(codigoNomina);
-      setRangos(items);
+      setRangos(
+        items.map((r) => ({
+          ...r,
+          fechaInicio: normalizarYmdOrEmpty(r.fechaInicio),
+          fechaFin: normalizarYmdOrEmpty(r.fechaFin),
+        })),
+      );
       setIdPermiteEdicion(idEdit);
     } catch (e: unknown) {
       setRangos([]);
@@ -183,11 +196,13 @@ const ParametrosNominaManagement: React.FC = () => {
   };
 
   const agregarRango = async () => {
-    if (!nuevoInicio || !nuevoFin) {
+    const inicio = normalizarYmdOrEmpty(nuevoInicio);
+    const fin = normalizarYmdOrEmpty(nuevoFin);
+    if (!inicio || !fin) {
       showToast("Indica fecha de inicio y fecha de fin", "error");
       return;
     }
-    if (nuevoInicio > nuevoFin) {
+    if (inicio > fin) {
       showToast(
         "La fecha de inicio no puede ser mayor que la fecha de fin",
         "error",
@@ -198,8 +213,8 @@ const ParametrosNominaManagement: React.FC = () => {
     try {
       await RangosFechasAlimentacionService.create({
         codigoNomina,
-        fechaInicio: nuevoInicio,
-        fechaFin: nuevoFin,
+        fechaInicio: inicio,
+        fechaFin: fin,
       });
       setNuevoInicio("");
       setNuevoFin("");
@@ -214,11 +229,13 @@ const ParametrosNominaManagement: React.FC = () => {
 
   const guardarEdicion = async () => {
     if (!edicion) return;
-    if (!edicion.fechaInicio || !edicion.fechaFin) {
+    const inicio = normalizarYmdOrEmpty(edicion.fechaInicio);
+    const fin = normalizarYmdOrEmpty(edicion.fechaFin);
+    if (!inicio || !fin) {
       showToast("Indica ambas fechas", "error");
       return;
     }
-    if (edicion.fechaInicio > edicion.fechaFin) {
+    if (inicio > fin) {
       showToast(
         "La fecha de inicio no puede ser mayor que la fecha de fin",
         "error",
@@ -228,8 +245,8 @@ const ParametrosNominaManagement: React.FC = () => {
     setSaving(true);
     try {
       await RangosFechasAlimentacionService.update(edicion.id, {
-        fechaInicio: edicion.fechaInicio,
-        fechaFin: edicion.fechaFin,
+        fechaInicio: inicio,
+        fechaFin: fin,
       });
       setEdicion(null);
       showToast("Rango actualizado", "success");
