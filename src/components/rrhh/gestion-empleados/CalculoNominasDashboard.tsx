@@ -158,7 +158,8 @@ function etiquetaQuincenaAB(fin: Date): "A" | "B" {
  * Intervalos de quincena para un año de nómina atribuido por fecha de fin:
  * - Segunda quincena: 12–26 del mes M (fin día 26, mismo mes).
  * - Primera quincena: 27 del mes M−1 al 11 del mes M (fin día 11; ej. 27 dic – 11 ene → enero del año de fin).
- * Si `año` es el año calendario actual, solo se incluyen períodos con fechaFin <= hoy (medianoche local).
+ * Si `año` es el año calendario actual, se incluyen períodos cerrados
+ * (fechaFin <= hoy) y también el período en curso.
  */
 function construirIntervalosParaAño(
   año: number,
@@ -174,11 +175,17 @@ function construirIntervalosParaAño(
     const yy = String(fecha.getFullYear() % 100).padStart(2, "0");
     return `${dia}/${mes}/${yy}`;
   };
+  const incluirIntervalo = (inicio: Date, fin: Date) => {
+    if (!esAñoActual) return true;
+    const periodoCerrado = fin <= hoyNorm;
+    const periodoEnCurso = hoyNorm >= inicio && hoyNorm <= fin;
+    return periodoCerrado || periodoEnCurso;
+  };
 
   for (let m = 0; m < 12; m++) {
     const inicio2q = new Date(año, m, 12);
     const fin2q = new Date(año, m, 26);
-    if (!esAñoActual || fin2q <= hoyNorm) {
+    if (incluirIntervalo(inicio2q, fin2q)) {
       const fi = toYmdLocal(inicio2q);
       const ff = toYmdLocal(fin2q);
       intervalos.push({
@@ -191,7 +198,7 @@ function construirIntervalosParaAño(
 
     const inicio1q = new Date(año, m - 1, 27);
     const fin1q = new Date(año, m, 11);
-    if (!esAñoActual || fin1q <= hoyNorm) {
+    if (incluirIntervalo(inicio1q, fin1q)) {
       const fi = toYmdLocal(inicio1q);
       const ff = toYmdLocal(fin1q);
       intervalos.push({
@@ -1940,8 +1947,8 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
               <Box sx={{ mt: 2, textAlign: "center" }}>
                 <Typography variant="body2" sx={{ opacity: 0.7 }}>
                   💡 Elige el año y la quincena (12–26 o 27–11 según reglas de
-                  nómina). En el año en curso solo aparecen períodos ya cerrados
-                  (fecha fin ≤ hoy). Selecciona un período para ver la
+                  nómina). En el año en curso aparecen períodos cerrados y
+                  también el período en curso. Selecciona un período para ver la
                   información.
                 </Typography>
               </Box>
