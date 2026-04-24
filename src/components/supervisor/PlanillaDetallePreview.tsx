@@ -52,6 +52,8 @@ import {
   formatDateSpanishFromYmd,
 } from "../../utils/dateTime";
 import JobService from "../../services/jobService";
+import VehiculoService from "../../services/vehiculoService";
+import type { Vehiculo } from "../../services/vehiculoService";
 
 interface Props {
   empleado: Empleado;
@@ -70,6 +72,12 @@ type JobConJerarquia = {
   especial?: boolean;
   indentLevel: number;
   parentCodigo?: string | null;
+};
+
+const SIN_CLASS_OPTION: Vehiculo = {
+  id: -1,
+  class: 0,
+  nombre: "Sin class",
 };
 
 const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
@@ -102,6 +110,9 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
   const [jobs, setJobs] = useState<JobConJerarquia[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobConJerarquia | null>(null);
+  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
+  const [loadingVehiculos, setLoadingVehiculos] = useState(false);
+  const [selectedVehiculo, setSelectedVehiculo] = useState<Vehiculo | null>(null);
   const [editedDescripcion, setEditedDescripcion] = useState("");
   const [editedClassName, setEditedClassName] = useState("");
   // Mapa fecha -> tipoHorario (H1, H2, ...)
@@ -257,6 +268,25 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     }
   };
 
+  const loadVehiculos = async (): Promise<Vehiculo[]> => {
+    try {
+      setLoadingVehiculos(true);
+      const data = await VehiculoService.getAll();
+      setVehiculos(data);
+      return data;
+    } catch (e) {
+      console.error("Error al cargar vehiculos:", e);
+      setSnackbar({
+        open: true,
+        message: "Error al cargar la lista de classes",
+        severity: "error",
+      });
+      return [];
+    } finally {
+      setLoadingVehiculos(false);
+    }
+  };
+
   const openJobDialog = async (
     registro: RegistroDiarioData,
     actividad: ActividadData
@@ -264,10 +294,17 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     setTargetRegistro(registro);
     setTargetActividad(actividad);
     setEditedDescripcion(actividad.descripcion || "");
-    setEditedClassName(actividad.className || "");
+    setEditedClassName(
+      actividad.className !== null && actividad.className !== undefined
+        ? String(actividad.className)
+        : ""
+    );
 
     // Solo incluir especiales cuando la actividad NO es extra
-    const list = await loadJobs(!(actividad.esExtra === true));
+    const [list, vehiculosList] = await Promise.all([
+      loadJobs(!(actividad.esExtra === true)),
+      loadVehiculos(),
+    ]);
     const currentJobId =
       (actividad.job && actividad.job.id) ??
       (typeof actividad.jobId === "number" ? actividad.jobId : undefined);
@@ -276,12 +313,22 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
       currentJobId != null ? list.find((j) => j.id === currentJobId) : null;
     setSelectedJob(pre ?? null);
 
+    const classNumber =
+      actividad.className !== null && actividad.className !== undefined
+        ? Number.parseInt(String(actividad.className), 10)
+        : NaN;
+    const preVehiculo = Number.isNaN(classNumber)
+      ? null
+      : vehiculosList.find((v) => v.class === classNumber) ?? null;
+    setSelectedVehiculo(preVehiculo);
+
     setJobDialogOpen(true);
   };
 
   const closeJobDialog = () => {
     setJobDialogOpen(false);
     setSelectedJob(null);
+    setSelectedVehiculo(null);
     setEditedDescripcion("");
     setEditedClassName("");
     setTargetActividad(null);
@@ -314,7 +361,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
         targetActividad.id,
         selectedJob.id,
         editedDescripcion,
-        editedClassName
+        editedClassName.trim() === "" ? null : editedClassName
       );
 
       setSnackbar({
@@ -1579,12 +1626,64 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
               fullWidth
               placeholder="Ingresa una descripción para esta actividad"
             />
-            <TextField
-              label="Class"
-              value={editedClassName}
-              onChange={(e) => setEditedClassName(e.target.value)}
-              fullWidth
-              placeholder="Ej: class-operativa"
+            <Autocomplete
+              options={[SIN_CLASS_OPTION, ...vehiculos]}
+              loading={loadingVehiculos}
+              value={selectedVehiculo}
+              onChange={(_e, v) => {
+                if (!v || v.id === SIN_CLASS_OPTION.id) {
+                  setSelectedVehiculo(null);
+                  setEditedClassName("");
+                  return;
+                }
+                setSelectedVehiculo(v);
+                setEditedClassName(String(v.class));
+              }}
+              isOptionEqualToValue={(o, v) => !!v && o.id === v.id}
+              getOptionLabel={(o) =>
+                o.id === SIN_CLASS_OPTION.id
+                  ? "Sin class"
+                  : `Class ${o.class} - ${o.nombre}`
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Class"
+                  placeholder="Seleccionar class (opcional)"
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {loadingVehiculos ? (
+                          <CircularProgress color="inherit" size={20} />
+                        ) : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              renderOption={(props, option) => (
+                <Box component="li" {...props}>
+                  <Box>
+                    <Typography variant="body2" fontWeight="bold">
+                      {option.id === SIN_CLASS_OPTION.id
+                        ? "Sin class"
+                        : `Class ${option.class}`}
+                    </Typography>
+                    {option.id !== SIN_CLASS_OPTION.id && (
+                      <Typography variant="caption" color="text.secondary">
+                        {option.nombre}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              )}
+              noOptionsText={
+                loadingVehiculos
+                  ? "Cargando classes..."
+                  : "No hay classes disponibles"
+              }
             />
 
             <Autocomplete

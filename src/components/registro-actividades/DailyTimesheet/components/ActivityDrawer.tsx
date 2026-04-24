@@ -15,6 +15,13 @@ import {
 import { Close } from "@mui/icons-material";
 import type { Activity, ActivityData } from "../../types";
 import type { JobConJerarquia } from "../hooks/useDailyTimesheet";
+import type { Vehiculo } from "../../../../services/vehiculoService";
+
+const SIN_CLASS_OPTION: Vehiculo = {
+  id: -1,
+  class: 0,
+  nombre: "Sin class",
+};
 
 type ActivityDrawerProps = {
   drawerOpen: boolean;
@@ -23,7 +30,10 @@ type ActivityDrawerProps = {
   formErrors: { [key: string]: string };
   jobs: JobConJerarquia[];
   loadingJobs: boolean;
+  vehiculos: Vehiculo[];
+  loadingVehiculos: boolean;
   selectedJob: JobConJerarquia | null;
+  selectedVehiculo: Vehiculo | null;
   readOnly: boolean;
   loading: boolean;
   horasDisponiblesValidacionForm: number;
@@ -37,7 +47,11 @@ type ActivityDrawerProps = {
   handleTimeKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   handleJobChange: (
     _e: React.SyntheticEvent,
-    value: JobConJerarquia | null
+    value: JobConJerarquia | null,
+  ) => void;
+  handleVehiculoChange: (
+    _e: React.SyntheticEvent,
+    value: Vehiculo | null,
   ) => void;
   handleHorasBlur: () => void;
   handleSubmit: () => void;
@@ -50,7 +64,10 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
   formErrors,
   jobs,
   loadingJobs,
+  vehiculos,
+  loadingVehiculos,
   selectedJob,
+  selectedVehiculo,
   readOnly,
   loading,
   horasDisponiblesValidacionForm,
@@ -64,8 +81,14 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
   handleHorasBlur,
   handleTimeKeyDown,
   handleJobChange,
+  handleVehiculoChange,
   handleSubmit,
 }) => {
+  const vehiculosConSinClass = React.useMemo(
+    () => [SIN_CLASS_OPTION, ...vehiculos],
+    [vehiculos]
+  );
+
   return (
     <Drawer
       anchor="right"
@@ -201,7 +224,7 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
                 ? "Calculado automáticamente desde las horas de inicio y fin"
                 : `Horas restantes: ${Math.max(
                     0,
-                    horasDisponiblesValidacionForm
+                    horasDisponiblesValidacionForm,
                   ).toFixed(2)}h. Solo múltiplos positivos de 0.25h (15 min)`)
             }
             InputProps={{
@@ -352,16 +375,68 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
           })()}
 
           {/* Class (opcional) */}
-          <TextField
-            disabled={readOnly}
-            fullWidth
-            name="class"
-            label="Class"
-            placeholder="Clasificación (opcional)"
-            value={formData.class}
-            onChange={handleInputChange}
-            sx={{ mb: 3 }}
-          />
+          <Box sx={{ mb: 3 }}>
+            <Autocomplete
+              options={vehiculosConSinClass}
+              getOptionLabel={(o) =>
+                o.id === SIN_CLASS_OPTION.id
+                  ? "Sin class"
+                  : `Class ${o.class} - ${o.nombre}`
+              }
+              value={selectedVehiculo}
+              onChange={(e, value) => {
+                if (!value || value.id === SIN_CLASS_OPTION.id) {
+                  handleVehiculoChange(e, null);
+                  return;
+                }
+                handleVehiculoChange(e, value);
+              }}
+              loading={loadingVehiculos}
+              disabled={loadingVehiculos || readOnly}
+              isOptionEqualToValue={(o, v) =>
+                !!o && !!v ? o.id === v.id : false
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Class"
+                  helperText={loadingVehiculos ? "Cargando clases..." : ""}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {loadingVehiculos ? (
+                          <CircularProgress color="inherit" size={20} />
+                        ) : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              renderOption={(props, option) => (
+                <Box component="li" {...props}>
+                  <Box>
+                    <Typography variant="body2" fontWeight="bold">
+                      {option.id === SIN_CLASS_OPTION.id
+                        ? "Sin class"
+                        : `Class ${option.class}`}
+                    </Typography>
+                    {option.id !== SIN_CLASS_OPTION.id && (
+                      <Typography variant="caption" color="text.secondary">
+                        {option.nombre}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              )}
+              noOptionsText={
+                loadingVehiculos
+                  ? "Cargando clases..."
+                  : "No hay clases de vehiculos disponibles"
+              }
+            />
+          </Box>
 
           {/* Hora Extra */}
           <FormControlLabel
@@ -373,10 +448,10 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
                   forceExtra
                     ? true
                     : shouldForceExtra
-                    ? isProgressComplete
-                      ? true
-                      : false
-                    : formData.horaExtra
+                      ? isProgressComplete
+                        ? true
+                        : false
+                      : formData.horaExtra
                 }
                 onChange={undefined}
                 color="primary"
@@ -386,10 +461,10 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
               !canAddExtraHours && !forceExtra
                 ? " - Completa primero las horas normales"
                 : shouldForceExtra && isProgressIncomplete
-                ? " - Completa primero las horas normales del día"
-                : shouldForceExtra && isProgressComplete
-                ? " - Día laboral completo, solo horas extra"
-                : ""
+                  ? " - Completa primero las horas normales del día"
+                  : shouldForceExtra && isProgressComplete
+                    ? " - Día laboral completo, solo horas extra"
+                    : ""
             }`}
             sx={{ mb: 0.5 }}
           />
@@ -447,8 +522,8 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
                 {loading
                   ? "Guardando..."
                   : editingActivity
-                  ? "Actualizar"
-                  : "Guardar"}
+                    ? "Actualizar"
+                    : "Guardar"}
               </Button>
             </Box>
 

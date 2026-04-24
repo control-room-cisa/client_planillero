@@ -46,7 +46,10 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
     formErrors,
     jobs,
     loadingJobs,
+    vehiculos,
+    loadingVehiculos,
     selectedJob,
+    selectedVehiculo,
     registroDiario,
     dayConfigData,
     dayConfigErrors,
@@ -95,6 +98,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
     handleInputChange,
     handleHorasBlur,
     handleJobChange,
+    handleVehiculoChange,
     handleSubmit,
     navigateDate,
     goToToday,
@@ -727,7 +731,10 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
         formErrors={formErrors}
         jobs={jobs}
         loadingJobs={loadingJobs}
+        vehiculos={vehiculos}
+        loadingVehiculos={loadingVehiculos}
         selectedJob={selectedJob}
+        selectedVehiculo={selectedVehiculo}
         readOnly={readOnly}
         loading={loading}
         horasDisponiblesValidacionForm={horasDisponiblesValidacionForm}
@@ -741,6 +748,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
         handleHorasBlur={handleHorasBlur}
         handleTimeKeyDown={handleTimeKeyDown}
         handleJobChange={handleJobChange}
+        handleVehiculoChange={handleVehiculoChange}
         handleSubmit={handleSubmit}
       />
 

@@ -18,7 +18,7 @@ export interface Activity {
   horaFin?: string; // ISO
   duracionHoras: number;
   jobId: number;
-  className?: string | null;
+  className?: number | string | null;
   esExtra: boolean;
   esCompensatorio?: boolean;
   job?: {

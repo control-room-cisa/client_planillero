@@ -23,7 +23,7 @@ export interface ActividadData {
   duracionHoras: number;
   esExtra: boolean;
   esCompensatorio?: boolean;
-  className?: string | null; // Cambiado para permitir null
+  className?: number | string | null; // Compatibilidad temporal mientras se migra data
   descripcion: string;
   horaInicio: string;
   horaFin:    string;
@@ -52,7 +52,7 @@ export interface UpsertRegistroDiarioParams {
     duracionHoras: number;
     esExtra?: boolean;
     esCompensatorio?: boolean;
-    className?: string | null; // Cambiado para permitir null
+    className?: number | string | null; // Compatibilidad temporal mientras se migra data
     descripcion: string;
     horaInicio: string;
     horaFin:    string;

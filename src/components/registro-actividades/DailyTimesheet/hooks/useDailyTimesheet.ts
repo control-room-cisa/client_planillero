@@ -4,11 +4,13 @@ import { useTheme, useMediaQuery } from "@mui/material";
 import { useAuth } from "../../../../hooks/useAuth";
 import RegistroDiarioService from "../../../../services/registroDiarioService";
 import JobService from "../../../../services/jobService";
+import VehiculoService from "../../../../services/vehiculoService";
 import CalculoHorasTrabajoService from "../../../../services/calculoHorasTrabajoService";
 import { HorarioValidator } from "../../../../utils/horarioValidations";
 import useHorarioRules from "../../../../hooks/useHorarioRules";
 import { HorarioRulesFactory } from "../../../../utils/horarioRules";
 import type { Job } from "../../../../services/jobService";
+import type { Vehiculo } from "../../../../services/vehiculoService";
 import type { RegistroDiarioData } from "../../../../dtos/RegistrosDiariosDataDto";
 import type { Activity, ActivityData } from "../../types";
 import { TZ_OFFSET } from "../constants";
@@ -80,6 +82,11 @@ export const useDailyTimesheet = () => {
   const [jobs, setJobs] = React.useState<JobConJerarquia[]>([]);
   const [loadingJobs, setLoadingJobs] = React.useState(false);
   const [selectedJob, setSelectedJob] = React.useState<JobConJerarquia | null>(
+    null
+  );
+  const [vehiculos, setVehiculos] = React.useState<Vehiculo[]>([]);
+  const [loadingVehiculos, setLoadingVehiculos] = React.useState(false);
+  const [selectedVehiculo, setSelectedVehiculo] = React.useState<Vehiculo | null>(
     null
   );
 
@@ -339,6 +346,23 @@ export const useDailyTimesheet = () => {
     },
     [formData.horaExtra]
   );
+
+  // Cargar vehiculos cuando se abra el drawer
+  const loadVehiculos = React.useCallback(async () => {
+    try {
+      setLoadingVehiculos(true);
+      const vehiculosData = await VehiculoService.getAll();
+      setVehiculos(vehiculosData);
+    } catch (_e) {
+      setSnackbar({
+        open: true,
+        message: "Error al cargar la lista de vehiculos",
+        severity: "error",
+      });
+    } finally {
+      setLoadingVehiculos(false);
+    }
+  }, []);
 
   /**
    * Lógica de habilitación/deshabilitación de edición de registros diarios:
@@ -602,6 +626,7 @@ export const useDailyTimesheet = () => {
     setEditingActivity(null);
     setEditingIndex(-1);
     setSelectedJob(null);
+    setSelectedVehiculo(null);
     setFormData({
       descripcion: "",
       horaInicio: "",
@@ -629,22 +654,26 @@ export const useDailyTimesheet = () => {
         horaFin: fin,
         horasInvertidas: activity.duracionHoras?.toString() || "",
         job: activity.jobId?.toString() || "",
-        class: activity.className || "",
+        class:
+          activity.className !== null && activity.className !== undefined
+            ? String(activity.className)
+            : "",
         horaExtra: activity.esExtra || false,
         esCompensatorio: activity.esCompensatorio || false,
       });
       setDrawerOpen(true);
-      await loadJobs();
+      await Promise.all([loadJobs(), loadVehiculos()]);
     },
-    [loadJobs]
+    [loadJobs, loadVehiculos]
   );
 
   // Efecto para recargar jobs cuando cambie hora extra
   React.useEffect(() => {
     if (drawerOpen) {
       loadJobs();
+      loadVehiculos();
     }
-  }, [formData.horaExtra, drawerOpen, loadJobs]);
+  }, [formData.horaExtra, drawerOpen, loadJobs, loadVehiculos]);
 
   // Efecto para establecer el job seleccionado cuando se cargan los jobs y hay una actividad en edición
   React.useEffect(() => {
@@ -653,6 +682,23 @@ export const useDailyTimesheet = () => {
       if (job) setSelectedJob(job);
     }
   }, [jobs, editingActivity]);
+
+  React.useEffect(() => {
+    if (!editingActivity || vehiculos.length === 0) return;
+    const classValue = editingActivity.className;
+    if (classValue === null || classValue === undefined) {
+      setSelectedVehiculo(null);
+      return;
+    }
+    const classNumber =
+      typeof classValue === "number" ? classValue : parseInt(classValue, 10);
+    if (Number.isNaN(classNumber)) {
+      setSelectedVehiculo(null);
+      return;
+    }
+    const vehiculo = vehiculos.find((v) => v.class === classNumber) ?? null;
+    setSelectedVehiculo(vehiculo);
+  }, [vehiculos, editingActivity]);
 
   const handleDeleteActivity = React.useCallback(
     async (index: number) => {
@@ -1311,6 +1357,17 @@ export const useDailyTimesheet = () => {
     [formErrors.job]
   );
 
+  const handleVehiculoChange = React.useCallback(
+    (_e: React.SyntheticEvent, value: Vehiculo | null) => {
+      setSelectedVehiculo(value);
+      setFormData((prev) => ({
+        ...prev,
+        class: value ? value.class.toString() : "",
+      }));
+    },
+    []
+  );
+
   const handleHorasBlur = React.useCallback(() => {
     if (formData.horaExtra) return;
     const val = parseFloat(formData.horasInvertidas);
@@ -1612,7 +1669,7 @@ export const useDailyTimesheet = () => {
         jobId: esCompensatorioHoraNormal ? undefined : parseInt(formData.job),
         esExtra: formData.horaExtra,
         esCompensatorio: formData.esCompensatorio,
-        className: formData.class || undefined,
+        className: formData.class ? parseInt(formData.class, 10) : null,
         descripcion: formData.descripcion,
       };
 
@@ -1785,11 +1842,11 @@ export const useDailyTimesheet = () => {
       }));
       setSelectedJob(null);
       // Pasar horaExtra=true explícitamente para evitar problemas de timing
-      await loadJobs(true);
+      await Promise.all([loadJobs(true), loadVehiculos()]);
     } else {
-      await loadJobs();
+      await Promise.all([loadJobs(), loadVehiculos()]);
     }
-  }, [horasNormales, horasRestantesDia, loadJobs]);
+  }, [horasNormales, horasRestantesDia, loadJobs, loadVehiculos]);
 
   // Efectos adicionales
   React.useEffect(() => {
@@ -1926,7 +1983,10 @@ export const useDailyTimesheet = () => {
     formErrors,
     jobs,
     loadingJobs,
+    vehiculos,
+    loadingVehiculos,
     selectedJob,
+    selectedVehiculo,
     registroDiario,
     dayConfigData,
     dayConfigErrors,
@@ -1980,6 +2040,7 @@ export const useDailyTimesheet = () => {
     handleInputChange,
     handleHorasBlur,
     handleJobChange,
+    handleVehiculoChange,
     validateForm,
     handleSubmit,
     navigateDate,
