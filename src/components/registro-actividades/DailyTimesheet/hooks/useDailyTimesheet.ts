@@ -44,6 +44,14 @@ export type JobConJerarquia = Job & {
   parentCodigo?: string | null;
 };
 
+const getHolidayDayConfigFlags = <
+  T extends { esDiaLibre?: boolean; esDiaNoLaborable?: boolean }
+>(
+  data: T,
+  holiday: boolean
+): T =>
+  holiday ? { ...data, esDiaLibre: true, esDiaNoLaborable: false } : data;
+
 export const useDailyTimesheet = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -227,6 +235,10 @@ export const useDailyTimesheet = () => {
 
   const getDefaultHorario = React.useCallback(
     (jornadaValue?: string | null) => {
+      if (isHoliday) {
+        return { horaEntrada: "07:00", horaSalida: "07:00" };
+      }
+
       if (horarioValidado?.tipoHorario === "H2_1") {
         return (
           getH2Schedule(
@@ -243,6 +255,7 @@ export const useDailyTimesheet = () => {
     [
       currentDate,
       getH2Schedule,
+      isHoliday,
       horarioValidado?.horaFin,
       horarioValidado?.horaInicio,
       horarioValidado?.tipoHorario,
@@ -481,78 +494,96 @@ export const useDailyTimesheet = () => {
 
             if (datosExistentes && registro) {
               if (["H1_1", "H1_2", "H1_8"].includes(horarioData.tipoHorario)) {
-                return {
-                  ...base,
-                  jornada: registro.jornada || base.jornada,
-                  esDiaLibre: Boolean(horarioData.esDiaLibre),
-                  esDiaNoLaborable: false,
-                  esIncapacidad: registro.esIncapacidad || false,
-                  comentarioEmpleado: registro.comentarioEmpleado || "",
-                };
+                return getHolidayDayConfigFlags(
+                  {
+                    ...base,
+                    jornada: registro.jornada || base.jornada,
+                    esDiaLibre: Boolean(horarioData.esDiaLibre),
+                    esDiaNoLaborable: false,
+                    esIncapacidad: registro.esIncapacidad || false,
+                    comentarioEmpleado: registro.comentarioEmpleado || "",
+                  },
+                  horarioData.esFestivo
+                );
               } else if (["H1_3", "H1_4"].includes(horarioData.tipoHorario)) {
-                return {
-                  ...base,
-                  // Jornada siempre fija en día para H1 editables
-                  jornada: "D",
-                  horaEntrada: formatTimeLocal(registro.horaEntrada),
-                  horaSalida: formatTimeLocal(registro.horaSalida),
-                  esDiaLibre: false,
-                  esDiaNoLaborable: false,
-                  esIncapacidad: registro.esIncapacidad || false,
-                  comentarioEmpleado: registro.comentarioEmpleado || "",
-                };
+                return getHolidayDayConfigFlags(
+                  {
+                    ...base,
+                    // Jornada siempre fija en día para H1 editables
+                    jornada: "D",
+                    horaEntrada: formatTimeLocal(registro.horaEntrada),
+                    horaSalida: formatTimeLocal(registro.horaSalida),
+                    esDiaLibre: false,
+                    esDiaNoLaborable: false,
+                    esIncapacidad: registro.esIncapacidad || false,
+                    comentarioEmpleado: registro.comentarioEmpleado || "",
+                  },
+                  horarioData.esFestivo
+                );
               } else if (horarioData.tipoHorario === "H1_5") {
-                return {
-                  ...base,
-                  jornada: "D",
-                  // En H1_5, entrada/salida no son editables pero se cargan del registro si existe.
-                  horaEntrada: formatTimeLocal(registro.horaEntrada),
-                  horaSalida: formatTimeLocal(registro.horaSalida),
-                  // Día libre viene del backend y es read-only en UI.
-                  esDiaLibre: Boolean(horarioData.esDiaLibre),
-                  esDiaNoLaborable: false,
-                  esIncapacidad: registro.esIncapacidad || false,
-                  comentarioEmpleado: registro.comentarioEmpleado || "",
-                };
+                return getHolidayDayConfigFlags(
+                  {
+                    ...base,
+                    jornada: "D",
+                    // En H1_5, entrada/salida no son editables pero se cargan del registro si existe.
+                    horaEntrada: formatTimeLocal(registro.horaEntrada),
+                    horaSalida: formatTimeLocal(registro.horaSalida),
+                    // Día libre viene del backend y es read-only en UI.
+                    esDiaLibre: Boolean(horarioData.esDiaLibre),
+                    esDiaNoLaborable: false,
+                    esIncapacidad: registro.esIncapacidad || false,
+                    comentarioEmpleado: registro.comentarioEmpleado || "",
+                  },
+                  horarioData.esFestivo
+                );
               } else if (horarioData.tipoHorario === "H2_2") {
-                return {
-                  ...base,
-                  // Jornada siempre fija en día para H2_2
-                  jornada: "D",
-                  // H2_2: siempre mostrar el horario generado por backend (no el guardado en registro)
-                  horaEntrada: base.horaEntrada,
-                  horaSalida: base.horaSalida,
-                  esDiaLibre: Boolean(horarioData.esDiaLibre),
-                  esDiaNoLaborable: false,
-                  esIncapacidad: registro.esIncapacidad || false,
-                  // esHoraCorrida sí se mantiene desde el registro (afecta descuento de almuerzo)
-                  esHoraCorrida: Boolean(registro.esHoraCorrida),
-                  comentarioEmpleado: registro.comentarioEmpleado || "",
-                };
+                return getHolidayDayConfigFlags(
+                  {
+                    ...base,
+                    // Jornada siempre fija en día para H2_2
+                    jornada: "D",
+                    // H2_2: siempre mostrar el horario generado por backend (no el guardado en registro)
+                    horaEntrada: base.horaEntrada,
+                    horaSalida: base.horaSalida,
+                    esDiaLibre: Boolean(horarioData.esDiaLibre),
+                    esDiaNoLaborable: false,
+                    esIncapacidad: registro.esIncapacidad || false,
+                    // esHoraCorrida sí se mantiene desde el registro (afecta descuento de almuerzo)
+                    esHoraCorrida: Boolean(registro.esHoraCorrida),
+                    comentarioEmpleado: registro.comentarioEmpleado || "",
+                  },
+                  horarioData.esFestivo
+                );
               } else if (horarioData.tipoHorario === "H1_7") {
-                return {
-                  ...base,
-                  jornada: "D",
-                  // H1_7: horas siempre desde backend, ignorar las del registro guardado
-                  horaEntrada: base.horaEntrada,
-                  horaSalida: base.horaSalida,
-                  esDiaLibre: Boolean(horarioData.esDiaLibre),
-                  esDiaNoLaborable: false,
-                  esHoraCorrida: true,
-                  esIncapacidad: registro.esIncapacidad || false,
-                  comentarioEmpleado: registro.comentarioEmpleado || "",
-                };
+                return getHolidayDayConfigFlags(
+                  {
+                    ...base,
+                    jornada: "D",
+                    // H1_7: horas siempre desde backend, ignorar las del registro guardado
+                    horaEntrada: base.horaEntrada,
+                    horaSalida: base.horaSalida,
+                    esDiaLibre: Boolean(horarioData.esDiaLibre),
+                    esDiaNoLaborable: false,
+                    esHoraCorrida: true,
+                    esIncapacidad: registro.esIncapacidad || false,
+                    comentarioEmpleado: registro.comentarioEmpleado || "",
+                  },
+                  horarioData.esFestivo
+                );
               } else {
-                return {
-                  ...base,
-                  jornada: registro.jornada || base.jornada,
-                  horaEntrada: formatTimeLocal(registro.horaEntrada),
-                  horaSalida: formatTimeLocal(registro.horaSalida),
-                  esDiaLibre: Boolean(horarioData.esDiaLibre),
-                  esDiaNoLaborable: false,
-                  esIncapacidad: registro.esIncapacidad || false,
-                  comentarioEmpleado: registro.comentarioEmpleado || "",
-                };
+                return getHolidayDayConfigFlags(
+                  {
+                    ...base,
+                    jornada: registro.jornada || base.jornada,
+                    horaEntrada: formatTimeLocal(registro.horaEntrada),
+                    horaSalida: formatTimeLocal(registro.horaSalida),
+                    esDiaLibre: Boolean(horarioData.esDiaLibre),
+                    esDiaNoLaborable: false,
+                    esIncapacidad: registro.esIncapacidad || false,
+                    comentarioEmpleado: registro.comentarioEmpleado || "",
+                  },
+                  horarioData.esFestivo
+                );
               }
             }
 
@@ -570,7 +601,7 @@ export const useDailyTimesheet = () => {
                   : ""),
             };
 
-            return result;
+            return getHolidayDayConfigFlags(result, horarioData.esFestivo);
           });
         }
       } catch (_error) {}
@@ -726,7 +757,7 @@ export const useDailyTimesheet = () => {
           horaEntrada: registroDiario.horaEntrada,
           horaSalida: registroDiario.horaSalida,
           jornada: registroDiario.jornada,
-          esDiaLibre: registroDiario.esDiaLibre,
+          esDiaLibre: isHoliday ? true : registroDiario.esDiaLibre,
           esHoraCorrida: isH2 ? true : registroDiario.esHoraCorrida,
           comentarioEmpleado: registroDiario.comentarioEmpleado,
           actividades: actividadesActualizadas,
@@ -749,7 +780,7 @@ export const useDailyTimesheet = () => {
         setLoading(false);
       }
     },
-    [registroDiario, currentDate, isH2]
+    [registroDiario, currentDate, isH2, isHoliday]
   );
 
   // ===== Config del día =====
@@ -799,6 +830,11 @@ export const useDailyTimesheet = () => {
 
       // H2_2: Día Libre lo define el backend (fin de semana/feriado) y NO es editable en UI.
       if (isH2_2 && name === "esDiaLibre") {
+        return;
+      }
+
+      // En feriados, Día Libre es una invariante del día y no se puede desmarcar.
+      if (isHoliday && name === "esDiaLibre") {
         return;
       }
 
@@ -1017,6 +1053,11 @@ export const useDailyTimesheet = () => {
           }
         }
 
+        if (isHoliday) {
+          next.esDiaLibre = true;
+          next.esDiaNoLaborable = false;
+        }
+
         return next;
       });
 
@@ -1123,7 +1164,7 @@ export const useDailyTimesheet = () => {
         }
       }
 
-      const esDiaLibreFinal = dayConfigData.esDiaLibre;
+      const esDiaLibreFinal = isHoliday ? true : dayConfigData.esDiaLibre;
       const esIncapacidadFinal = dayConfigData.esIncapacidad;
       const horasCero =
         HorarioRulesFactory.calculateNormalHours(
@@ -1154,6 +1195,8 @@ export const useDailyTimesheet = () => {
         esDiaLibre: esDiaLibreFinal,
         esIncapacidad: esIncapacidadFinal,
         esHoraCorrida: esHoraCorridaFinal,
+        aprobacionSupervisor: null,
+        aprobacionRrhh: null,
         comentarioEmpleado: dayConfigData.comentarioEmpleado,
         ...(horasFeriado !== undefined && { horasFeriado }),
         actividades:
@@ -1191,6 +1234,7 @@ export const useDailyTimesheet = () => {
     dayConfigData,
     registroDiario,
     isH2,
+    isHoliday,
     horarioValidado,
     horarioData,
   ]);
@@ -1729,7 +1773,7 @@ export const useDailyTimesheet = () => {
             addDayForEnd
           ),
           jornada: dayConfigData.jornada,
-          esDiaLibre: dayConfigData.esDiaLibre,
+          esDiaLibre: isHoliday ? true : dayConfigData.esDiaLibre,
           esIncapacidad: dayConfigData.esIncapacidad,
           esHoraCorrida: isH2 ? true : dayConfigData.esHoraCorrida,
           comentarioEmpleado: dayConfigData.comentarioEmpleado,
@@ -1760,7 +1804,7 @@ export const useDailyTimesheet = () => {
             addDayForEnd
           ),
           jornada: dayConfigData.jornada,
-          esDiaLibre: dayConfigData.esDiaLibre,
+          esDiaLibre: isHoliday ? true : dayConfigData.esDiaLibre,
           esIncapacidad: dayConfigData.esIncapacidad,
           esHoraCorrida: isH2 ? true : dayConfigData.esHoraCorrida,
           comentarioEmpleado: dayConfigData.comentarioEmpleado,
@@ -1793,6 +1837,7 @@ export const useDailyTimesheet = () => {
     editingIndex,
     dayConfigData,
     isH2,
+    isHoliday,
     horarioData,
     validateDayConfig,
     handleDrawerClose,
@@ -1858,6 +1903,14 @@ export const useDailyTimesheet = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [horasCero, dayConfigData.horaEntrada, dayConfigData.horaSalida]);
+
+  React.useEffect(() => {
+    if (!isHoliday) return;
+    setDayConfigData((prev) => {
+      if (prev.esDiaLibre && !prev.esDiaNoLaborable) return prev;
+      return { ...prev, esDiaLibre: true, esDiaNoLaborable: false };
+    });
+  }, [isHoliday]);
 
   React.useEffect(() => {
     if (horarioValidado?.tipoHorario !== "H2_1") return;

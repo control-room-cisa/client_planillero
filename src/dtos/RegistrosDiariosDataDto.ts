@@ -8,8 +8,9 @@ export interface RegistroDiarioData {
   esIncapacidad?: boolean;
   esHoraCorrida?: boolean;
   comentarioEmpleado?: string;
-  aprobacionSupervisor?: boolean;
-  aprobacionRrhh?: boolean;
+  correccionHecha?: boolean;
+  aprobacionSupervisor?: boolean | null;
+  aprobacionRrhh?: boolean | null;
   comentarioSupervisor?: string;
   comentarioRrhh?: string;
   empleadoId?: number;
@@ -45,6 +46,8 @@ export interface UpsertRegistroDiarioParams {
   esDiaLibre?: boolean;
   esIncapacidad?: boolean;
   esHoraCorrida?: boolean;
+  aprobacionSupervisor?: boolean | null;
+  aprobacionRrhh?: boolean | null;
   comentarioEmpleado?: string;
   horasFeriado?: number; // Horas laborables asignadas a feriado cuando es día festivo
   actividades?: {

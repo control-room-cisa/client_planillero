@@ -103,11 +103,13 @@ class RegistroDiarioService {
   static async aprobarSupervisor(
     registroId: number,
     aprobacion: boolean,
+    correccionHecha?: boolean,
     codigoSupervisor?: string,
     comentarioSupervisor?: string
   ): Promise<RegistroDiarioData> {
     const payload = {
       aprobacionSupervisor: aprobacion,
+      ...(correccionHecha !== undefined && { correccionHecha }),
       ...(codigoSupervisor !== undefined && { codigoSupervisor }),
       ...(comentarioSupervisor !== undefined && { comentarioSupervisor }),
     };
@@ -121,11 +123,13 @@ class RegistroDiarioService {
   static async aprobarRrhh(
     registroId: number,
     aprobacion: boolean,
+    correccionHecha?: boolean,
     codigoRrhh?: string,
     comentarioRrhh?: string
   ): Promise<RegistroDiarioData> {
     const payload = {
       aprobacionRrhh: aprobacion,
+      ...(correccionHecha !== undefined && { correccionHecha }),
       ...(codigoRrhh !== undefined && { codigoRrhh }),
       ...(comentarioRrhh !== undefined && { comentarioRrhh }),
     };

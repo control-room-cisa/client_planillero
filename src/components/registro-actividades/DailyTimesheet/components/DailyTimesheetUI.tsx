@@ -78,6 +78,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
     hasExceededNormalHours,
     hasDayRecord,
     isIncapacidad,
+    isHoliday,
     disableCreateEditActivities,
     dayConfigHasChanges,
     forceExtra,
@@ -237,7 +238,8 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
             color="secondary"
             variant="outlined"
           />
-          {(isH2_2 ? dayConfigData.esDiaLibre : registroDiario.esDiaLibre) && (
+          {(isHoliday ||
+            (isH2_2 ? dayConfigData.esDiaLibre : registroDiario.esDiaLibre)) && (
             <Chip
               label="Día Libre"
               size="small"
@@ -409,11 +411,12 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                       disabled={
                         readOnly ||
                         initialLoading ||
+                        isHoliday ||
                         !horarioRules.utils.isFieldEnabled("esDiaLibre") ||
                         isIncapacidad
                       }
                       name="esDiaLibre"
-                      checked={dayConfigData.esDiaLibre}
+                      checked={isHoliday || dayConfigData.esDiaLibre}
                       onChange={handleDayConfigInputChange}
                       color="primary"
                     />

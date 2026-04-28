@@ -180,6 +180,7 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
     RegistroDiarioService.aprobarRrhh(
       registroIdRechazar,
       false,
+      false,
       undefined,
       comentarioRechazo.trim()
     )

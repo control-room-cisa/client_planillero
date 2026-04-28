@@ -434,6 +434,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     RegistroDiarioService.aprobarSupervisor(
       registroIdRechazar,
       false,
+      false,
       undefined,
       comentarioRechazo.trim()
     )
