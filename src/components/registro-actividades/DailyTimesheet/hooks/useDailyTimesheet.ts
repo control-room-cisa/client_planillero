@@ -1187,6 +1187,10 @@ export const useDailyTimesheet = () => {
           ? horarioData.cantidadHorasLaborablesNormales
           : undefined;
 
+      const huboRechazo =
+        registroDiario?.aprobacionSupervisor === false ||
+        registroDiario?.aprobacionRrhh === false;
+
       const params = {
         fecha: dateString,
         horaEntrada: horaEntradaISO,
@@ -1198,6 +1202,7 @@ export const useDailyTimesheet = () => {
         aprobacionSupervisor: null,
         aprobacionRrhh: null,
         comentarioEmpleado: dayConfigData.comentarioEmpleado,
+        ...(huboRechazo && { correccionHecha: true }),
         ...(horasFeriado !== undefined && { horasFeriado }),
         actividades:
           registroDiario?.actividades?.map((act) => ({

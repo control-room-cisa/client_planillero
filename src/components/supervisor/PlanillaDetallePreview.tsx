@@ -904,6 +904,13 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                               size="small"
                             />
                           )}
+                        {registro.correccionHecha === true && (
+                          <Chip
+                            label="Corregido"
+                            color="success"
+                            size="small"
+                          />
+                        )}
                       </Stack>
                       {registro.aprobacionRrhh === true && (
                         <Chip

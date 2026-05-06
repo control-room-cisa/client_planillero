@@ -49,6 +49,7 @@ export interface UpsertRegistroDiarioParams {
   aprobacionSupervisor?: boolean | null;
   aprobacionRrhh?: boolean | null;
   comentarioEmpleado?: string;
+  correccionHecha?: boolean;
   horasFeriado?: number; // Horas laborables asignadas a feriado cuando es día festivo
   actividades?: {
     jobId: number;

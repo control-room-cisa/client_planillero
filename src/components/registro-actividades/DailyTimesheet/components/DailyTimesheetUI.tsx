@@ -189,7 +189,10 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
               : loading
               ? "Guardando..."
               : hasDayRecord
-              ? "Actualizar Día"
+              ? registroDiario?.aprobacionSupervisor === false ||
+                registroDiario?.aprobacionRrhh === false
+                ? "Corregir Día"
+                : "Actualizar Día"
               : "Guardar Día"}
           </Button>
         </Box>
