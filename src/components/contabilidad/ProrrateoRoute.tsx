@@ -7,7 +7,7 @@ const ProrrateoRoute: React.FC = () => {
   const { selectedEmpleado } = useOutletContext<LayoutOutletCtx>();
 
   if (!selectedEmpleado) {
-    return <Navigate to="/contabilidad/prorrateo" replace />;
+    return <Navigate to="/prorrateo" replace />;
   }
 
   return <ProrrateoDashboard empleado={selectedEmpleado} />;

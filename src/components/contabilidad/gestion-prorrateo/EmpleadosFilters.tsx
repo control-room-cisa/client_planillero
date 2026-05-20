@@ -26,6 +26,14 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
   onSearchChange,
   onEmpresaChange,
 }) => {
+  /** Solo consorcio, orden alfabético por nombre. */
+  const empresasEnSelector = [...empresas]
+    .filter((empresa) => empresa.esConsorcio === true)
+    .sort((a, b) =>
+      (a.nombre ?? "").localeCompare(b.nombre ?? "", "es", {
+        sensitivity: "base",
+      })
+    );
   return (
     <Paper sx={{ p: 2 }}>
       <Box
@@ -56,13 +64,11 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
               <MenuItem value="" disabled>
                 Selecciona una empresa
               </MenuItem>
-              {empresas
-                .filter((empresa) => empresa.esConsorcio !== false)
-                .map((empresa) => (
-                  <MenuItem key={empresa.id} value={empresa.id.toString()}>
-                    {empresa.nombre}
-                  </MenuItem>
-                ))}
+              {empresasEnSelector.map((empresa) => (
+                <MenuItem key={empresa.id} value={empresa.id.toString()}>
+                  {empresa.nombre}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Box>

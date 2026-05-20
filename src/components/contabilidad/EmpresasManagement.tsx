@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -36,6 +36,11 @@ interface EmpresaFormData {
   codigo: string;
 }
 
+const byNombreEmpresa = (a: Empresa, b: Empresa) =>
+  (a.nombre ?? "").localeCompare(b.nombre ?? "", "es", {
+    sensitivity: "base",
+  });
+
 const EmpresasManagement: React.FC = () => {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,7 +56,7 @@ const EmpresasManagement: React.FC = () => {
     severity: "success" | "error";
   }>({ open: false, message: "", severity: "success" });
 
-  // Estado para diálogo de confirmación
+  // Estado para di?logo de confirmaci?n
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     empresa: Empresa | null;
@@ -59,6 +64,22 @@ const EmpresasManagement: React.FC = () => {
     open: false,
     empresa: null,
   });
+
+  const empresasConsorcioOrdenadas = useMemo(
+    () =>
+      [...empresas]
+        .filter((e) => e.esConsorcio === true)
+        .sort(byNombreEmpresa),
+    [empresas]
+  );
+
+  const empresasNoConsorcioOrdenadas = useMemo(
+    () =>
+      [...empresas]
+        .filter((e) => e.esConsorcio !== true)
+        .sort(byNombreEmpresa),
+    [empresas]
+  );
 
   const fetchEmpresas = useCallback(async () => {
     setLoading(true);
@@ -167,7 +188,7 @@ const EmpresasManagement: React.FC = () => {
     });
   };
 
-  // Confirmar eliminación
+  // Confirmar eliminaci?n
   const handleConfirmDelete = async () => {
     if (!confirmDialog.empresa) return;
 
@@ -183,23 +204,34 @@ const EmpresasManagement: React.FC = () => {
     }
   };
 
-  // Cancelar eliminación
+  // Cancelar eliminaci?n
   const handleCancelDelete = () => {
     setConfirmDialog({ open: false, empresa: null });
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box
+      sx={{
+        p: 3,
+        height: "100%",
+        minHeight: 0,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        boxSizing: "border-box",
+      }}
+    >
       <Box
         sx={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           mb: 3,
+          flexShrink: 0,
         }}
       >
         <Typography variant="h5" component="h2">
-          Gestión de Empresas
+          Gesti?n de Empresas
         </Typography>
         <Button
           variant="contained"
@@ -210,13 +242,21 @@ const EmpresasManagement: React.FC = () => {
         </Button>
       </Box>
 
-      <Paper>
-        <TableContainer>
-          <Table>
+      <Paper
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        <TableContainer sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+          <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
                 <TableCell>Nombre</TableCell>
-                <TableCell>Código</TableCell>
+                <TableCell>C?digo</TableCell>
                 <TableCell>Estado</TableCell>
                 <TableCell align="right">Acciones</TableCell>
               </TableRow>
@@ -237,48 +277,92 @@ const EmpresasManagement: React.FC = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                empresas.map((empresa) => (
-                  <TableRow key={empresa.id}>
-                    <TableCell>
-                      <Box sx={{ display: "flex", alignItems: "center" }}>
-                        <BusinessIcon sx={{ mr: 1, color: "action.active" }} />
-                        {empresa.nombre}
-                      </Box>
-                    </TableCell>
-                    <TableCell>{empresa.codigo}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={empresa.esConsorcio ? "Consorcio" : "Normal"}
-                        color={empresa.esConsorcio ? "success" : "default"}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        onClick={() => handleOpenEdit(empresa)}
-                        disabled={empresa.esConsorcio === true}
-                        title={
-                          empresa.esConsorcio === true
-                            ? "No se puede editar esta empresa"
-                            : "Editar empresa"
-                        }
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        onClick={() => handleDelete(empresa)}
-                        disabled={empresa.esConsorcio === true}
-                        title={
-                          empresa.esConsorcio === true
-                            ? "No se puede eliminar esta empresa"
-                            : "Eliminar empresa"
-                        }
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
+                <>
+                  {empresasConsorcioOrdenadas.length > 0 && (
+                    <TableRow sx={{ bgcolor: "grey.100" }}>
+                      <TableCell colSpan={4} sx={{ py: 1.25 }}>
+                        <Typography variant="subtitle2" fontWeight={700}>
+                          Consorcio
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {empresasConsorcioOrdenadas.map((empresa) => (
+                    <TableRow key={empresa.id}>
+                      <TableCell>
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                          <BusinessIcon
+                            sx={{ mr: 1, color: "action.active" }}
+                          />
+                          {empresa.nombre}
+                        </Box>
+                      </TableCell>
+                      <TableCell>{empresa.codigo}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label="Consorcio"
+                          color="success"
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          onClick={() => handleOpenEdit(empresa)}
+                          disabled
+                          title="No se puede editar esta empresa"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          onClick={() => handleDelete(empresa)}
+                          disabled
+                          title="No se puede eliminar esta empresa"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {empresasNoConsorcioOrdenadas.length > 0 && (
+                    <TableRow sx={{ bgcolor: "grey.100" }}>
+                      <TableCell colSpan={4} sx={{ py: 1.25 }}>
+                        <Typography variant="subtitle2" fontWeight={700}>
+                          No consorcio
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {empresasNoConsorcioOrdenadas.map((empresa) => (
+                    <TableRow key={empresa.id}>
+                      <TableCell>
+                        <Box sx={{ display: "flex", alignItems: "center" }}>
+                          <BusinessIcon
+                            sx={{ mr: 1, color: "action.active" }}
+                          />
+                          {empresa.nombre}
+                        </Box>
+                      </TableCell>
+                      <TableCell>{empresa.codigo}</TableCell>
+                      <TableCell>
+                        <Chip label="Normal" color="default" size="small" />
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton
+                          onClick={() => handleOpenEdit(empresa)}
+                          title="Editar empresa"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          onClick={() => handleDelete(empresa)}
+                          title="Eliminar empresa"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </>
               )}
             </TableBody>
           </Table>
@@ -306,7 +390,7 @@ const EmpresasManagement: React.FC = () => {
               required
             />
             <TextField
-              label="Código"
+              label="C?digo"
               name="codigo"
               value={formData.codigo}
               onChange={handleInputChange}
@@ -315,7 +399,7 @@ const EmpresasManagement: React.FC = () => {
             />
             {!editingEmpresa && (
               <Typography variant="body2" color="text.secondary">
-                La nueva empresa se creará como "Normal" por defecto.
+                La nueva empresa se crear? como "Normal" por defecto.
               </Typography>
             )}
           </Box>
@@ -328,11 +412,11 @@ const EmpresasManagement: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Diálogo de confirmación */}
+      {/* Di?logo de confirmaci?n */}
       <ConfirmDialog
         open={confirmDialog.open}
-        title="Confirmar eliminación"
-        message={`¿Está seguro que desea eliminar la empresa "${confirmDialog.empresa?.nombre}"?`}
+        title="Confirmar eliminaci?n"
+        message={`?Est? seguro que desea eliminar la empresa "${confirmDialog.empresa?.nombre}"?`}
         confirmText="Eliminar"
         cancelText="Conservar"
         onConfirm={handleConfirmDelete}

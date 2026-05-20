@@ -24,6 +24,7 @@ import {
   Select,
   MenuItem,
   Switch,
+  ListSubheader,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material";
 import {
@@ -42,6 +43,11 @@ import type {
 import { empresaService } from "../../services/empresaService";
 import type { Empresa } from "../../types/auth";
 import ConfirmDialog from "../common/ConfirmDialog";
+
+const byNombreEmpresa = (a: Empresa, b: Empresa) =>
+  (a.nombre ?? "").localeCompare(b.nombre ?? "", "es", {
+    sensitivity: "base",
+  });
 
 const JobsManagement: React.FC = () => {
   // Estados
@@ -124,6 +130,22 @@ const JobsManagement: React.FC = () => {
     fetchJobs();
     fetchEmpresas();
   }, [fetchJobs, fetchEmpresas]);
+
+  const empresasConsorcioOrdenadas = React.useMemo(
+    () =>
+      [...empresas]
+        .filter((e) => e.esConsorcio === true)
+        .sort(byNombreEmpresa),
+    [empresas]
+  );
+
+  const empresasNoConsorcioOrdenadas = React.useMemo(
+    () =>
+      [...empresas]
+        .filter((e) => e.esConsorcio !== true)
+        .sort(byNombreEmpresa),
+    [empresas]
+  );
 
   // Función para validar la estructura jerárquica del código
   const validateCodigoJerarquico = (
@@ -680,9 +702,7 @@ const JobsManagement: React.FC = () => {
                 size="small"
               >
                 <MenuItem value="">Seleccione una empresa</MenuItem>
-                {empresas
-                  .filter((empresa) => empresa.esConsorcio === true)
-                  .map((empresa) => (
+                {empresasConsorcioOrdenadas.map((empresa) => (
                     <MenuItem key={empresa.id} value={empresa.id.toString()}>
                       {empresa.nombre}
                     </MenuItem>
@@ -1000,7 +1020,22 @@ const JobsManagement: React.FC = () => {
                 disabled={formData.codigo.includes(".")}
               >
                 <MenuItem value="">Seleccione una empresa</MenuItem>
-                {empresas.map((empresa) => (
+                {empresasConsorcioOrdenadas.length > 0 && (
+                  <ListSubheader sx={{ fontWeight: 700, lineHeight: 2 }}>
+                    Consorcio
+                  </ListSubheader>
+                )}
+                {empresasConsorcioOrdenadas.map((empresa) => (
+                  <MenuItem key={empresa.id} value={empresa.id.toString()}>
+                    {empresa.nombre}
+                  </MenuItem>
+                ))}
+                {empresasNoConsorcioOrdenadas.length > 0 && (
+                  <ListSubheader sx={{ fontWeight: 700, lineHeight: 2 }}>
+                    No consorcio
+                  </ListSubheader>
+                )}
+                {empresasNoConsorcioOrdenadas.map((empresa) => (
                   <MenuItem key={empresa.id} value={empresa.id.toString()}>
                     {empresa.nombre}
                   </MenuItem>

@@ -32,11 +32,14 @@ const EmpleadosManagement = React.lazy(
 const ContabilidadDashboard = React.lazy(
   () => import("../components/contabilidad/ContabilidadDashboard")
 );
+const AccesoContabilidadManagement = React.lazy(
+  () => import("../components/contabilidad/AccesoContabilidadManagement")
+);
 const ProrrateoManagement = React.lazy(
   () => import("../components/contabilidad/ProrrateoManagement")
 );
-const ProrrateoRoute = React.lazy(
-  () => import("../components/contabilidad/ProrrateoRoute")
+const ProrrateoColaboradorPage = React.lazy(
+  () => import("../components/contabilidad/ProrrateoColaboradorPage")
 );
 const NotificationsEmployee = React.lazy(
   () => import("../components/NotificationsEmployee")
@@ -175,7 +178,35 @@ const AppRoutes: React.FC = () => {
           }
         />
 
-        {/* Contabilidad */}
+        {/* Prorrateo (asistente + supervisor contabilidad) */}
+        <Route
+          path="prorrateo"
+          element={
+            <RoleProtectedRoute
+              allowedRoles={[
+                Roles.SUPERVISOR_CONTABILIDAD,
+                Roles.ASISTENTE_CONTABILIDAD,
+              ]}
+            >
+              <ProrrateoManagement />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="prorrateo/:codigoEmpleado"
+          element={
+            <RoleProtectedRoute
+              allowedRoles={[
+                Roles.SUPERVISOR_CONTABILIDAD,
+                Roles.ASISTENTE_CONTABILIDAD,
+              ]}
+            >
+              <ProrrateoColaboradorPage />
+            </RoleProtectedRoute>
+          }
+        />
+
+        {/* Supervisor contabilidad: jobs y empresas (mismo módulo), accesos asistentes */}
         <Route
           path="contabilidad"
           element={
@@ -185,20 +216,36 @@ const AppRoutes: React.FC = () => {
           }
         />
         <Route
-          path="contabilidad/prorrateo"
+          path="rrhh/gestion-jobs"
+          element={<Navigate to="/contabilidad" replace />}
+        />
+        <Route
+          path="rrhh/gestion-empresas-consorcio"
+          element={<Navigate to="/contabilidad" replace />}
+        />
+        <Route
+          path="rrhh/accesos-asistentes-contabilidad"
           element={
-            <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR_CONTABILIDAD, Roles.ASISTENTE_CONTABILIDAD]}>
-              <ProrrateoManagement />
+            <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR_CONTABILIDAD]}>
+              <AccesoContabilidadManagement />
             </RoleProtectedRoute>
           }
         />
+
+        {/* Redirecciones desde rutas antiguas "contabilidad" */}
+        <Route
+          path="contabilidad/accesos-asistentes"
+          element={
+            <Navigate to="/rrhh/accesos-asistentes-contabilidad" replace />
+          }
+        />
+        <Route
+          path="contabilidad/prorrateo"
+          element={<Navigate to="/prorrateo" replace />}
+        />
         <Route
           path="contabilidad/prorrateo/detalle"
-          element={
-            <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR_CONTABILIDAD, Roles.ASISTENTE_CONTABILIDAD]}>
-              <ProrrateoRoute />
-            </RoleProtectedRoute>
-          }
+          element={<Navigate to="/prorrateo" replace />}
         />
 
         {/* Notificaciones (EMPLEADO + ASISTENTE_CONTABILIDAD) */}

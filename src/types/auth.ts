@@ -1,5 +1,6 @@
 export interface LoginRequest {
-  correoElectronico: string;
+  /** Correo, DNI, nombre de usuario o código de empleado */
+  identificador: string;
   contrasena: string;
 }
 

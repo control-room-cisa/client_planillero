@@ -19,10 +19,12 @@ interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
   value: number;
+  /** `hidden`: el hijo controla el scroll (p. ej. tabla). `auto`: scroll del panel completo. */
+  panelOverflow?: "hidden" | "auto";
 }
 
 function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
+  const { children, value, index, panelOverflow = "auto", ...other } = props;
 
   return (
     <div
@@ -31,9 +33,28 @@ function TabPanel(props: TabPanelProps) {
       id={`contabilidad-tabpanel-${index}`}
       aria-labelledby={`contabilidad-tab-${index}`}
       {...other}
-      style={{ width: "100%" }}
+      style={{
+        width: "100%",
+        flex: 1,
+        minHeight: 0,
+        display: value === index ? "flex" : "none",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
     >
-      {value === index && <Box sx={{ p: 0 }}>{children}</Box>}
+      {value === index && (
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            overflow: panelOverflow,
+          }}
+        >
+          {children}
+        </Box>
+      )}
     </div>
   );
 }
@@ -53,8 +74,19 @@ const ContabilidadDashboard: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ height: "100%", overflowY: "auto" }}>
-      <Box sx={{ py: 4 }}>
+    <Container
+      maxWidth="xl"
+      sx={{
+        height: "100%",
+        minHeight: 0,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        py: 2,
+        boxSizing: "border-box",
+      }}
+    >
+      <Box sx={{ flexShrink: 0 }}>
         <Typography
           variant="h5"
           component="h1"
@@ -62,36 +94,54 @@ const ContabilidadDashboard: React.FC = () => {
         >
           Jobs y Empresas
         </Typography>
-        <Divider sx={{ mb: 3 }} />
-
-        <Paper sx={{ width: "100%" }}>
-          <Tabs
-            value={tabValue}
-            onChange={handleTabChange}
-            aria-label="Contabilidad tabs"
-            variant="scrollable"
-            scrollButtons="auto"
-          >
-            <Tab
-              icon={<WorkIcon />}
-              label="Gestión de Jobs"
-              {...a11yProps(0)}
-            />
-            <Tab icon={<BusinessIcon />} label="Empresas" {...a11yProps(1)} />
-            {/* Prorrateo tiene su propia ruta en /contabilidad/prorrateo */}
-          </Tabs>
-
-          <Box sx={{ p: 0 }}>
-            <TabPanel value={tabValue} index={0}>
-              <JobsManagement />
-            </TabPanel>
-            <TabPanel value={tabValue} index={1}>
-              <EmpresasManagement />
-            </TabPanel>
-            {/* Tabs no usados removidos */}
-          </Box>
-        </Paper>
+        <Divider sx={{ mb: 2, mt: 1 }} />
       </Box>
+
+      <Paper
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          width: "100%",
+        }}
+      >
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          aria-label="Contabilidad tabs"
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ flexShrink: 0, borderBottom: 1, borderColor: "divider" }}
+        >
+          <Tab
+            icon={<WorkIcon />}
+            label="Gestión de Jobs"
+            {...a11yProps(0)}
+          />
+          <Tab icon={<BusinessIcon />} label="Empresas" {...a11yProps(1)} />
+        </Tabs>
+
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            px: 0,
+            pb: 0,
+          }}
+        >
+          <TabPanel value={tabValue} index={0} panelOverflow="auto">
+            <JobsManagement />
+          </TabPanel>
+          <TabPanel value={tabValue} index={1} panelOverflow="hidden">
+            <EmpresasManagement />
+          </TabPanel>
+        </Box>
+      </Paper>
     </Container>
   );
 };

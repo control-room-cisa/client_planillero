@@ -188,6 +188,18 @@ class EmpleadoService {
     }
   }
 
+  static async getByCodigoForProrrateo(codigo: string): Promise<Empleado> {
+    try {
+      const response = await api.get<EmpleadoResponse>(
+        `/empleados/codigo/${encodeURIComponent(codigo)}/prorrateo-context`
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error(`Error al obtener empleado por código ${codigo}:`, error);
+      throw error;
+    }
+  }
+
   static async getById(id: number): Promise<Empleado> {
     try {
       const response = await api.get<EmpleadoResponse>(`/empleados/${id}`);

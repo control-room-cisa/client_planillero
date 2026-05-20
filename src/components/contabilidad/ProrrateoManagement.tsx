@@ -1,22 +1,17 @@
 import * as React from "react";
 import { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Snackbar, Alert, Divider } from "@mui/material";
-import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import EmpleadoService from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
 import type { Empleado } from "../../services/empleadoService";
 import type { Empresa } from "../../types/auth";
 import EmpleadosList from "./gestion-prorrateo/EmpleadosList";
 import EmpleadosFilters from "./gestion-prorrateo/EmpleadosFilters";
-import type { LayoutOutletCtx } from "../Layout";
 
 const ProrrateoManagement: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation() as any;
-
-  // Trae setters/estado compartido desde el Layout (Outlet Context)
-  const { setSelectedEmpleado, setEmpleadosIndex } =
-    useOutletContext<LayoutOutletCtx>();
 
   // Estados principales
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
@@ -93,16 +88,34 @@ const ProrrateoManagement: React.FC = () => {
     fetchEmpleados();
   }, [fetchEmpleados]);
 
-  // Navegación a Prorrateo Dashboard usando contexto
+  // Navegación al detalle de prorrateo por código en la URL
   const handleProrrateoClick = (empleado: Empleado) => {
-    // Persistir índice y empleado seleccionado en contexto
-    setEmpleadosIndex(empleadosIndexList);
-    setSelectedEmpleado(empleado);
-    // Navegar a prorrateo manteniendo filtros (empresa y búsqueda)
-    navigate("/contabilidad/prorrateo/detalle", {
+    const codigo = empleado.codigo?.trim();
+    if (!codigo) {
+      showSnackbar(
+        "Este colaborador no tiene código asignado; no se puede abrir el prorrateo por enlace.",
+        "error"
+      );
+      return;
+    }
+
+    const empleadosIndex = filteredEmpleados
+      .map((e) => ({
+        id: e.id,
+        codigo: e.codigo ?? null,
+        nombreCompleto: `${e.nombre ?? ""} ${e.apellido ?? ""}`.trim(),
+      }))
+      .sort((a, b) =>
+        a.nombreCompleto
+          .toLowerCase()
+          .localeCompare(b.nombreCompleto.toLowerCase())
+      );
+
+    navigate(`/prorrateo/${encodeURIComponent(codigo)}`, {
       state: {
         selectedEmpresaId,
         searchTerm,
+        empleadosIndex,
       },
     });
   };
@@ -122,21 +135,6 @@ const ProrrateoManagement: React.FC = () => {
       empleado.cargo?.toLowerCase().includes(q)
     );
   });
-
-  // Índice de empleados ordenado alfabéticamente para navegación
-  const empleadosIndexList = React.useMemo(() => {
-    return filteredEmpleados
-      .map((e) => ({
-        id: e.id,
-        codigo: e.codigo ?? null,
-        nombreCompleto: `${e.nombre ?? ""} ${e.apellido ?? ""}`.trim(),
-      }))
-      .sort((a, b) =>
-        a.nombreCompleto
-          .toLowerCase()
-          .localeCompare(b.nombreCompleto.toLowerCase())
-      );
-  }, [filteredEmpleados]);
 
   return (
     <Box

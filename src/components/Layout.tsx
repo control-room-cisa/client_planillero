@@ -31,6 +31,7 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import EventIcon from "@mui/icons-material/Event";
 import PeopleIcon from "@mui/icons-material/People";
 import DashboardIcon from "@mui/icons-material/Dashboard";
+import GroupAddIcon from "@mui/icons-material/GroupAdd";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import LockOpenIcon from "@mui/icons-material/LockOpen";
 import ReceiptIcon from "@mui/icons-material/Receipt";
@@ -158,7 +159,7 @@ export default function Layout() {
         if (user.rolId === Roles.RRHH) {
           navigate("/rrhh/colaboradores", { replace: true });
         } else if (user.rolId === Roles.SUPERVISOR_CONTABILIDAD) {
-          navigate("/contabilidad", { replace: true });
+          navigate("/prorrateo", { replace: true });
         } else if (
           user.rolId === Roles.EMPLEADO ||
           user.rolId === Roles.SUPERVISOR ||
@@ -178,7 +179,7 @@ export default function Layout() {
           if (user.rolId === Roles.RRHH) {
             navigate("/rrhh/colaboradores");
           } else if (user.rolId === Roles.SUPERVISOR_CONTABILIDAD) {
-            navigate("/contabilidad");
+            navigate("/prorrateo");
           } else if (
             user.rolId === Roles.EMPLEADO ||
             user.rolId === Roles.SUPERVISOR ||
@@ -207,10 +208,16 @@ export default function Layout() {
           path: `/registro-actividades/${todayDateString}`,
         },
         {
-          id: "contabilidad",
+          id: "jobs-y-empresas",
           text: "Jobs y Empresas",
           icon: <DashboardIcon />,
           path: "/contabilidad",
+        },
+        {
+          id: "contabilidad-accesos-asistentes",
+          text: "Accesos asistentes",
+          icon: <GroupAddIcon />,
+          path: "/rrhh/accesos-asistentes-contabilidad",
         },
         {
           id: "supervision",
@@ -222,7 +229,7 @@ export default function Layout() {
           id: "prorrateo",
           text: "Prorrateo",
           icon: <AccountBalanceIcon />,
-          path: "/contabilidad/prorrateo",
+          path: "/prorrateo",
         },
       ];
     }
@@ -250,7 +257,7 @@ export default function Layout() {
           id: "prorrateo",
           text: "Prorrateo",
           icon: <AccountBalanceIcon />,
-          path: "/contabilidad/prorrateo",
+          path: "/prorrateo",
         },
       ];
     }

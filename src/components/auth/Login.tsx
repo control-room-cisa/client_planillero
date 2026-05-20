@@ -15,11 +15,11 @@ import {
   DialogActions,
 } from "@mui/material";
 import {
-  Email,
   Lock,
   Visibility,
   VisibilityOff,
   Login as LoginIcon,
+  Person,
 } from "@mui/icons-material";
 import { useAuth } from "../../hooks/useAuth";
 import type { LoginRequest } from "../../types/auth";
@@ -30,7 +30,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string>("");
   const [formData, setFormData] = useState<LoginRequest>({
-    correoElectronico: "",
+    identificador: "",
     contrasena: "",
   });
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
@@ -50,7 +50,7 @@ export default function Login() {
     event.preventDefault();
     setError("");
 
-    if (!formData.correoElectronico || !formData.contrasena) {
+    if (!formData.identificador.trim() || !formData.contrasena) {
       setError("Por favor, completa todos los campos");
       return;
     }
@@ -108,7 +108,7 @@ export default function Login() {
               Planillero
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Inicia sesión en tu cuenta
+              Inicia sesión con correo, DNI, usuario o código de empleado
             </Typography>
           </Box>
 
@@ -123,18 +123,18 @@ export default function Login() {
               margin="normal"
               required
               fullWidth
-              id="correoElectronico"
-              name="correoElectronico"
-              label="Correo Electrónico"
-              autoComplete="email"
+              id="identificador"
+              name="identificador"
+              label="Correo, DNI, usuario o código"
+              autoComplete="username"
               autoFocus
-              value={formData.correoElectronico}
+              value={formData.identificador}
               onChange={handleInputChange}
               disabled={loading}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Email color="action" />
+                    <Person color="action" />
                   </InputAdornment>
                 ),
               }}

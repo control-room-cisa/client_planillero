@@ -73,7 +73,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   const { selectedEmpresaId, searchTerm } = location.state ?? {};
 
   const goBackToList = () => {
-    navigate("/contabilidad/prorrateo", {
+    navigate("/prorrateo", {
       state: {
         selectedEmpresaId,
         searchTerm,
@@ -395,7 +395,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
           </Typography>
           <Button
             variant="contained"
-            onClick={() => navigate("/contabilidad/prorrateo")}
+            onClick={() => navigate("/prorrateo")}
           >
             Ir a Gestión de Prorrateo
           </Button>
