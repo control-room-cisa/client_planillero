@@ -48,6 +48,8 @@ import {
 import NominaService, { type NominaDto } from "../../../services/nominaService";
 import EmpleadoService from "../../../services/empleadoService";
 import DetalleRegistrosDiariosModal from "../../rrhh/gestion-empleados/detalleRegistrosDiariosModal";
+import { useAuth } from "../../../hooks/useAuth";
+import { Roles } from "../../../enums/roles";
 
 interface ProrrateoDashboardProps {
   empleado?: Empleado;
@@ -68,6 +70,11 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   hasPrevious = false,
   hasNext = false,
 }) => {
+  const { user } = useAuth();
+  const allowEditJob =
+    user?.rolId === Roles.SUPERVISOR_CONTABILIDAD ||
+    user?.rolId === Roles.ASISTENTE_CONTABILIDAD;
+
   const navigate = useNavigate();
   const location = useLocation() as any;
   const { selectedEmpleado, empleadosIndex: empleadosIndexCtx } =
@@ -1548,7 +1555,6 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
         </Box>
       </Container>
 
-      {/* Modal de detalle de registros diarios (solo visualización en prorrateo) */}
       <DetalleRegistrosDiariosModal
         open={modalRegistrosOpen}
         onClose={() => setModalRegistrosOpen(false)}
@@ -1557,6 +1563,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
         fechaFin={fechaFin}
         nombreEmpleado={`${empleado?.nombre ?? ""} ${empleado?.apellido ?? ""}`.trim()}
         allowRejectActions={false}
+        allowEditJob={allowEditJob}
       />
 
       {/* Modal de comentarios */}

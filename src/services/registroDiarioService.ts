@@ -155,7 +155,7 @@ class RegistroDiarioService {
 
   /**
    * Método específico para que supervisores actualicen jobs y descripción de actividades
-   * de otros empleados. Solo disponible para supervisores (rolId = 2).
+   * de otros empleados. Roles: supervisor, supervisor contabilidad, asistente contabilidad.
    */
   static async updateJobBySupervisor(
     empleadoId: number,

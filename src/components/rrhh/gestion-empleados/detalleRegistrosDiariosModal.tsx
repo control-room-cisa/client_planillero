@@ -27,14 +27,21 @@ import {
   TableBody,
   TableContainer,
   Tooltip,
+  Autocomplete,
+  CircularProgress,
 } from "@mui/material";
 import {
   Close as CloseIcon,
   DarkMode as DarkModeIcon,
   Print as PrintIcon,
+  Edit as EditIcon,
 } from "@mui/icons-material";
-import type { RegistroDiarioData } from "../../../dtos/RegistrosDiariosDataDto";
+import type {
+  RegistroDiarioData,
+  ActividadData,
+} from "../../../dtos/RegistrosDiariosDataDto";
 import RegistroDiarioService from "../../../services/registroDiarioService";
+import JobService from "../../../services/jobService";
 import ymdInTZ from "../../../utils/timeZone";
 
 interface Props {
@@ -45,7 +52,21 @@ interface Props {
   fechaFin: string;
   nombreEmpleado?: string;
   allowRejectActions?: boolean;
+  /** Editar job/class/descripción (supervisor y contabilidad con permiso en backend). */
+  allowEditJob?: boolean;
 }
+
+type JobConJerarquia = {
+  id: number;
+  codigo: string;
+  nombre: string;
+  descripcion?: string | null;
+  activo?: boolean;
+  empresa?: { nombre: string };
+  especial?: boolean;
+  indentLevel: number;
+  parentCodigo?: string | null;
+};
 
 const DetalleRegistrosDiariosModal: React.FC<Props> = ({
   open,
@@ -55,6 +76,7 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
   fechaFin,
   nombreEmpleado,
   allowRejectActions = true,
+  allowEditJob = false,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -74,6 +96,117 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
   );
   const [comentarioRechazo, setComentarioRechazo] = useState("");
   const [errorComentario, setErrorComentario] = useState("");
+
+  const [jobDialogOpen, setJobDialogOpen] = useState(false);
+  const [jobs, setJobs] = useState<JobConJerarquia[]>([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<JobConJerarquia | null>(null);
+  const [targetActividad, setTargetActividad] = useState<ActividadData | null>(
+    null
+  );
+  const [savingJob, setSavingJob] = useState(false);
+
+  const loadJobs = async (
+    includeSpecial: boolean
+  ): Promise<JobConJerarquia[]> => {
+    try {
+      setLoadingJobs(true);
+      const jobsData = await JobService.getAll(empleadoId);
+      const jobsActivos = jobsData.filter((j: any) => j.activo === true);
+      const base = includeSpecial
+        ? jobsActivos
+        : jobsActivos.filter((j: any) => !j.especial);
+      const jobMap = new Map(base.map((j: any) => [j.codigo, j]));
+      const jobsConJerarquia: JobConJerarquia[] = base.map((j: any) => {
+        const parts = (j.codigo || "").split(".");
+        const indentLevel = Math.max(0, parts.length - 1);
+        const padreCodigo =
+          indentLevel > 0 ? parts.slice(0, -1).join(".") : null;
+        const parentJob = padreCodigo ? jobMap.get(padreCodigo) : null;
+        return { ...j, indentLevel, parentCodigo: parentJob?.codigo || null };
+      });
+      setJobs(jobsConJerarquia);
+      return jobsConJerarquia;
+    } catch (e) {
+      console.error("Error al cargar jobs:", e);
+      setSnackbar({
+        open: true,
+        message: "Error al cargar la lista de jobs",
+        severity: "error",
+      });
+      return [];
+    } finally {
+      setLoadingJobs(false);
+    }
+  };
+
+  const openJobDialog = async (actividad: ActividadData) => {
+    setTargetActividad(actividad);
+
+    const list = await loadJobs(!(actividad.esExtra === true));
+    const currentJobId =
+      (actividad.job && actividad.job.id) ??
+      (typeof actividad.jobId === "number" ? actividad.jobId : undefined);
+    const pre =
+      currentJobId != null ? list.find((j) => j.id === currentJobId) : null;
+    setSelectedJob(pre ?? null);
+
+    setJobDialogOpen(true);
+  };
+
+  const closeJobDialog = () => {
+    setJobDialogOpen(false);
+    setSelectedJob(null);
+    setTargetActividad(null);
+  };
+
+  const saveJobChange = async () => {
+    if (!targetActividad || !selectedJob) {
+      setSnackbar({
+        open: true,
+        message: "Selecciona un Job válido",
+        severity: "error",
+      });
+      return;
+    }
+    if (!targetActividad.id) {
+      setSnackbar({
+        open: true,
+        message: "La actividad no tiene id; no se puede actualizar",
+        severity: "error",
+      });
+      return;
+    }
+
+    setSavingJob(true);
+    try {
+      const updated = await RegistroDiarioService.updateJobBySupervisor(
+        empleadoId,
+        targetActividad.id,
+        selectedJob.id
+      );
+      setRegistros((prev) =>
+        prev.map((r) =>
+          r.fecha === updated.fecha ? { ...r, ...updated } : r
+        )
+      );
+      setSnackbar({
+        open: true,
+        message: "Job actualizado correctamente",
+        severity: "success",
+      });
+      closeJobDialog();
+    } catch (err) {
+      console.error("Error al actualizar Job:", err);
+      setSnackbar({
+        open: true,
+        message: "Error al actualizar el Job",
+        severity: "error",
+      });
+    } finally {
+      setSavingJob(false);
+    }
+  };
 
   const fetchRegistros = useCallback(async () => {
     if (!fechaInicio || !fechaFin) {
@@ -1031,7 +1164,6 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                   ?.filter((a) => a.esExtra && !a.esCompensatorio)
                   .reduce((s, a) => s + a.duracionHoras, 0) ?? 0;
               const total = normales + extras;
-
               const horasNormalesEsperadas = calcularHorasNormales(registro);
               const validacionHorasExtra = validarHorasExtra(registro);
               // Si no hay horas normales esperadas, solo validar que no haya horas normales registradas
@@ -1455,23 +1587,14 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                                         -
                                       </Typography>
                                     ) : (
-                                      <Tooltip
-                                        title={act.job?.nombre ?? "-"}
-                                        arrow
-                                        placement="top"
+                                      <Typography
+                                        color={
+                                          isSpecial ? "error.main" : undefined
+                                        }
+                                        noWrap
                                       >
-                                        <Typography
-                                          color={
-                                            isSpecial ? "error.main" : undefined
-                                          }
-                                          noWrap
-                                          sx={{
-                                            cursor: "help",
-                                          }}
-                                        >
-                                          {act.job?.nombre ?? "-"}
-                                        </Typography>
-                                      </Tooltip>
+                                        {act.job?.nombre ?? "-"}
+                                      </Typography>
                                     )}
                                   </TableCell>
                                   <TableCell sx={{ whiteSpace: "nowrap" }}>
@@ -1481,13 +1604,42 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                                         -
                                       </Typography>
                                     ) : (
-                                      <Typography
-                                        color={
-                                          isSpecial ? "error.main" : undefined
-                                        }
+                                      <Stack
+                                        direction="row"
+                                        alignItems="center"
+                                        spacing={0.5}
                                       >
-                                        {act.job?.codigo ?? "-"}
-                                      </Typography>
+                                        <Tooltip
+                                          title={act.job?.nombre ?? "-"}
+                                          arrow
+                                          placement="top"
+                                        >
+                                          <Typography
+                                            color={
+                                              isSpecial
+                                                ? "error.main"
+                                                : undefined
+                                            }
+                                            sx={{ cursor: "help" }}
+                                          >
+                                            {act.job?.codigo ?? "-"}
+                                          </Typography>
+                                        </Tooltip>
+                                        {allowEditJob && (
+                                          <Tooltip title="Editar job">
+                                            <IconButton
+                                              aria-label="Editar job"
+                                              size="small"
+                                              onClick={() =>
+                                                openJobDialog(act)
+                                              }
+                                              sx={{ p: 0.25 }}
+                                            >
+                                              <EditIcon fontSize="small" />
+                                            </IconButton>
+                                          </Tooltip>
+                                        )}
+                                      </Stack>
                                     )}
                                   </TableCell>
                                   <TableCell>
@@ -1756,6 +1908,110 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {allowEditJob && (
+        <Dialog
+          open={jobDialogOpen}
+          onClose={closeJobDialog}
+          fullWidth
+          maxWidth="sm"
+          fullScreen={isMobile}
+        >
+          <DialogTitle>Editar job</DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <Autocomplete
+                options={jobs}
+                loading={loadingJobs}
+                value={selectedJob}
+                onChange={(_e, v) => setSelectedJob(v)}
+                isOptionEqualToValue={(o, v) => !!v && o.id === v.id}
+                getOptionLabel={(o) => `${o.codigo} - ${o.nombre}`}
+                groupBy={(option) =>
+                  option.especial
+                    ? "Jobs Especiales"
+                    : option.empresa?.nombre ?? "Sin empresa"
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Nuevo Job"
+                    required
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {loadingJobs ? (
+                            <CircularProgress color="inherit" size={20} />
+                          ) : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props}>
+                    <Box sx={{ pl: option.indentLevel * 4 }}>
+                      <Typography
+                        variant="body2"
+                        fontWeight="bold"
+                        color={option.especial ? "error.main" : undefined}
+                      >
+                        {option.codigo} - {option.nombre}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {option.descripcion || "Sin descripción"}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+                renderGroup={(params) => (
+                  <Box key={params.key}>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 600,
+                        color:
+                          params.group === "Jobs Especiales"
+                            ? "error.main"
+                            : "primary.main",
+                        backgroundColor: "background.paper",
+                        px: 2,
+                        py: 1,
+                        borderBottom: "1px solid",
+                        borderColor: "divider",
+                      }}
+                    >
+                      {params.group}
+                    </Typography>
+                    <Box component="li" sx={{ p: 0 }}>
+                      <ul style={{ padding: 0, margin: 0 }}>
+                        {params.children}
+                      </ul>
+                    </Box>
+                  </Box>
+                )}
+                noOptionsText={
+                  loadingJobs
+                    ? "Cargando jobs..."
+                    : "No hay jobs activos disponibles"
+                }
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button onClick={closeJobDialog}>Cancelar</Button>
+            <Button
+              onClick={saveJobChange}
+              variant="contained"
+              disabled={!selectedJob || savingJob}
+            >
+              Guardar
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
 
       {allowRejectActions && (
         <Dialog
