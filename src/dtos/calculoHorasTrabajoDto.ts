@@ -139,12 +139,19 @@ export interface LineaTiempoDia {
 // Prorrateo de horas DTOs (espejo del backend)
 // =====================
 
+export interface HorasPorClassDto {
+  class: number | null;
+  nombreClass?: string | null;
+  cantidadHoras: number;
+}
+
 export interface HorasPorJobDto {
   jobId: number;
   codigoJob: string;
   nombreJob: string;
   cantidadHoras: number;
   comentarios?: string[];
+  horasPorClass?: HorasPorClassDto[];
 }
 
 export interface ConteoHorasProrrateoDto {

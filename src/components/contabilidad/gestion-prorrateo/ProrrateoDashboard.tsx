@@ -32,7 +32,10 @@ import {
   NavigateNext as NavigateNextIcon,
   ArrowBack as ArrowBackIcon,
   CalendarToday as CalendarTodayIcon,
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  KeyboardArrowUp as KeyboardArrowUpIcon,
 } from "@mui/icons-material";
+import type { HorasPorJobDto } from "../../../dtos/calculoHorasTrabajoDto";
 import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
 import type { Empleado } from "../../../services/empleadoService";
 import type { EmpleadoIndexItem, LayoutOutletCtx } from "../../Layout";
@@ -497,14 +500,25 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     ];
   }, [horasCompensatoriasTomadasProrrateo]);
 
+  const [expandedClassJobs, setExpandedClassJobs] = React.useState<
+    Record<string, boolean>
+  >({});
+
+  const toggleClassExpand = (rowKey: string) => {
+    setExpandedClassJobs((prev) => ({ ...prev, [rowKey]: !prev[rowKey] }));
+  };
+
   const renderTabla = (
     titulo: string,
-    items: any[],
+    items: HorasPorJobDto[],
     options?: { totalHoras?: number; totalMonto?: number },
   ) => {
     const totalHoras = Number(options?.totalHoras ?? 0);
     const totalMonto = Number(options?.totalMonto ?? 0);
     const showMonto = totalMonto > 0 && totalHoras > 0;
+    const hasAnyClassBreakdown = (items ?? []).some((j) =>
+      (j.horasPorClass ?? []).some((c) => c.class != null),
+    );
 
     return (
       <Box sx={{ mt: 2 }}>
@@ -515,6 +529,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
           <Table size="small">
             <TableHead>
               <TableRow>
+                {hasAnyClassBreakdown && <TableCell width={48} />}
                 <TableCell>Job</TableCell>
                 <TableCell>Nombre del Job</TableCell>
                 <TableCell align="right">Horas</TableCell>
@@ -524,40 +539,98 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
             </TableHead>
             <TableBody>
               {items.map((j) => {
-                const horas = Number(j.cantidadHoras ?? j.horas ?? 0);
+                const horas = Number(j.cantidadHoras ?? 0);
                 const monto = showMonto ? (horas / totalHoras) * totalMonto : 0;
+                const rowKey = `${j.jobId}-${j.codigoJob}`;
+                const classRows = (j.horasPorClass ?? []).filter(
+                  (c) => c.class != null,
+                );
+                const expanded = !!expandedClassJobs[rowKey];
+
                 return (
-                  <TableRow key={`${j.jobId}-${j.codigoJob}`}>
-                    <TableCell>{j.codigoJob}</TableCell>
-                    <TableCell>{j.nombreJob}</TableCell>
-                    <TableCell align="right">{formatHoras(horas)}</TableCell>
-                    {showMonto && (
-                      <TableCell align="right">
-                        {formatterMonto.format(monto)}
-                      </TableCell>
-                    )}
-                    <TableCell align="center">
-                      {Array.isArray(j.comentarios) &&
-                      j.comentarios.length > 0 ? (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() =>
-                            handleOpenComentarios(j.nombreJob, j.comentarios)
-                          }
-                        >
-                          Ver comentarios ({j.comentarios.length})
-                        </Button>
-                      ) : (
-                        <Typography variant="caption" color="text.secondary">
-                          —
-                        </Typography>
+                  <React.Fragment key={rowKey}>
+                    <TableRow>
+                      {hasAnyClassBreakdown && (
+                        <TableCell padding="checkbox">
+                          {classRows.length > 0 ? (
+                            <IconButton
+                              size="small"
+                              aria-label={
+                                expanded
+                                  ? "Ocultar desglose por class"
+                                  : "Ver desglose por class"
+                              }
+                              onClick={() => toggleClassExpand(rowKey)}
+                            >
+                              {expanded ? (
+                                <KeyboardArrowUpIcon fontSize="small" />
+                              ) : (
+                                <KeyboardArrowDownIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          ) : null}
+                        </TableCell>
                       )}
-                    </TableCell>
-                  </TableRow>
+                      <TableCell>{j.codigoJob}</TableCell>
+                      <TableCell>{j.nombreJob}</TableCell>
+                      <TableCell align="right">{formatHoras(horas)}</TableCell>
+                      {showMonto && (
+                        <TableCell align="right">
+                          {formatterMonto.format(monto)}
+                        </TableCell>
+                      )}
+                      <TableCell align="center">
+                        {Array.isArray(j.comentarios) &&
+                        j.comentarios.length > 0 ? (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() =>
+                              handleOpenComentarios(j.nombreJob, j.comentarios!)
+                            }
+                          >
+                            Ver comentarios ({j.comentarios.length})
+                          </Button>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            —
+                          </Typography>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {expanded &&
+                      classRows.map((c) => {
+                        const horasClass = Number(c.cantidadHoras ?? 0);
+                        const montoClass = showMonto
+                          ? (horasClass / totalHoras) * totalMonto
+                          : 0;
+                        return (
+                          <TableRow
+                            key={`${rowKey}-class-${c.class}`}
+                            sx={{ bgcolor: "action.hover" }}
+                          >
+                            {hasAnyClassBreakdown && <TableCell />}
+                            <TableCell sx={{ pl: 4 }}>
+                              Class {c.class}
+                            </TableCell>
+                            <TableCell />
+                            <TableCell align="right">
+                              {formatHoras(horasClass)}
+                            </TableCell>
+                            {showMonto && (
+                              <TableCell align="right">
+                                {formatterMonto.format(montoClass)}
+                              </TableCell>
+                            )}
+                            <TableCell />
+                          </TableRow>
+                        );
+                      })}
+                  </React.Fragment>
                 );
               })}
               <TableRow>
+                {hasAnyClassBreakdown && <TableCell />}
                 <TableCell>
                   <strong>Total</strong>
                 </TableCell>
