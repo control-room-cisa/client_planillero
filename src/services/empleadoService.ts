@@ -15,6 +15,8 @@ interface Empleado {
   profesion?: string;
   cargo?: string;
   sueldoMensual?: number;
+  aporteVoluntarioRap?: number;
+  isr?: number;
   // Horas disponibles para UI: se muestran como "días" usando conversión horas/8
   tiempoCompensatorioHoras?: number | null;
   tiempoVacacionesHoras?: number | null;
@@ -79,6 +81,8 @@ interface CreateEmpleadoDto {
   profesion?: string;
   cargo?: string;
   sueldoMensual?: number;
+  aporteVoluntarioRap?: number;
+  isr?: number;
   telefono?: string;
   direccion?: string;
   contrasena?: string;
@@ -117,6 +121,8 @@ interface UpdateEmpleadoDto {
   profesion?: string;
   cargo?: string;
   sueldoMensual?: number;
+  aporteVoluntarioRap?: number;
+  isr?: number;
   telefono?: string;
   direccion?: string;
   rolId?: number;

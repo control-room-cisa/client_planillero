@@ -45,7 +45,7 @@ import { getTipoHorarioLabel, TIPOS_HORARIO } from "../../../enums/tipoHorario";
  * Ejemplo: "7x7" -> "T7X7"
  */
 const convertTipoContratoFromBackend = (
-  value: string | null | undefined
+  value: string | null | undefined,
 ): string | undefined => {
   if (!value) return undefined;
   const mapping: Record<string, string> = {
@@ -64,7 +64,7 @@ const convertTipoContratoFromBackend = (
  * Ejemplo: "Ahorros moneda nacional" -> "AHORROS_MONEDA_NACIONAL"
  */
 const convertTipoCuentaFromBackend = (
-  value: string | null | undefined
+  value: string | null | undefined,
 ): string | undefined => {
   if (!value) return undefined;
   const mapping: Record<string, string> = {
@@ -93,9 +93,21 @@ type EmpleadoFormData = Omit<
   empresaId: number;
 };
 
-/** Copia para API: recorta strings; no altera `contrasena` ni el estado del formulario. */
+/** Vacío o inválido → 0 (deducciones predefinidas ISR / RAP voluntario). */
+function normalizeDeduccionDecimal(value: unknown): number {
+  if (value === "" || value == null) return 0;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.round(n * 100) / 100;
+}
+
+/** Copia para API: recorta strings; deducciones vacías → 0. */
 function trimEmpleadoFormForSubmit(data: EmpleadoFormData): EmpleadoFormData {
-  const out: EmpleadoFormData = { ...data };
+  const out: EmpleadoFormData = {
+    ...data,
+    aporteVoluntarioRap: normalizeDeduccionDecimal(data.aporteVoluntarioRap),
+    isr: normalizeDeduccionDecimal(data.isr),
+  };
   (Object.keys(out) as (keyof EmpleadoFormData)[]).forEach((key) => {
     if (key === "contrasena") return;
     const v = out[key];
@@ -134,6 +146,8 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     profesion: "",
     cargo: "",
     sueldoMensual: 0,
+    aporteVoluntarioRap: 0,
+    isr: 0,
     telefono: "",
     direccion: "",
     contrasena: "",
@@ -183,11 +197,11 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     (departamentoId: number | undefined) => {
       if (!departamentoId) return 0;
       const emp = empresas.find((e) =>
-        e.departamentos?.some((d) => d.id === departamentoId)
+        e.departamentos?.some((d) => d.id === departamentoId),
       );
       return emp?.id ?? 0;
     },
-    [empresas]
+    [empresas],
   );
   // NEW
   React.useEffect(() => {
@@ -257,6 +271,8 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         profesion: empleadoCompleto.profesion || "",
         cargo: empleadoCompleto.cargo || "",
         sueldoMensual: empleadoCompleto.sueldoMensual || 0,
+        aporteVoluntarioRap: empleadoCompleto.aporteVoluntarioRap ?? 0,
+        isr: empleadoCompleto.isr ?? 0,
         telefono: empleadoCompleto.telefono || "",
         direccion: empleadoCompleto.direccion || "",
         contrasena: "",
@@ -269,7 +285,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         estadoCivil: empleadoCompleto.estadoCivil as any,
         nombreConyugue: empleadoCompleto.nombreConyugue || "",
         tipoContrato: convertTipoContratoFromBackend(
-          empleadoCompleto.tipoContrato
+          empleadoCompleto.tipoContrato,
         ) as any,
         condicionSalud: empleadoCompleto.condicionSalud || "",
         nombreContactoEmergencia:
@@ -278,7 +294,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
           empleadoCompleto.numeroContactoEmergencia || "",
         banco: empleadoCompleto.banco || "",
         tipoCuenta: convertTipoCuentaFromBackend(
-          empleadoCompleto.tipoCuenta
+          empleadoCompleto.tipoCuenta,
         ) as any,
         numeroCuenta: empleadoCompleto.numeroCuenta || "",
         muerteBeneficiario: empleadoCompleto.muerteBeneficiario || "",
@@ -310,6 +326,8 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       profesion: "",
       cargo: "",
       sueldoMensual: 0,
+      aporteVoluntarioRap: 0,
+      isr: 0,
       telefono: "",
       direccion: "",
       contrasena: "",
@@ -426,9 +444,8 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
           ) {
             setCheckingUsername(true);
             try {
-              const available = await EmpleadoService.checkUsername(
-                currentUsername
-              );
+              const available =
+                await EmpleadoService.checkUsername(currentUsername);
 
               // Verificar una vez más después de la respuesta (por si el usuario cambió el valor mientras se hacía la petición)
               const finalUsername = currentUsernameRef.current
@@ -538,7 +555,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
           root.querySelector<HTMLElement>(".Mui-error");
         first?.scrollIntoView({ block: "center", behavior: "smooth" });
         const focusTarget = first?.querySelector<HTMLElement>(
-          "input,textarea,select,[role='combobox']"
+          "input,textarea,select,[role='combobox']",
         );
         focusTarget?.focus();
       });
@@ -555,8 +572,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         const updateData: UpdateEmpleadoDto = {
           id: empleado.id,
           ...updateFields,
-          nombreUsuario:
-            fd.nombreUsuario?.toLowerCase() || fd.nombreUsuario,
+          nombreUsuario: fd.nombreUsuario?.toLowerCase() || fd.nombreUsuario,
           // Solo enviar contraseña si hay contenido (sin trim del valor enviado)
           ...(formData.contrasena.trim()
             ? { contrasena: formData.contrasena }
@@ -568,8 +584,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       } else {
         const createData: CreateEmpleadoDto = {
           ...fd,
-          nombreUsuario:
-            fd.nombreUsuario?.toLowerCase() || fd.nombreUsuario,
+          nombreUsuario: fd.nombreUsuario?.toLowerCase() || fd.nombreUsuario,
           urlFotoPerfil: "",
           codigo: "",
           departamento: "",
@@ -845,6 +860,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                 label="Sueldo Mensual"
                 name="sueldoMensual"
                 type="number"
+                inputProps={{ step: "0.01", min: 0 }}
                 value={formData.sueldoMensual}
                 onChange={(e) =>
                   setFormData({
@@ -857,7 +873,6 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                 error={!!fieldErrors.sueldoMensual}
                 helperText={fieldErrors.sueldoMensual}
               />
-
               <TextField
                 label="Fecha de Ingreso"
                 name="fechaInicioIngreso"
@@ -873,6 +888,59 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                 fullWidth
                 InputLabelProps={{ shrink: true }}
               />
+              <TextField
+                label="Aporte Voluntario RAP"
+                name="aporteVoluntarioRap"
+                type="number"
+                inputProps={{ step: "0.01", min: 0 }}
+                value={
+                  formData.aporteVoluntarioRap === 0
+                    ? ""
+                    : formData.aporteVoluntarioRap
+                }
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    aporteVoluntarioRap: normalizeDeduccionDecimal(
+                      e.target.value,
+                    ),
+                  })
+                }
+                onBlur={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    aporteVoluntarioRap: normalizeDeduccionDecimal(
+                      e.target.value,
+                    ),
+                  }))
+                }
+                fullWidth
+                error={!!fieldErrors.aporteVoluntarioRap}
+                helperText={fieldErrors.aporteVoluntarioRap}
+              />
+
+              <TextField
+                label="ISR"
+                name="isr"
+                type="number"
+                inputProps={{ step: "0.01", min: 0 }}
+                value={formData.isr === 0 ? "" : formData.isr}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    isr: normalizeDeduccionDecimal(e.target.value),
+                  })
+                }
+                onBlur={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    isr: normalizeDeduccionDecimal(e.target.value),
+                  }))
+                }
+                fullWidth
+                error={!!fieldErrors.isr}
+                helperText={fieldErrors.isr}
+              />
 
               <TextField
                 label="Fecha/Hora Límite de Edición"
@@ -886,13 +954,13 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                         const year = date.getFullYear();
                         const month = String(date.getMonth() + 1).padStart(
                           2,
-                          "0"
+                          "0",
                         );
                         const day = String(date.getDate()).padStart(2, "0");
                         const hours = String(date.getHours()).padStart(2, "0");
                         const minutes = String(date.getMinutes()).padStart(
                           2,
-                          "0"
+                          "0",
                         );
                         return `${year}-${month}-${day}T${hours}:${minutes}`;
                       })()
@@ -992,8 +1060,8 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                       {formData.empresaId === 0
                         ? "Primero selecciona una empresa"
                         : departamentosDisponibles.length === 0
-                        ? "No hay departamentos disponibles"
-                        : "Seleccionar departamento"}
+                          ? "No hay departamentos disponibles"
+                          : "Seleccionar departamento"}
                     </em>
                   </MenuItem>
                   {departamentosDisponibles.map((dep) => (

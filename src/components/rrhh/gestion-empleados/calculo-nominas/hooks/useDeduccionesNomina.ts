@@ -16,6 +16,10 @@ export interface UseDeduccionesNominaParams {
   // Días de incapacidad (del resumen)
   diasIncapacidadCubreEmpresa: number;
   diasIncapacidadCubreIHSS: number;
+
+  /** Deducciones predefinidas del colaborador (solo aplican en quincena B) */
+  empleadoIsr?: number;
+  empleadoAporteVoluntarioRap?: number;
 }
 
 export interface UseDeduccionesNominaReturn {
@@ -94,6 +98,8 @@ export function useDeduccionesNomina({
   DEDUCCION_IHSS_FIJA,
   diasIncapacidadCubreEmpresa,
   diasIncapacidadCubreIHSS,
+  empleadoIsr = 0,
+  empleadoAporteVoluntarioRap = 0,
 }: UseDeduccionesNominaParams): UseDeduccionesNominaReturn {
   // Cálculo de montos de incapacidad según fórmulas especificadas
   // Monto incapacidad IHSS: diasIncapacidadIHSS * (PISO_IHSS * 0.66) / 30
@@ -175,6 +181,8 @@ export function useDeduccionesNomina({
       setInputDeduccionIHSS("");
       setDeduccionRAP(0);
       setInputDeduccionRAP("");
+      setDeduccionISR(0);
+      setInputDeduccionISR("");
     } else {
       // Segunda quincena (B): calcular deducciones normalmente
       // IHSS siempre es 595.16
@@ -183,11 +191,17 @@ export function useDeduccionesNomina({
       setDeduccionIHSS(redondeadoIHSS);
       setInputDeduccionIHSS(String(redondeadoIHSS));
 
-      // RAP se calcula automáticamente según el salario
-      const valorRAP = deduccionRAPBase;
-      const redondeadoRAP = roundTo2Decimals(valorRAP);
-      setDeduccionRAP(redondeadoRAP);
-      setInputDeduccionRAP(valorRAP > 0 ? String(redondeadoRAP) : "");
+      // RAP = 1.5% excedente + aporte voluntario del colaborador
+      const valorRAP = roundTo2Decimals(
+        deduccionRAPBase + (empleadoAporteVoluntarioRap || 0),
+      );
+      setDeduccionRAP(valorRAP);
+      setInputDeduccionRAP(valorRAP > 0 ? String(valorRAP) : "");
+
+      // ISR desde deducción predefinida del colaborador
+      const valorISR = roundTo2Decimals(empleadoIsr || 0);
+      setDeduccionISR(valorISR);
+      setInputDeduccionISR(valorISR > 0 ? String(valorISR) : "");
     }
   }, [
     fechaInicio,
@@ -195,6 +209,8 @@ export function useDeduccionesNomina({
     deduccionRAPBase,
     codigoNominaTerminaEnA,
     DEDUCCION_IHSS_FIJA,
+    empleadoIsr,
+    empleadoAporteVoluntarioRap,
   ]);
 
   // Sincronizar montoIncapacidadCubreEmpresa con su input string
@@ -241,12 +257,9 @@ export function useDeduccionesNomina({
       setInputImpuestoVecinal("");
       // inputOtros NO se resetea - siempre editable
     } else {
-      // Segunda quincena (B): resetear pero permitir edición
-      setDeduccionISR(0);
+      // Segunda quincena (B): ISR/RAP se recargan del colaborador en el efecto de defaults
       setCobroPrestamo(0);
       setImpuestoVecinal(0);
-      // Otros NO se resetea automáticamente - siempre editable
-      setInputDeduccionISR("");
       setInputCobroPrestamo("");
       setInputImpuestoVecinal("");
       // inputOtros NO se resetea - siempre editable

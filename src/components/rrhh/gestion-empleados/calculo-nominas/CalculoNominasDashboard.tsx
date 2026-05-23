@@ -205,6 +205,11 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
   //       diasIncapacidadCubreIHSS * 8
   //   ) || 0;
 
+  // Deducciones predefinidas del colaborador (quincena B)
+  const empleadoIsr = Number((empleado as Empleado)?.isr) || 0;
+  const empleadoAporteVoluntarioRap =
+    Number((empleado as Empleado)?.aporteVoluntarioRap) || 0;
+
   // ========= Deducciones / ajustes =========
   const deducciones = useDeduccionesNomina({
     fechaInicio,
@@ -216,6 +221,8 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     DEDUCCION_IHSS_FIJA,
     diasIncapacidadCubreEmpresa,
     diasIncapacidadCubreIHSS,
+    empleadoIsr,
+    empleadoAporteVoluntarioRap,
   });
   const {
     montoIncapacidadCubreEmpresa,

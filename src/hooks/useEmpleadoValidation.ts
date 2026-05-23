@@ -56,6 +56,14 @@ export const useEmpleadoValidation = (isEditing: boolean) => {
         if (value && (isNaN(value) || value < 0))
           return "Sueldo debe ser un número positivo";
         break;
+      case "aporteVoluntarioRap":
+        if (value != null && value !== "" && (isNaN(value) || value < 0))
+          return "El aporte voluntario RAP debe ser un número positivo";
+        break;
+      case "isr":
+        if (value != null && value !== "" && (isNaN(value) || value < 0))
+          return "El ISR debe ser un número positivo";
+        break;
       case "condicionSalud":
         if (value && value.length > 50)
           return "Condición de salud no puede tener más de 50 caracteres";
