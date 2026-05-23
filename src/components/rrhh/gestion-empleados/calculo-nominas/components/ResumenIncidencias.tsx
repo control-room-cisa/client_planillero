@@ -11,6 +11,8 @@ interface ResumenIncidenciasProps {
   loading: boolean;
   resumenHoras: ResumenHorasTrabajo | null;
   periodoNomina: number;
+  /** Días laborados usados en nómina (sin restar compensatorias tomadas) */
+  diasLaborados: number;
   diasIncapacidadCubreEmpresa: number;
   diasIncapacidadCubreIHSS: number;
   montoDiasLaborados: number;
@@ -30,6 +32,7 @@ const ResumenIncidencias: React.FC<ResumenIncidenciasProps> = ({
   loading,
   resumenHoras,
   periodoNomina,
+  diasLaborados,
   diasIncapacidadCubreEmpresa,
   diasIncapacidadCubreIHSS,
   montoDiasLaborados,
@@ -75,9 +78,7 @@ const ResumenIncidencias: React.FC<ResumenIncidenciasProps> = ({
                 <Typography variant="body1">
                   <strong>Días laborados:</strong>
                 </Typography>
-                <Typography variant="body1">
-                  {resumenHoras.conteoHoras.conteoDias?.diasLaborados ?? 0}
-                </Typography>
+                <Typography variant="body1">{diasLaborados}</Typography>
               </Box>
               <Box
                 sx={{

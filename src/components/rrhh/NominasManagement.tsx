@@ -54,7 +54,9 @@ const NominasManagement: React.FC = () => {
     null
   );
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const [selectedYear, setSelectedYear] = useState<number | null>(currentYear);
   const [selectedPeriodo, setSelectedPeriodo] = useState<string | null>(null);
 
   // Estados para modales
@@ -141,6 +143,8 @@ const NominasManagement: React.FC = () => {
   // Generar lista de períodos (meses del año divididos en primera y segunda quincena)
   // Ordenados con los más recientes primero (meses descendentes, luego quincenas B antes de A)
   const periodosDisponibles = useMemo(() => {
+    if (!selectedYear) return [];
+
     const meses = [
       "Enero",
       "Febrero",
@@ -156,9 +160,11 @@ const NominasManagement: React.FC = () => {
       "Diciembre",
     ];
     const periodos: Array<{ value: string; label: string }> = [];
+    const mesHasta = selectedYear === currentYear ? currentMonth : 12;
 
     // Generar períodos en orden descendente (meses 12 a 1)
     for (let mes = 12; mes >= 1; mes--) {
+      if (mes > mesHasta) continue;
       const mesStr = String(mes).padStart(2, "0");
       // Primero segunda quincena (B), luego primera quincena (A) para cada mes
       periodos.push({
@@ -171,17 +177,26 @@ const NominasManagement: React.FC = () => {
       });
     }
     return periodos;
-  }, []);
+  }, [selectedYear, currentYear, currentMonth]);
 
   // Generar años disponibles (últimos 20 años, máximo hasta el año actual)
   const añosDisponibles = useMemo(() => {
-    const currentYear = new Date().getFullYear();
     const años: number[] = [];
     for (let i = currentYear; i >= currentYear - 19; i--) {
       años.push(i);
     }
     return años;
-  }, []);
+  }, [currentYear]);
+
+  // Si el período seleccionado ya no está en la lista (p. ej. al cambiar de año), limpiarlo
+  useEffect(() => {
+    if (
+      selectedPeriodo &&
+      !periodosDisponibles.some((p) => p.value === selectedPeriodo)
+    ) {
+      setSelectedPeriodo(null);
+    }
+  }, [selectedPeriodo, periodosDisponibles]);
 
   // Generar código de nómina desde año y período seleccionados
   const codigoNominaFiltro = useMemo(() => {
@@ -888,7 +903,7 @@ const NominasManagement: React.FC = () => {
                 onClick={() => {
                   setSelectedEmpresaId(null);
                   setSearchTerm("");
-                  setSelectedYear(null);
+                  setSelectedYear(currentYear);
                   setSelectedPeriodo(null);
                 }}
               >

@@ -150,10 +150,8 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     0;
   const diasIncapacidadCubreIHSS =
     conteoDias?.incapacidadIHSS ?? conteoDias?.incapacidadCubreIHSSDias ?? 0;
-  const diasCompensatoriasTomadas = conteoDias?.compensatoriasTomadas ?? 0;
 
-  // Días laborados: el backend ya resta incapacidades, vacaciones, permisos, compensatorias tomadas, etc.
-  // Recalculamos aquí para asegurar consistencia con los datos mostrados
+  // Días laborados: no se restan compensatorias tomadas (se pagan aparte como horas)
   const diasLaborados = Math.max(
     0,
     (periodoNomina || 15) -
@@ -162,8 +160,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
       (diasIncapacidadCubreEmpresa || 0) -
       (diasIncapacidadCubreIHSS || 0) -
       ((conteoDias?.permisoSinSueldo ?? 0) || 0) -
-      ((conteoDias?.inasistencias ?? 0) || 0) -
-      (diasCompensatoriasTomadas || 0),
+      ((conteoDias?.inasistencias ?? 0) || 0),
   );
 
   const salarioQuincenal = React.useMemo(
@@ -875,6 +872,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
             loading={loading}
             resumenHoras={resumenHoras}
             periodoNomina={periodoNomina}
+            diasLaborados={diasLaborados}
             diasIncapacidadCubreEmpresa={diasIncapacidadCubreEmpresa}
             diasIncapacidadCubreIHSS={diasIncapacidadCubreIHSS}
             montoDiasLaborados={montoDiasLaborados}
