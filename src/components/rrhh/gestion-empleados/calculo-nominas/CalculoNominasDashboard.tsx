@@ -32,7 +32,10 @@ import DetalleRegistrosDiariosModal from "../detalleRegistrosDiariosModal";
 import { roundTo2Decimals, formatCurrency } from "./utils/formatters";
 
 // Hooks de negocio del módulo de cálculo de nóminas
-import { useNominaPeriodos } from "./hooks/useNominaPeriodos";
+import {
+  useNominaPeriodos,
+  type UseNominaPeriodosReturn,
+} from "./hooks/useNominaPeriodos";
 import { useGlobalConfigNomina } from "./hooks/useGlobalConfigNomina";
 import { useAlimentacionPorCodigo } from "./hooks/useAlimentacionPorCodigo";
 import { useDeduccionesNomina } from "./hooks/useDeduccionesNomina";
@@ -54,17 +57,24 @@ interface CalculoNominasProps {
   onNext?: () => void;
   hasPrevious?: boolean;
   hasNext?: boolean;
+  /** Estado del período elevado al route para conservarlo al cambiar de colaborador */
+  nominaPeriodos?: UseNominaPeriodosReturn;
+}
+
+interface CalculoNominasViewProps extends Omit<CalculoNominasProps, "nominaPeriodos"> {
+  nominaPeriodos: UseNominaPeriodosReturn;
 }
 
 const DEBUG = true;
 
-const CalculoNominas: React.FC<CalculoNominasProps> = ({
+const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
   empleado: empleadoProp,
   empleadosIndex: empleadosIndexProp,
   onPrevious,
   onNext,
   hasPrevious = false,
   hasNext = false,
+  nominaPeriodos,
 }) => {
   const navigate = useNavigate();
 
@@ -103,7 +113,7 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
     codigoNominaPeriodo,
     nombrePeriodoNomina,
     getNombrePeriodoNomina,
-  } = useNominaPeriodos();
+  } = nominaPeriodos;
 
   // ========= Configuración global (PISO_IHSS / DEDUCCION_IHSS_FIJA) =========
   const { cfgPisoIhss, cfgDeduccionIhssFija } = useGlobalConfigNomina();
@@ -945,6 +955,16 @@ const CalculoNominas: React.FC<CalculoNominasProps> = ({
       </Container>
     </Fade>
   );
+};
+
+const CalculoNominas: React.FC<CalculoNominasProps> = (props) => {
+  if (props.nominaPeriodos) {
+    return (
+      <CalculoNominasView {...props} nominaPeriodos={props.nominaPeriodos} />
+    );
+  }
+  const nominaPeriodos = useNominaPeriodos();
+  return <CalculoNominasView {...props} nominaPeriodos={nominaPeriodos} />;
 };
 
 export default CalculoNominas;

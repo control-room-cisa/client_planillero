@@ -5,6 +5,7 @@ import { Fade, Box, CircularProgress } from "@mui/material";
 import type { LayoutOutletCtx } from "../Layout";
 import { readEmpleadosIndexSession } from "../../utils/nominasEmpleadosIndexSession";
 import CalculoNominas from "./gestion-empleados/calculo-nominas/CalculoNominasDashboard";
+import { useNominaPeriodos } from "./gestion-empleados/calculo-nominas/hooks/useNominaPeriodos";
 import EmpleadoService from "../../services/empleadoService";
 import type { Empleado } from "../../services/empleadoService";
 
@@ -23,6 +24,9 @@ const NominasRoute: React.FC = () => {
   const [empleado, setEmpleado] = React.useState<Empleado | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [isTransitioning, setIsTransitioning] = React.useState(false);
+
+  // Período de nómina a nivel de ruta: se conserva al navegar entre colaboradores
+  const nominaPeriodos = useNominaPeriodos();
 
   // Al cambiar colaborador en la URL: limpiar el anterior y marcar carga para no
   // mostrar datos ajenos ni disparar redirect (!empleado && !loading) entre renders.
@@ -151,9 +155,9 @@ const NominasRoute: React.FC = () => {
             }}
           >
             <CalculoNominas
-              key={empleadoAMostrar.id}
               empleado={empleadoAMostrar}
               empleadosIndex={empleadosIndex}
+              nominaPeriodos={nominaPeriodos}
             />
           </Box>
         </Fade>

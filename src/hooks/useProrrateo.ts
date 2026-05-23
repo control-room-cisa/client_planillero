@@ -31,6 +31,9 @@ export const useProrrateo = ({
 
   const fetchData = useCallback(async () => {
     if (!enabled || !empleadoId || !fechaInicio || !fechaFin) {
+      setProrrateo(null);
+      setError(null);
+      setLoading(false);
       return;
     }
 
@@ -51,6 +54,11 @@ export const useProrrateo = ({
       setLoading(false);
     }
   }, [empleadoId, fechaInicio, fechaFin, enabled]);
+
+  useEffect(() => {
+    setProrrateo(null);
+    setError(null);
+  }, [empleadoId, fechaInicio, fechaFin]);
 
   useEffect(() => {
     fetchData();

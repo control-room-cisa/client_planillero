@@ -129,6 +129,9 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   const [modalComments, setModalComments] = React.useState<string[]>([]);
   const [modalRegistrosOpen, setModalRegistrosOpen] = React.useState(false);
 
+  const lastFullEmployeeLoadedIdRef = React.useRef<number | null>(null);
+  const prevEmpleadoIdRef = React.useRef<number | string | null>(null);
+
   // Deducciones provistas por nómina seleccionada (solo lectura)
 
   const handleOpenComentarios = (jobTitle: string, comments: string[]) => {
@@ -137,6 +140,20 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     setModalOpen(true);
   };
   const handleCloseComentarios = () => setModalOpen(false);
+
+  const resetContenidoColaborador = React.useCallback(() => {
+    setIntervaloSeleccionado("");
+    setFechaInicio("");
+    setFechaFin("");
+    setNominaSeleccionada(null);
+    setNominasResumen([]);
+    setModalRegistrosOpen(false);
+    setModalOpen(false);
+    setModalComments([]);
+    setModalJobTitle("");
+    setTab(0);
+    lastFullEmployeeLoadedIdRef.current = null;
+  }, []);
 
   // Calcular total de deducciones (desde nomina seleccionada)
   const totalDeducciones = React.useMemo(() => {
@@ -223,20 +240,6 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     fechaFin,
     enabled: !!empleado && hasPeriodoSeleccionado,
   });
-
-  // Ya no sincronizamos deducciones editables; vienen de nómina seleccionada
-
-  React.useEffect(() => {
-    if (empleado && rangoValido) {
-      if (DEBUG)
-        console.debug(
-          "[ProrrateoDashboard] empleado cambió → refetch",
-          empleado.id,
-        );
-      refetch();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empleado?.id, rangoValido]);
 
   const eq = (a: any, b: any) =>
     a != null && b != null && String(a) === String(b);
@@ -348,9 +351,18 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     [empleadosIndex],
   );
 
+  React.useEffect(() => {
+    const id = empleado?.id;
+    if (id == null) return;
+    const prev = prevEmpleadoIdRef.current;
+    if (prev != null && String(prev) !== String(id)) {
+      resetContenidoColaborador();
+    }
+    prevEmpleadoIdRef.current = id;
+  }, [empleado?.id, resetContenidoColaborador]);
+
   // Si el `empleado` inicial no trae datos bancarios completos (por ejemplo,
   // viene de un listado con campos limitados), cargamos la fila completa de tabla `empleado`.
-  const lastFullEmployeeLoadedIdRef = React.useRef<number | null>(null);
   React.useEffect(() => {
     if (!empleado?.id) return;
 
@@ -377,6 +389,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
 
   const goPrev = () => {
     if (empleadosIndex?.length && hayPrev) {
+      resetContenidoColaborador();
       const prev = empleadosIndex[idx - 1];
       cargarEmpleadoCompleto(prev.id);
     } else if (onPrevious) {
@@ -386,6 +399,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
 
   const goNext = () => {
     if (empleadosIndex?.length && hayNext) {
+      resetContenidoColaborador();
       const next = empleadosIndex[idx + 1];
       cargarEmpleadoCompleto(next.id);
     } else if (onNext) {
