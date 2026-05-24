@@ -60,8 +60,6 @@ interface ProrrateoDashboardProps {
   hasNext?: boolean;
 }
 
-const DEBUG = false;
-
 const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   empleado: empleadoProp,
   empleadosIndex: empleadosIndexProp,
