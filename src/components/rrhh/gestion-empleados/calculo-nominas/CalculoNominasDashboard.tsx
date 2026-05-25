@@ -176,10 +176,16 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     [],
   );
 
-  const montoDiasLaborados =
-    (diasLaborados / (periodoNomina || 15)) * salarioQuincenal;
-  const montoVacaciones =
-    (diasVacaciones / (periodoNomina || 15)) * salarioQuincenal;
+  // Precio "real" por día: se redondea una sola vez y se usa como tarifa
+  // común para días laborados y vacaciones, garantizando que el monto de
+  // vacaciones coincida con el monto unitario por día.
+  const precioPorDia = React.useMemo(
+    () => roundTo2Decimals(salarioQuincenal / (periodoNomina || 15)),
+    [salarioQuincenal, periodoNomina],
+  );
+
+  const montoDiasLaborados = roundTo2Decimals(precioPorDia * diasLaborados);
+  const montoVacaciones = roundTo2Decimals(precioPorDia * diasVacaciones);
 
   // Horas de permisos justificados: usar horas del resumen si existen, si no días × 8
   const horasPermisosJustificados =
