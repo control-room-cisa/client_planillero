@@ -67,18 +67,14 @@ const EmpresasManagement: React.FC = () => {
 
   const empresasConsorcioOrdenadas = useMemo(
     () =>
-      [...empresas]
-        .filter((e) => e.esConsorcio === true)
-        .sort(byNombreEmpresa),
-    [empresas]
+      [...empresas].filter((e) => e.esConsorcio === true).sort(byNombreEmpresa),
+    [empresas],
   );
 
   const empresasNoConsorcioOrdenadas = useMemo(
     () =>
-      [...empresas]
-        .filter((e) => e.esConsorcio !== true)
-        .sort(byNombreEmpresa),
-    [empresas]
+      [...empresas].filter((e) => e.esConsorcio !== true).sort(byNombreEmpresa),
+    [empresas],
   );
 
   const fetchEmpresas = useCallback(async () => {
@@ -170,7 +166,7 @@ const EmpresasManagement: React.FC = () => {
         editingEmpresa
           ? "Error al actualizar la empresa"
           : "Error al crear la empresa",
-        "error"
+        "error",
       );
     }
   };
@@ -231,7 +227,7 @@ const EmpresasManagement: React.FC = () => {
         }}
       >
         <Typography variant="h5" component="h2">
-          Gesti?n de Empresas
+          Gestión de Empresas
         </Typography>
         <Button
           variant="contained"
@@ -299,11 +295,7 @@ const EmpresasManagement: React.FC = () => {
                       </TableCell>
                       <TableCell>{empresa.codigo}</TableCell>
                       <TableCell>
-                        <Chip
-                          label="Consorcio"
-                          color="success"
-                          size="small"
-                        />
+                        <Chip label="Consorcio" color="success" size="small" />
                       </TableCell>
                       <TableCell align="right">
                         <IconButton
