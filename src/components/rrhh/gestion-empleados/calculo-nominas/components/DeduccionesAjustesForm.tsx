@@ -122,6 +122,10 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
     setInputOtros,
     setOtros,
 
+    inputDeduccionAlojamiento,
+    setInputDeduccionAlojamiento,
+    setDeduccionAlojamiento,
+
     comentario,
     setComentario,
   } = deducciones;
@@ -339,6 +343,19 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
               const sanitized = sanitizeDecimalInput(e.target.value);
               setInputOtros(sanitized);
               setOtros(parseDecimalValue(sanitized));
+            }}
+          />
+          <TextField
+            label="(-) Deducción Alojamiento"
+            type="text"
+            inputMode="decimal"
+            size="small"
+            placeholder="0"
+            value={inputDeduccionAlojamiento}
+            onChange={(e) => {
+              const sanitized = sanitizeDecimalInput(e.target.value);
+              setInputDeduccionAlojamiento(sanitized);
+              setDeduccionAlojamiento(parseDecimalValue(sanitized));
             }}
           />
           <TextField

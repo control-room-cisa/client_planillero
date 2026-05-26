@@ -92,6 +92,8 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
   const [formDeduccionRAP, setFormDeduccionRAP] = useState<number>(0);
   const [formDeduccionAlimentacion, setFormDeduccionAlimentacion] =
     useState<number>(0);
+  const [formDeduccionAlojamiento, setFormDeduccionAlojamiento] =
+    useState<number>(0);
   const [formCobroPrestamo, setFormCobroPrestamo] = useState<number>(0);
   const [formImpuestoVecinal, setFormImpuestoVecinal] = useState<number>(0);
   const [formOtros, setFormOtros] = useState<number>(0);
@@ -305,6 +307,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       setFormDeduccionISR(nomina.deduccionISR ?? 0);
       setFormDeduccionRAP(nomina.deduccionRAP ?? 0);
       setFormDeduccionAlimentacion(nomina.deduccionAlimentacion ?? 0);
+      setFormDeduccionAlojamiento(nomina.deduccionAlojamiento ?? 0);
       setFormCobroPrestamo(nomina.cobroPrestamo ?? 0);
       setFormImpuestoVecinal(nomina.impuestoVecinal ?? 0);
       setFormOtros(nomina.otros ?? 0);
@@ -368,6 +371,10 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
           nomina.deduccionAlimentacion != null
             ? String(nomina.deduccionAlimentacion)
             : "",
+        deduccionAlojamiento:
+          nomina.deduccionAlojamiento != null
+            ? String(nomina.deduccionAlojamiento)
+            : "",
         cobroPrestamo:
           nomina.cobroPrestamo != null ? String(nomina.cobroPrestamo) : "",
         impuestoVecinal:
@@ -408,6 +415,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       setFormDeduccionISR(0);
       setFormDeduccionRAP(0);
       setFormDeduccionAlimentacion(0);
+      setFormDeduccionAlojamiento(0);
       setFormCobroPrestamo(0);
       setFormImpuestoVecinal(0);
       setFormOtros(0);
@@ -478,6 +486,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       (formDeduccionISR ?? 0) +
       (formDeduccionRAP ?? 0) +
       (formDeduccionAlimentacion ?? 0) +
+      (formDeduccionAlojamiento ?? 0) +
       (formCobroPrestamo ?? 0) +
       (formImpuestoVecinal ?? 0) +
       (formOtros ?? 0);
@@ -488,6 +497,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     formDeduccionISR,
     formDeduccionRAP,
     formDeduccionAlimentacion,
+    formDeduccionAlojamiento,
     formCobroPrestamo,
     formImpuestoVecinal,
     formOtros,
@@ -735,6 +745,11 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         label: "Deducción Alimentación",
       },
       {
+        key: "deduccionAlojamiento",
+        value: formDeduccionAlojamiento,
+        label: "Deducción Alojamiento",
+      },
+      {
         key: "cobroPrestamo",
         value: formCobroPrestamo,
         label: "Cobro Préstamo",
@@ -801,6 +816,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         deduccionISR: formDeduccionISR ?? 0,
         deduccionRAP: formDeduccionRAP ?? 0,
         deduccionAlimentacion: formDeduccionAlimentacion ?? 0,
+        deduccionAlojamiento: formDeduccionAlojamiento ?? 0,
         cobroPrestamo: formCobroPrestamo ?? 0,
         impuestoVecinal: formImpuestoVecinal ?? 0,
         otros: formOtros ?? 0,
@@ -1585,6 +1601,27 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               fullWidth
               error={!!formErrors.otros}
               helperText={formErrors.otros}
+            />
+            <TextField
+              label="Deducción Alojamiento"
+              type="text"
+              value={numericText.deduccionAlojamiento ?? ""}
+              onChange={(e) =>
+                handleNumericChange(
+                  e,
+                  "deduccionAlojamiento",
+                  setFormDeduccionAlojamiento,
+                  {
+                    allowNegative: false,
+                    allowDecimal: true,
+                    maxDecimals: 2,
+                  }
+                )
+              }
+              onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
+              fullWidth
+              error={!!formErrors.deduccionAlojamiento}
+              helperText={formErrors.deduccionAlojamiento}
             />
             <TextField
               label="Total Deducciones"

@@ -444,6 +444,7 @@ const NominasManagement: React.FC = () => {
           deduccionISR: nomina.deduccionISR,
           deduccionRAP: nomina.deduccionRAP,
           deduccionAlimentacion: 0,
+          deduccionAlojamiento: nomina.deduccionAlojamiento ?? 0,
           cobroPrestamo: nomina.cobroPrestamo,
           impuestoVecinal: nomina.impuestoVecinal,
           otros: nomina.otros,
@@ -458,6 +459,7 @@ const NominasManagement: React.FC = () => {
           deduccionISR: nomina.deduccionISR,
           deduccionRAP: nomina.deduccionRAP,
           deduccionAlimentacion: conteoHoras.deduccionesAlimentacion ?? 0,
+          deduccionAlojamiento: nomina.deduccionAlojamiento ?? 0,
           cobroPrestamo: nomina.cobroPrestamo,
           impuestoVecinal: nomina.impuestoVecinal,
           otros: nomina.otros,
@@ -475,6 +477,7 @@ const NominasManagement: React.FC = () => {
         deduccionISR: nomina.deduccionISR,
         deduccionRAP: nomina.deduccionRAP,
         deduccionAlimentacion: nomina.deduccionAlimentacion,
+        deduccionAlojamiento: nomina.deduccionAlojamiento ?? 0,
         cobroPrestamo: nomina.cobroPrestamo,
         impuestoVecinal: nomina.impuestoVecinal,
         otros: nomina.otros,
@@ -684,6 +687,7 @@ const NominasManagement: React.FC = () => {
         ["ISR", esc(fc(n.deduccionISR))],
         ["RAP", esc(fc(n.deduccionRAP))],
         ["Alimentación", esc(fc(n.deduccionAlimentacion))],
+        ["Alojamiento", esc(fc(n.deduccionAlojamiento))],
         ["Cobro préstamo", esc(fc(n.cobroPrestamo))],
         ["Impuesto vecinal", esc(fc(n.impuestoVecinal))],
         ["Otros", esc(fc(n.otros))],
@@ -1398,6 +1402,29 @@ const NominasManagement: React.FC = () => {
                 fullWidth
                 size="small"
               />
+              <TextField
+                label="Deducción Alojamiento"
+                type="text"
+                value={editFormData.deduccionAlojamiento ?? ""}
+                onChange={(e) => {
+                  let value = e.target.value.replace(/[^0-9.]/g, "");
+                  const parts = value.split(".");
+                  value =
+                    parts.length > 2
+                      ? parts[0] + "." + parts.slice(1).join("")
+                      : value;
+                  setEditFormData({
+                    ...editFormData,
+                    deduccionAlojamiento:
+                      value === "" || value === "."
+                        ? null
+                        : parseFloat(value) || null,
+                  });
+                }}
+                onKeyPress={(e) => handleNumericKeyPress(e, false)}
+                fullWidth
+                size="small"
+              />
             </Box>
 
             <TextField
@@ -1451,6 +1478,7 @@ const NominasManagement: React.FC = () => {
                   <TableCell align="right">Deducción ISR</TableCell>
                   <TableCell align="right">Deducción RAP</TableCell>
                   <TableCell align="right">Deducción Alimentación</TableCell>
+                  <TableCell align="right">Deducción Alojamiento</TableCell>
                   <TableCell align="right">Préstamo</TableCell>
                   <TableCell align="right">Impuesto Vecinal</TableCell>
                   <TableCell align="right">Otros</TableCell>
@@ -1494,6 +1522,9 @@ const NominasManagement: React.FC = () => {
                     </TableCell>
                     <TableCell align="right">
                       {formatCurrency(nomina.deduccionAlimentacion)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.deduccionAlojamiento)}
                     </TableCell>
                     <TableCell align="right">
                       {formatCurrency(nomina.cobroPrestamo)}
@@ -1959,6 +1990,18 @@ const NominasManagement: React.FC = () => {
                         </Typography>
                         <Typography variant="body1">
                           {formatCurrency(currentNomina.deduccionAlimentacion)}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          gutterBottom
+                        >
+                          Deducción Alojamiento
+                        </Typography>
+                        <Typography variant="body1">
+                          {formatCurrency(currentNomina.deduccionAlojamiento)}
                         </Typography>
                       </Box>
                       <Box>

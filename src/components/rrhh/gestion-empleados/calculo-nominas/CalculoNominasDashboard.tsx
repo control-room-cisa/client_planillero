@@ -241,6 +241,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     cobroPrestamo,
     impuestoVecinal,
     otros,
+    deduccionAlojamiento,
     comentario,
   } = deducciones;
 
@@ -314,6 +315,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     (deduccionISR || 0) +
     (deduccionRAP || 0) +
     (deduccionAlimentacion || 0) +
+    (deduccionAlojamiento || 0) +
     (cobroPrestamo || 0) +
     (impuestoVecinal || 0) +
     (otros || 0);
@@ -428,6 +430,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
         deduccionISR: deduccionISR || 0,
         deduccionRAP: deduccionRAP || 0,
         deduccionAlimentacion: deduccionAlimentacion || 0,
+        deduccionAlojamiento: deduccionAlojamiento || 0,
         cobroPrestamo: cobroPrestamo || 0,
         impuestoVecinal: impuestoVecinal || 0,
         otros: otros || 0,
@@ -475,6 +478,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     deduccionISR,
     deduccionRAP,
     deduccionAlimentacion,
+    deduccionAlojamiento,
     cobroPrestamo,
     impuestoVecinal,
     otros,
