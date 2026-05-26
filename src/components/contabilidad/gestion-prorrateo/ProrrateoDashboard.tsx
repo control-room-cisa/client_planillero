@@ -460,6 +460,9 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     nominaSeleccionada?.sueldoMensual ?? empleado?.sueldoMensual ?? 0,
   );
   const salarioPorHora = sueldoMensualParaHora / (30 * 8);
+  // Precio por día consistente con CalculoNominasDashboard:
+  // salarioQuincenal / 15 = sueldoMensual / 30 (redondeado a 2 decimales)
+  const precioPorDia = Math.round((sueldoMensualParaHora / 30) * 100) / 100;
 
   const horasCompensatoriasTomadasProrrateo =
     prorrateo?.cantidadHoras?.horasCompensatoriasTomadas ?? 0;
@@ -534,7 +537,32 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   ) => {
     const totalHoras = Number(options?.totalHoras ?? 0);
     const totalMonto = Number(options?.totalMonto ?? 0);
-    const showMonto = totalMonto > 0 && totalHoras > 0;
+    // Excepción para job especial de Vacaciones (E02): su monto NO se prorratea
+    // como las horas normales, sino que se calcula igual que en CalculoNominasDashboard:
+    // monto = precioPorDia × (horas/8). El resto de jobs reparte proporcionalmente
+    // sobre las horas restantes (excluyendo E02).
+    const isE02 = (codigo?: string | null) =>
+      (codigo ?? "").trim().toUpperCase() === "E02";
+    const horasE02Total = (items ?? []).reduce(
+      (acc, j) =>
+        acc + (isE02(j.codigoJob) ? Number(j.cantidadHoras ?? 0) : 0),
+      0,
+    );
+    const horasNoE02Total = Math.max(0, totalHoras - horasE02Total);
+    const calcMontoFila = (codigo: string | null | undefined, horas: number) => {
+      if (isE02(codigo)) {
+        return Math.round(precioPorDia * (horas / 8) * 100) / 100;
+      }
+      if (totalMonto <= 0 || horasNoE02Total <= 0) return 0;
+      return (horas / horasNoE02Total) * totalMonto;
+    };
+    const totalMontoMostrado = (items ?? []).reduce(
+      (acc, j) =>
+        acc + calcMontoFila(j.codigoJob, Number(j.cantidadHoras ?? 0)),
+      0,
+    );
+    const showMonto =
+      (totalMonto > 0 && horasNoE02Total > 0) || horasE02Total > 0;
     const hasAnyClassBreakdown = (items ?? []).some((j) =>
       (j.horasPorClass ?? []).some((c) => c.class != null),
     );
@@ -559,7 +587,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
             <TableBody>
               {items.map((j) => {
                 const horas = Number(j.cantidadHoras ?? 0);
-                const monto = showMonto ? (horas / totalHoras) * totalMonto : 0;
+                const monto = showMonto ? calcMontoFila(j.codigoJob, horas) : 0;
                 const rowKey = `${j.jobId}-${j.codigoJob}`;
                 const classRows = (j.horasPorClass ?? []).filter(
                   (c) => c.class != null,
@@ -621,7 +649,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                       classRows.map((c) => {
                         const horasClass = Number(c.cantidadHoras ?? 0);
                         const montoClass = showMonto
-                          ? (horasClass / totalHoras) * totalMonto
+                          ? calcMontoFila(j.codigoJob, horasClass)
                           : 0;
                         return (
                           <TableRow
@@ -659,7 +687,9 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                 </TableCell>
                 {showMonto && (
                   <TableCell align="right">
-                    <strong>{formatterMonto.format(totalMonto)}</strong>
+                    <strong>
+                      {formatterMonto.format(totalMontoMostrado)}
+                    </strong>
                   </TableCell>
                 )}
                 <TableCell />

@@ -42,6 +42,26 @@ const InfoColaboradorCards: React.FC<InfoColaboradorCardsProps> = ({
               }}
             >
               <Typography variant="body1">
+                <strong>Empresa:</strong>
+              </Typography>
+              <Typography
+                variant="body1"
+                sx={{ textAlign: "right", flex: 1, minWidth: 0 }}
+              >
+                {(empleado as any)?.empresa?.nombre ||
+                  ((empleado as any)?.empresaId
+                    ? `Empresa ${(empleado as any).empresaId}`
+                    : "—")}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                mb: 1,
+              }}
+            >
+              <Typography variant="body1">
                 <strong>Departamento:</strong>
               </Typography>
               <Typography
