@@ -124,7 +124,13 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   // Modal de comentarios por job
   const [modalOpen, setModalOpen] = React.useState(false);
   const [modalJobTitle, setModalJobTitle] = React.useState<string>("");
-  const [modalComments, setModalComments] = React.useState<string[]>([]);
+  const [modalComments, setModalComments] = React.useState<
+    Array<{
+      texto: string;
+      class: number | null;
+      nombreClass?: string | null;
+    }>
+  >([]);
   const [modalRegistrosOpen, setModalRegistrosOpen] = React.useState(false);
 
   const lastFullEmployeeLoadedIdRef = React.useRef<number | null>(null);
@@ -132,7 +138,14 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
 
   // Deducciones provistas por nómina seleccionada (solo lectura)
 
-  const handleOpenComentarios = (jobTitle: string, comments: string[]) => {
+  const handleOpenComentarios = (
+    jobTitle: string,
+    comments: Array<{
+      texto: string;
+      class: number | null;
+      nombreClass?: string | null;
+    }>,
+  ) => {
     setModalJobTitle(jobTitle || "Comentarios");
     setModalComments(comments || []);
     setModalOpen(true);
@@ -517,7 +530,11 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
         codigoJob: "—",
         nombreJob: "Total período (sin desglose por job)",
         cantidadHoras: horasCompensatoriasTomadasProrrateo,
-        comentarios: [] as string[],
+        comentarios: [] as Array<{
+          texto: string;
+          class: number | null;
+          nombreClass?: string | null;
+        }>,
       },
     ];
   }, [horasCompensatoriasTomadasProrrateo]);
@@ -1619,11 +1636,26 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
         <DialogContent dividers>
           {modalComments.length ? (
             <List dense>
-              {modalComments.map((c, idx) => (
-                <ListItem key={idx} alignItems="flex-start">
-                  <ListItemText primary={c} />
-                </ListItem>
-              ))}
+              {modalComments.map((c, idx) => {
+                const classLabel =
+                  c.class != null
+                    ? c.nombreClass
+                      ? `Class ${c.class} · ${c.nombreClass}`
+                      : `Class ${c.class}`
+                    : null;
+                return (
+                  <ListItem key={idx} alignItems="flex-start">
+                    <ListItemText
+                      primary={c.texto}
+                      secondary={classLabel ?? undefined}
+                      secondaryTypographyProps={{
+                        variant: "caption",
+                        color: "primary",
+                      }}
+                    />
+                  </ListItem>
+                );
+              })}
             </List>
           ) : (
             <Typography variant="body2" color="text.secondary">

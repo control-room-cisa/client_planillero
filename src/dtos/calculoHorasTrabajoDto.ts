@@ -145,12 +145,19 @@ export interface HorasPorClassDto {
   cantidadHoras: number;
 }
 
+/** Comentario asociado a una actividad/segmento dentro de un job, con su class. */
+export interface ComentarioProrrateoJobDto {
+  texto: string;
+  class: number | null;
+  nombreClass?: string | null;
+}
+
 export interface HorasPorJobDto {
   jobId: number;
   codigoJob: string;
   nombreJob: string;
   cantidadHoras: number;
-  comentarios?: string[];
+  comentarios?: ComentarioProrrateoJobDto[];
   horasPorClass?: HorasPorClassDto[];
 }
 
