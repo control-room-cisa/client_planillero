@@ -179,6 +179,7 @@ export interface ConteoHorasProrrateoDto {
 
     totalHorasLaborables: number;
     horasCompensatoriasTomadas?: number;
+    horasCompensatoriasTomadasPorJob?: HorasPorJobDto[];
     horasCompensatoriasDevueltasPorJob?: HorasPorJobDto[];
     horasFeriado?: number;
 

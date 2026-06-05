@@ -35,7 +35,10 @@ import {
   KeyboardArrowDown as KeyboardArrowDownIcon,
   KeyboardArrowUp as KeyboardArrowUpIcon,
 } from "@mui/icons-material";
-import type { HorasPorJobDto } from "../../../dtos/calculoHorasTrabajoDto";
+import type {
+  ComentarioProrrateoJobDto,
+  HorasPorJobDto,
+} from "../../../dtos/calculoHorasTrabajoDto";
 import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
 import type { Empleado } from "../../../services/empleadoService";
 import type { EmpleadoIndexItem, LayoutOutletCtx } from "../../Layout";
@@ -513,14 +516,31 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   const montoIncapacidadIHSSCalculado = roundMonto2(
     (diasIncapacidadIHSS * PISO_IHSS_FALLBACK * 0.66) / 30,
   );
-  const totalResumenSinCompDevueltas = roundMonto2(
+  // Total del panel Resumen: montos de nómina (sin compensatorias tomadas ni devueltas)
+  const totalResumen = roundMonto2(
     Number(nominaSeleccionada?.montoDiasLaborados ?? 0) +
       Number(nominaSeleccionada?.montoVacaciones ?? 0) +
       Number(nominaSeleccionada?.montoPermisosJustificados ?? 0) +
       Number(nominaSeleccionada?.montoIncapacidadCubreEmpresa ?? 0) +
-      Number(montoIncapacidadIHSSCalculado ?? 0) +
-      Number(montoCompensatoriasTomadas ?? 0),
+      Number(montoIncapacidadIHSSCalculado ?? 0),
   );
+
+  // Comentarios de compensatorias tomadas (desglose por job en backend; fila única en UI)
+  const comentariosCompensatoriasTomadas = React.useMemo(() => {
+    const jobs =
+      prorrateo?.cantidadHoras?.horasCompensatoriasTomadasPorJob ?? [];
+    const vistos = new Set<string>();
+    const out: ComentarioProrrateoJobDto[] = [];
+    for (const j of jobs) {
+      for (const c of j.comentarios ?? []) {
+        const key = `${c.class ?? "null"}::${c.texto}`;
+        if (vistos.has(key)) continue;
+        vistos.add(key);
+        out.push(c);
+      }
+    }
+    return out;
+  }, [prorrateo?.cantidadHoras?.horasCompensatoriasTomadasPorJob]);
 
   const filasCompensatoriasTomadasProrrateo = React.useMemo(() => {
     if (horasCompensatoriasTomadasProrrateo <= 0) return [];
@@ -528,16 +548,34 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       {
         jobId: 0,
         codigoJob: "—",
-        nombreJob: "Total período (sin desglose por job)",
+        nombreJob: "Compensatorias tomadas",
         cantidadHoras: horasCompensatoriasTomadasProrrateo,
-        comentarios: [] as Array<{
-          texto: string;
-          class: number | null;
-          nombreClass?: string | null;
-        }>,
+        comentarios: comentariosCompensatoriasTomadas,
       },
     ];
-  }, [horasCompensatoriasTomadasProrrateo]);
+  }, [
+    horasCompensatoriasTomadasProrrateo,
+    comentariosCompensatoriasTomadas,
+  ]);
+
+  const horasNormalesConCompTomadas = React.useMemo(
+    () => [
+      ...(prorrateo?.cantidadHoras?.normal ?? []),
+      ...filasCompensatoriasTomadasProrrateo,
+    ],
+    [prorrateo?.cantidadHoras?.normal, filasCompensatoriasTomadasProrrateo],
+  );
+
+  const totalHorasNormalesConCompTomadas = React.useMemo(
+    () =>
+      obtenerTotalHoras(prorrateo?.cantidadHoras?.normal ?? []) +
+      horasCompensatoriasTomadasProrrateo,
+    [
+      prorrateo?.cantidadHoras?.normal,
+      horasCompensatoriasTomadasProrrateo,
+      obtenerTotalHoras,
+    ],
+  );
 
   const [expandedClassJobs, setExpandedClassJobs] = React.useState<
     Record<string, boolean>
@@ -554,10 +592,9 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   ) => {
     const totalHoras = Number(options?.totalHoras ?? 0);
     const totalMonto = Number(options?.totalMonto ?? 0);
-    // Excepción para job especial de Vacaciones (E02): su monto NO se prorratea
-    // como las horas normales, sino que se calcula igual que en CalculoNominasDashboard:
-    // monto = precioPorDia × (horas/8). El resto de jobs reparte proporcionalmente
-    // sobre las horas restantes (excluyendo E02).
+    // Excepción E02 (vacaciones): monto = precioPorDia × (horas/8).
+    // El resto (jobs normales + compensatorias tomadas sin job) reparte
+    // montoDiasLaborados proporcionalmente entre todas sus horas.
     const isE02 = (codigo?: string | null) =>
       (codigo ?? "").trim().toUpperCase() === "E02";
     const horasE02Total = (items ?? []).reduce(
@@ -565,21 +602,21 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
         acc + (isE02(j.codigoJob) ? Number(j.cantidadHoras ?? 0) : 0),
       0,
     );
-    const horasNoE02Total = Math.max(0, totalHoras - horasE02Total);
-    const calcMontoFila = (codigo: string | null | undefined, horas: number) => {
-      if (isE02(codigo)) {
+    const horasProrrateables = Math.max(0, totalHoras - horasE02Total);
+    const calcMontoFila = (j: HorasPorJobDto, horas: number) => {
+      if (isE02(j.codigoJob)) {
         return Math.round(precioPorDia * (horas / 8) * 100) / 100;
       }
-      if (totalMonto <= 0 || horasNoE02Total <= 0) return 0;
-      return (horas / horasNoE02Total) * totalMonto;
+      if (totalMonto <= 0 || horasProrrateables <= 0) return 0;
+      return (horas / horasProrrateables) * totalMonto;
     };
     const totalMontoMostrado = (items ?? []).reduce(
       (acc, j) =>
-        acc + calcMontoFila(j.codigoJob, Number(j.cantidadHoras ?? 0)),
+        acc + calcMontoFila(j, Number(j.cantidadHoras ?? 0)),
       0,
     );
     const showMonto =
-      (totalMonto > 0 && horasNoE02Total > 0) || horasE02Total > 0;
+      (totalMonto > 0 && horasProrrateables > 0) || horasE02Total > 0;
     const hasAnyClassBreakdown = (items ?? []).some((j) =>
       (j.horasPorClass ?? []).some((c) => c.class != null),
     );
@@ -604,7 +641,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
             <TableBody>
               {items.map((j) => {
                 const horas = Number(j.cantidadHoras ?? 0);
-                const monto = showMonto ? calcMontoFila(j.codigoJob, horas) : 0;
+                const monto = showMonto ? calcMontoFila(j, horas) : 0;
                 const rowKey = `${j.jobId}-${j.codigoJob}`;
                 const classRows = (j.horasPorClass ?? []).filter(
                   (c) => c.class != null,
@@ -666,7 +703,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                       classRows.map((c) => {
                         const horasClass = Number(c.cantidadHoras ?? 0);
                         const montoClass = showMonto
-                          ? calcMontoFila(j.codigoJob, horasClass)
+                          ? calcMontoFila(j, horasClass)
                           : 0;
                         return (
                           <TableRow
@@ -1484,7 +1521,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell align="right">—</TableCell>
                                 <TableCell align="right">
                                   <strong>{`${formatMonto(
-                                    totalResumenSinCompDevueltas,
+                                    totalResumen,
                                   )} L`}</strong>
                                 </TableCell>
                               </TableRow>
@@ -1514,18 +1551,15 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                       <Tab label="50%" />
                       <Tab label="75%" />
                       <Tab label="100%" />
-                      <Tab label="Comp. tomadas" />
                       <Tab label="Comp. devueltas" />
                     </Tabs>
                     <Box sx={{ p: 2 }}>
                       {tab === 0 &&
                         renderTabla(
                           "Horas Normales",
-                          prorrateo.cantidadHoras.normal,
+                          horasNormalesConCompTomadas,
                           {
-                            totalHoras: obtenerTotalHoras(
-                              prorrateo.cantidadHoras.normal,
-                            ),
+                            totalHoras: totalHorasNormalesConCompTomadas,
                             totalMonto:
                               nominaSeleccionada?.montoDiasLaborados ?? 0,
                           },
@@ -1563,25 +1597,6 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                           },
                         )}
                       {tab === 5 &&
-                        (horasCompensatoriasTomadasProrrateo > 0 ? (
-                          renderTabla(
-                            "Compensatorias tomadas",
-                            filasCompensatoriasTomadasProrrateo,
-                            {
-                              totalHoras: horasCompensatoriasTomadasProrrateo,
-                              totalMonto: montoCompensatoriasTomadas,
-                            },
-                          )
-                        ) : (
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{ mt: 1 }}
-                          >
-                            No hay horas compensatorias tomadas en el período.
-                          </Typography>
-                        ))}
-                      {tab === 6 &&
                         (horasCompensatoriasDevueltasTotal > 0 ? (
                           renderTabla(
                             "Compensatorias devueltas (no forman parte del pago)",
