@@ -17,7 +17,7 @@ type MontoKey =
   | "p75"
   | "p100"
   | "compTom"
-  | "compDev";
+  | "compAcum";
 
 interface IncidenciaItem {
   label: string;
@@ -117,13 +117,13 @@ const DesgloseIncidenciasComponent: React.FC<DesgloseIncidenciasProps> = ({
       montoKey: "compTom",
     });
   }
-  if (desglose.compensatoriasDevueltas.horas > 0) {
+  if (desglose.compensatoriasAcumuladas.horas > 0) {
     incidencias.push({
-      label: "Comp. devueltas",
-      data: desglose.compensatoriasDevueltas,
+      label: "Comp. acumuladas",
+      data: desglose.compensatoriasAcumuladas,
       color: "#00897b",
       description: "",
-      montoKey: "compDev",
+      montoKey: "compAcum",
     });
   }
 
@@ -161,7 +161,7 @@ const DesgloseIncidenciasComponent: React.FC<DesgloseIncidenciasProps> = ({
                 ? horasNormales
                 : item.data.horas}
             </Typography>
-            {item.montoKey === "compDev" ? (
+            {item.montoKey === "compAcum" ? (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                 horas ({item.data.porcentaje})
               </Typography>

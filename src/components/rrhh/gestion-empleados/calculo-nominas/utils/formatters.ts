@@ -6,6 +6,16 @@ export const roundTo2Decimals = (num: number): number => {
   return Math.round((num + Number.EPSILON) * 100) / 100;
 };
 
+/** Monto proporcional al salario quincenal por N días del período; redondeo solo al final. */
+export const montoPorDiasQuincena = (
+  salarioQuincenal: number,
+  dias: number,
+  periodoNomina: number,
+): number =>
+  roundTo2Decimals(
+    (salarioQuincenal * dias) / (periodoNomina > 0 ? periodoNomina : 15),
+  );
+
 /**
  * Sanitiza entrada mientras el usuario escribe: solo permite números y punto decimal.
  * - Permite un solo punto decimal.

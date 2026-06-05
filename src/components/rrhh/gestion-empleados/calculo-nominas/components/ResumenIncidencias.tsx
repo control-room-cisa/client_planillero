@@ -26,7 +26,7 @@ interface ResumenIncidenciasProps {
 
 /**
  * Bloque "Registro de Incidencias": grilla de 3 columnas con días, montos y
- * horas compensatorias tomadas/devueltas del resumen del período.
+ * horas compensatorias tomadas/acumuladas del resumen del período.
  */
 const ResumenIncidencias: React.FC<ResumenIncidenciasProps> = ({
   loading,
@@ -307,10 +307,10 @@ const ResumenIncidencias: React.FC<ResumenIncidenciasProps> = ({
                 }}
               >
                 <Typography variant="body1">
-                  <strong>Horas compensatorias devueltas:</strong>
+                  <strong>Horas compensatorias acumuladas:</strong>
                 </Typography>
                 <Typography variant="body1">
-                  {resumenHoras.conteoHoras.cantidadHoras?.horasCompensatoriasDevueltas?.toFixed(
+                  {resumenHoras.conteoHoras.cantidadHoras?.horasCompensatoriasAcumuladas?.toFixed(
                     2,
                   ) ?? "0.00"}
                 </Typography>

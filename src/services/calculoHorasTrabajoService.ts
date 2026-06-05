@@ -17,8 +17,8 @@ export interface DesgloseIncidencias {
   overtime100: { horas: number; porcentaje: string };
   /** Compensatorias tomadas: no entran en horas normales (conjunto propio) */
   compensatoriasTomadas: { horas: number; porcentaje: string };
-  /** Compensatorias devueltas: no se pagan como extra (sin recargos); monto ref. hora normal es solo informativo */
-  compensatoriasDevueltas: { horas: number; porcentaje: string };
+  /** Compensatorias acumuladas: no se pagan como extra (sin recargos); monto ref. hora normal es solo informativo */
+  compensatoriasAcumuladas: { horas: number; porcentaje: string };
   totalHoras: number;
   horasNormales: number;
   diferencia: number;
@@ -259,8 +259,8 @@ class CalculoHorasTrabajoService {
     const horasP75 = conteoHoras.cantidadHoras.p75 || 0;
     const horasP100 = conteoHoras.cantidadHoras.p100 || 0;
     const hCompTom = conteoHoras.cantidadHoras.horasCompensatoriasTomadas || 0;
-    const hCompDev =
-      conteoHoras.cantidadHoras.horasCompensatoriasDevueltas || 0;
+    const hCompAcum =
+      conteoHoras.cantidadHoras.horasCompensatoriasAcumuladas || 0;
 
     const totalHorasTrabajadas =
       horasNormales +
@@ -269,7 +269,7 @@ class CalculoHorasTrabajoService {
       horasP75 +
       horasP100 +
       hCompTom +
-      hCompDev;
+      hCompAcum;
     const totalHorasLaborables = conteoHoras.totalHorasLaborables || 0;
 
     // Si no hay horas trabajadas, retornar valores en cero
@@ -281,7 +281,7 @@ class CalculoHorasTrabajoService {
         overtime75: { horas: 0, porcentaje: "0%" },
         overtime100: { horas: 0, porcentaje: "0%" },
         compensatoriasTomadas: { horas: 0, porcentaje: "0%" },
-        compensatoriasDevueltas: { horas: 0, porcentaje: "0%" },
+        compensatoriasAcumuladas: { horas: 0, porcentaje: "0%" },
         totalHoras: 0,
         horasNormales: totalHorasLaborables,
         diferencia: -totalHorasLaborables,
@@ -316,9 +316,9 @@ class CalculoHorasTrabajoService {
         horas: hCompTom,
         porcentaje: pct(hCompTom),
       },
-      compensatoriasDevueltas: {
-        horas: hCompDev,
-        porcentaje: pct(hCompDev),
+      compensatoriasAcumuladas: {
+        horas: hCompAcum,
+        porcentaje: pct(hCompAcum),
       },
       totalHoras: totalHorasTrabajadas,
       horasNormales: totalHorasLaborables,

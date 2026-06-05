@@ -64,8 +64,8 @@ export interface ConteoHorasTrabajadasDto {
     compensatorio?: number; // E06 y E07
     // Horas compensatorias (actividades con esCompensatorio=true)
     horasCompensatoriasTomadas?: number; // Fuera de "normal"; conjunto propio (como jobs especiales)
-    /** Extras compensatorias devueltas: fuera de p25–p100; costo = tarifa hora normal. */
-    horasCompensatoriasDevueltas?: number;
+    /** Extras compensatorias acumuladas: fuera de p25–p100; costo = tarifa hora normal. */
+    horasCompensatoriasAcumuladas?: number;
   };
   /**
    * Conteo agregado en días para el período. Base 15 días por período.
@@ -180,7 +180,7 @@ export interface ConteoHorasProrrateoDto {
     totalHorasLaborables: number;
     horasCompensatoriasTomadas?: number;
     horasCompensatoriasTomadasPorJob?: HorasPorJobDto[];
-    horasCompensatoriasDevueltasPorJob?: HorasPorJobDto[];
+    horasCompensatoriasAcumuladasPorJob?: HorasPorJobDto[];
     horasFeriado?: number;
 
     deduccionesISR: number;

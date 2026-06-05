@@ -29,7 +29,11 @@ import NominaService, {
 import DetalleRegistrosDiariosModal from "../detalleRegistrosDiariosModal";
 
 // Utilidades puras del módulo de cálculo de nóminas
-import { roundTo2Decimals, formatCurrency } from "./utils/formatters";
+import {
+  roundTo2Decimals,
+  formatCurrency,
+  montoPorDiasQuincena,
+} from "./utils/formatters";
 
 // Hooks de negocio del módulo de cálculo de nóminas
 import {
@@ -131,10 +135,10 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
   // Cálculos de horas compensatorias
   const horasCompensatoriasTomadas =
     resumenHoras?.conteoHoras?.cantidadHoras?.horasCompensatoriasTomadas ?? 0;
-  const horasCompensatoriasDevueltas =
-    resumenHoras?.conteoHoras?.cantidadHoras?.horasCompensatoriasDevueltas ?? 0;
+  const horasCompensatoriasAcumuladas =
+    resumenHoras?.conteoHoras?.cantidadHoras?.horasCompensatoriasAcumuladas ?? 0;
   const totalCompensatoriasQuincena =
-    horasCompensatoriasDevueltas - horasCompensatoriasTomadas;
+    horasCompensatoriasAcumuladas - horasCompensatoriasTomadas;
 
   // Cálculos de salario y montos
   const { sueldoMensual = 0 } = (empleado as any) || {};
@@ -176,16 +180,16 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     [],
   );
 
-  // Precio "real" por día: se redondea una sola vez y se usa como tarifa
-  // común para días laborados y vacaciones, garantizando que el monto de
-  // vacaciones coincida con el monto unitario por día.
-  const precioPorDia = React.useMemo(
-    () => roundTo2Decimals(salarioQuincenal / (periodoNomina || 15)),
-    [salarioQuincenal, periodoNomina],
+  const montoDiasLaborados = montoPorDiasQuincena(
+    salarioQuincenal,
+    diasLaborados,
+    periodoNomina,
   );
-
-  const montoDiasLaborados = roundTo2Decimals(precioPorDia * diasLaborados);
-  const montoVacaciones = roundTo2Decimals(precioPorDia * diasVacaciones);
+  const montoVacaciones = montoPorDiasQuincena(
+    salarioQuincenal,
+    diasVacaciones,
+    periodoNomina,
+  );
 
   // Horas de permisos justificados: usar horas del resumen si existen, si no días × 8
   const horasPermisosJustificados =
@@ -193,7 +197,9 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
       (resumenHoras as any)?.conteoHoras?.cantidadHoras
         ?.permisoConSueldoHoras ?? diasPermisoCS * 8,
     ) || 0;
-  const montoPermisosJustificados = horasPermisosJustificados * salarioPorHora;
+  const montoPermisosJustificados = roundTo2Decimals(
+    horasPermisosJustificados * salarioPorHora,
+  );
 
   // Horas de incapacidades (priorizar nombres correctos del backend)
   // Comentado temporalmente - no se muestran en el dashboard por el momento
@@ -256,11 +262,19 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
 
   // Montos por horas (no incluidos en subtotal)
   const horas = resumenHoras?.conteoHoras?.cantidadHoras;
-  const montoHorasNormales = horasNormales * salarioPorHora;
-  const montoHoras25 = (horas?.p25 || 0) * salarioPorHora * 1.25;
-  const montoHoras50 = (horas?.p50 || 0) * salarioPorHora * 1.5;
-  const montoHoras75 = (horas?.p75 || 0) * salarioPorHora * 1.75;
-  const montoHoras100 = (horas?.p100 || 0) * salarioPorHora * 2.0;
+  const montoHorasNormales = roundTo2Decimals(horasNormales * salarioPorHora);
+  const montoHoras25 = roundTo2Decimals(
+    (horas?.p25 || 0) * salarioPorHora * 1.25,
+  );
+  const montoHoras50 = roundTo2Decimals(
+    (horas?.p50 || 0) * salarioPorHora * 1.5,
+  );
+  const montoHoras75 = roundTo2Decimals(
+    (horas?.p75 || 0) * salarioPorHora * 1.75,
+  );
+  const montoHoras100 = roundTo2Decimals(
+    (horas?.p100 || 0) * salarioPorHora * 2.0,
+  );
   /** Compensatorias tomadas se valorizan a tarifa hora normal y suman a percepciones */
   const montoCompensatoriasTomadas = roundTo2Decimals(
     (horas?.horasCompensatoriasTomadas || 0) * salarioPorHora,
