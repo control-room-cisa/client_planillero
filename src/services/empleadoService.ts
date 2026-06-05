@@ -216,6 +216,18 @@ class EmpleadoService {
     }
   }
 
+  static async getByCodigo(codigo: string): Promise<Empleado> {
+    try {
+      const response = await api.get<EmpleadoResponse>(
+        `/empleados/codigo/${encodeURIComponent(codigo)}`
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error(`Error al obtener empleado por código ${codigo}:`, error);
+      throw new Error("Error al cargar el colaborador");
+    }
+  }
+
   static async create(
     empleadoData: CreateEmpleadoDto,
     files?: { foto?: File; cv?: File }

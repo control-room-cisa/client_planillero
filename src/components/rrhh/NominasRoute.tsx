@@ -1,35 +1,50 @@
 // src/routes/NominasRoute.tsx (o donde prefieras)
 import * as React from "react";
-import { Navigate, useOutletContext, useParams } from "react-router-dom";
+import {
+  Navigate,
+  useLocation,
+  useOutletContext,
+  useParams,
+} from "react-router-dom";
 import { Fade, Box, CircularProgress } from "@mui/material";
 import type { LayoutOutletCtx } from "../Layout";
-import { readEmpleadosIndexSession } from "../../utils/nominasEmpleadosIndexSession";
+import {
+  isSameEmpleadosIndex,
+  persistEmpleadosIndexSession,
+  toEmpleadoIndexItem,
+} from "../../utils/nominasEmpleadosIndexSession";
+import type { EmpleadoIndexItem } from "../Layout";
 import CalculoNominas from "./gestion-empleados/calculo-nominas/CalculoNominasDashboard";
 import { useNominaPeriodos } from "./gestion-empleados/calculo-nominas/hooks/useNominaPeriodos";
 import EmpleadoService from "../../services/empleadoService";
 import type { Empleado } from "../../services/empleadoService";
 
+type NominasLocationState = {
+  fromColaboradoresList?: boolean;
+  nominaNav?: boolean;
+  selectedEmpresaId?: string;
+  searchTerm?: string;
+};
+
 const NominasRoute: React.FC = () => {
   const { codigoEmpleado } = useParams<{ codigoEmpleado: string }>();
+  const location = useLocation();
+  const navState = (location.state ?? {}) as NominasLocationState;
   const { empleadosIndex, setEmpleadosIndex } =
     useOutletContext<LayoutOutletCtx>();
 
-  // Si el Layout se montó de cero (p. ej. F5), recuperar la lista guardada al abrir Nóminas
-  React.useEffect(() => {
-    if (empleadosIndex.length > 0) return;
-    const restored = readEmpleadosIndexSession();
-    if (restored?.length) setEmpleadosIndex(restored);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar; setEmpleadosIndex no es estable
-  }, []);
   const [empleado, setEmpleado] = React.useState<Empleado | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [isTransitioning, setIsTransitioning] = React.useState(false);
 
-  // Período de nómina a nivel de ruta: se conserva al navegar entre colaboradores
+  const empleadosIndexRef = React.useRef(empleadosIndex);
+  empleadosIndexRef.current = empleadosIndex;
+
+  const setEmpleadosIndexRef = React.useRef(setEmpleadosIndex);
+  setEmpleadosIndexRef.current = setEmpleadosIndex;
+
   const nominaPeriodos = useNominaPeriodos();
 
-  // Al cambiar colaborador en la URL: limpiar el anterior y marcar carga para no
-  // mostrar datos ajenos ni disparar redirect (!empleado && !loading) entre renders.
   React.useLayoutEffect(() => {
     if (!codigoEmpleado) return;
     setLoading(true);
@@ -54,63 +69,64 @@ const NominasRoute: React.FC = () => {
       setIsTransitioning(true);
       setLoading(true);
 
-      // Pequeño delay para permitir que la transición se vea
       await new Promise((resolve) => setTimeout(resolve, 150));
 
+      const applyEmpleadosIndexIfChanged = (next: EmpleadoIndexItem[]) => {
+        if (isSameEmpleadosIndex(next, empleadosIndexRef.current)) return;
+        setEmpleadosIndexRef.current(next);
+        empleadosIndexRef.current = next;
+        persistEmpleadosIndexSession(next);
+      };
+
+      const preserveIndex =
+        navState.fromColaboradoresList === true ||
+        navState.nominaNav === true;
+
       try {
-        // Primero intentar buscar en el índice si está disponible
-        if (empleadosIndex && empleadosIndex.length > 0) {
-          const empleadoEncontrado = empleadosIndex.find(
-            (e) => e.codigo === codigoEmpleado,
+        const currentIndex = empleadosIndexRef.current;
+
+        if (preserveIndex && currentIndex.length > 0) {
+          const empleadoEncontrado = currentIndex.find(
+            (e) => e.codigo === codigoEmpleado
           );
           if (empleadoEncontrado) {
-            // Cargar empleado completo por ID
             const empleadoCompleto = await EmpleadoService.getById(
-              empleadoEncontrado.id,
+              empleadoEncontrado.id
             );
+            if (!empleadoCompleto.activo) {
+              applyEmpleadosIndexIfChanged([
+                toEmpleadoIndexItem(empleadoCompleto),
+              ]);
+            }
             setEmpleado(empleadoCompleto);
             setLoading(false);
-            // Delay adicional para suavizar la transición
             setTimeout(() => setIsTransitioning(false), 100);
             return;
           }
         }
 
-        // Si no está en el índice, intentar buscar por código
-        // Necesitamos listar empleados y buscar por código
-        const empleados = await EmpleadoService.getAll();
-        const empleadoEncontrado = empleados.find(
-          (e: Empleado) => e.codigo === codigoEmpleado,
-        );
-
-        if (empleadoEncontrado) {
-          // Cargar empleado completo por ID
-          const empleadoCompleto = await EmpleadoService.getById(
-            empleadoEncontrado.id,
-          );
-          setEmpleado(empleadoCompleto);
-        } else {
-          setEmpleado(null);
-        }
+        // Acceso directo por URL: solo el colaborador de la ruta (sin lista de navegación)
+        const empleadoCompleto =
+          await EmpleadoService.getByCodigo(codigoEmpleado);
+        applyEmpleadosIndexIfChanged([toEmpleadoIndexItem(empleadoCompleto)]);
+        setEmpleado(empleadoCompleto);
       } catch (error) {
         console.error("Error al cargar empleado:", error);
         setEmpleado(null);
       } finally {
         setLoading(false);
-        // Delay adicional para suavizar la transición
         setTimeout(() => setIsTransitioning(false), 100);
       }
     };
 
     cargarEmpleado();
-  }, [codigoEmpleado, empleadosIndex]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codigoEmpleado]);
 
-  // Si no hay código en la URL, redirigir a la lista
   if (!codigoEmpleado) {
     return <Navigate to="/rrhh/colaboradores" replace />;
   }
 
-  // Si no se encontró el empleado, redirigir a la lista
   if (!empleado && !loading) {
     return <Navigate to="/rrhh/colaboradores" replace />;
   }
@@ -122,7 +138,6 @@ const NominasRoute: React.FC = () => {
 
   return (
     <>
-      {/* Overlay de carga sutil */}
       {loading && (
         <Box
           sx={{
@@ -137,21 +152,20 @@ const NominasRoute: React.FC = () => {
             backgroundColor: "rgba(255, 255, 255, 0.7)",
             zIndex: 1000,
             backdropFilter: "blur(2px)",
-            pointerEvents: "none", // Permitir scroll a través del overlay
+            pointerEvents: "none",
           }}
         >
           <CircularProgress size={48} />
         </Box>
       )}
 
-      {/* Contenido con transición suave */}
       {empleadoAMostrar && (
         <Fade in={!isTransitioning && !loading} timeout={300}>
           <Box
             sx={{
               opacity: isTransitioning || loading ? 0.5 : 1,
               transition: "opacity 0.3s ease-in-out",
-              height: "100%", // Permitir que el Container interno maneje el scroll
+              height: "100%",
             }}
           >
             <CalculoNominas

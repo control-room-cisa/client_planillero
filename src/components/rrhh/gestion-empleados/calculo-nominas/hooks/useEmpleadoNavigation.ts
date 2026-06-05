@@ -11,6 +11,10 @@ import type {
   EmpleadoIndexItem,
   LayoutOutletCtx,
 } from "../../../../Layout";
+import {
+  isSameEmpleadosIndex,
+  resolveEffectiveEmpleadosIndex,
+} from "../../../../../utils/nominasEmpleadosIndexSession";
 
 const DEBUG = true;
 
@@ -85,11 +89,18 @@ export function useEmpleadoNavigation({
     empleadoInicial,
   );
 
-  // Derivar índice (no se congela)
-  const empleadosIndex: EmpleadoIndexItem[] = React.useMemo(
-    () => indiceEntrante ?? [],
-    [indiceEntrante],
-  );
+  const empleadosIndexStableRef = React.useRef<EmpleadoIndexItem[]>([]);
+  const empleadosIndex: EmpleadoIndexItem[] = React.useMemo(() => {
+    const resolved = resolveEffectiveEmpleadosIndex(
+      empleado ?? empleadoProp ?? empleadoInicial,
+      indiceEntrante ?? []
+    );
+    if (isSameEmpleadosIndex(resolved, empleadosIndexStableRef.current)) {
+      return empleadosIndexStableRef.current;
+    }
+    empleadosIndexStableRef.current = resolved;
+    return resolved;
+  }, [indiceEntrante, empleado, empleadoProp, empleadoInicial]);
 
   // Sincronizar empleado cuando cambia empleadoProp
   React.useEffect(() => {
@@ -260,6 +271,9 @@ export function useEmpleadoNavigation({
       }
     }
 
+    // Inactivo fuera del índice: conservar el colaborador actual (sin navegación lateral)
+    if (!empleado.activo) return;
+
     const first = empleadosIndex[0];
     const { nombre, apellido } = splitNombre(first.nombreCompleto);
     if (DEBUG)
@@ -324,6 +338,7 @@ export function useEmpleadoNavigation({
       if (prev.codigo) {
         navigate(`/rrhh/colaboradores/nomina/${prev.codigo}`, {
           state: {
+            nominaNav: true,
             selectedEmpresaId,
             searchTerm,
           },
@@ -356,6 +371,7 @@ export function useEmpleadoNavigation({
       if (next.codigo) {
         navigate(`/rrhh/colaboradores/nomina/${next.codigo}`, {
           state: {
+            nominaNav: true,
             selectedEmpresaId,
             searchTerm,
           },

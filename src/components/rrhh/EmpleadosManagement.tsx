@@ -11,7 +11,10 @@ import EmpleadoFormModal from "./gestion-empleados/EmpleadoFormModal";
 import EmpleadoDetailModal from "./gestion-empleados/EmpleadoDetailModal";
 import EmpleadosFilters from "./gestion-empleados/EmpleadosFilters";
 import type { LayoutOutletCtx } from "../Layout";
-import { persistEmpleadosIndexSession } from "../../utils/nominasEmpleadosIndexSession";
+import {
+  persistEmpleadosIndexSession,
+  resolveEmpleadosIndexForNomina,
+} from "../../utils/nominasEmpleadosIndexSession";
 import ConfirmDialog from "../common/ConfirmDialog";
 
 const EmpleadosManagement: React.FC = () => {
@@ -28,6 +31,7 @@ const EmpleadosManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>("");
+  const [showInactivos, setShowInactivos] = useState(false);
 
   // Estados para modales
   const [openFormModal, setOpenFormModal] = useState(false);
@@ -188,14 +192,18 @@ const EmpleadosManagement: React.FC = () => {
 
   // 👉 Navegación a Nóminas usando contexto (persiste al cambiar de ruta)
   const handleNominaClick = (empleado: Empleado) => {
-    // Persistir índice y empleado seleccionado en contexto
-    setEmpleadosIndex(empleadosIndexList);
-    persistEmpleadosIndexSession(empleadosIndexList);
+    const indexForNavigation = resolveEmpleadosIndexForNomina(
+      empleado,
+      empleadosActivosIndexList
+    );
+    setEmpleadosIndex(indexForNavigation);
+    persistEmpleadosIndexSession(indexForNavigation);
     setSelectedEmpleado(empleado);
     // Navegar a nóminas con el código del empleado en la URL, manteniendo filtros
     if (empleado.codigo) {
       navigate(`/rrhh/colaboradores/nomina/${empleado.codigo}`, {
         state: {
+          fromColaboradoresList: true,
           selectedEmpresaId,
           searchTerm,
         },
@@ -213,6 +221,7 @@ const EmpleadosManagement: React.FC = () => {
 
   // Filtro
   const filteredEmpleados = empleados.filter((empleado) => {
+    if (!showInactivos && !empleado.activo) return false;
     const q = searchTerm.toLowerCase();
     return (
       empleado.nombre?.toLowerCase().includes(q) ||
@@ -223,9 +232,10 @@ const EmpleadosManagement: React.FC = () => {
     );
   });
 
-  // Índice de empleados ordenado alfabéticamente para navegación
-  const empleadosIndexList = React.useMemo(() => {
-    return filteredEmpleados
+  // Índice de colaboradores activos (sin filtro de búsqueda) para navegación en nóminas
+  const empleadosActivosIndexList = React.useMemo(() => {
+    return empleados
+      .filter((e) => e.activo)
       .map((e) => ({
         id: e.id,
         codigo: e.codigo ?? null,
@@ -236,7 +246,7 @@ const EmpleadosManagement: React.FC = () => {
           .toLowerCase()
           .localeCompare(b.nombreCompleto.toLowerCase())
       );
-  }, [filteredEmpleados]);
+  }, [empleados]);
 
   return (
     <Box
@@ -259,8 +269,10 @@ const EmpleadosManagement: React.FC = () => {
           searchTerm={searchTerm}
           selectedEmpresaId={selectedEmpresaId}
           empresas={empresas}
+          showInactivos={showInactivos}
           onSearchChange={setSearchTerm}
           onEmpresaChange={setSelectedEmpresaId}
+          onShowInactivosChange={setShowInactivos}
           onCreateNew={handleOpenCreateModal}
         />
       </Box>

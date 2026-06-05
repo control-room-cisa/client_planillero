@@ -1,26 +1,32 @@
 import * as React from "react";
 import { useState, useEffect, useCallback } from "react";
 import { Box, Typography, Snackbar, Alert, Divider } from "@mui/material";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useOutletContext } from "react-router-dom";
 import EmpleadoService from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
 import type { Empleado } from "../../services/empleadoService";
 import type { Empresa } from "../../types/auth";
 import EmpleadosList from "./gestion-prorrateo/EmpleadosList";
 import EmpleadosFilters from "./gestion-prorrateo/EmpleadosFilters";
+import type { LayoutOutletCtx } from "../Layout";
+import {
+  persistProrrateoIndexSession,
+  resolveEmpleadosIndexForNomina,
+} from "../../utils/nominasEmpleadosIndexSession";
 
 const ProrrateoManagement: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation() as any;
+  const { setSelectedEmpleado, setEmpleadosIndex } =
+    useOutletContext<LayoutOutletCtx>();
 
-  // Estados principales
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>("");
+  const [showInactivos, setShowInactivos] = useState(false);
 
-  // Estado para notificaciones
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -31,7 +37,6 @@ const ProrrateoManagement: React.FC = () => {
     severity: "success",
   });
 
-  // Función para mostrar notificaciones
   const showSnackbar = useCallback(
     (message: string, severity: "success" | "error") => {
       setSnackbar({ open: true, message, severity });
@@ -39,9 +44,7 @@ const ProrrateoManagement: React.FC = () => {
     []
   );
 
-  // Funciones para cargar datos
   const fetchEmpleados = useCallback(async () => {
-    // No cargar empleados hasta seleccionar una empresa
     if (!selectedEmpresaId) {
       setEmpleados([]);
       return;
@@ -69,12 +72,10 @@ const ProrrateoManagement: React.FC = () => {
     }
   }, [showSnackbar]);
 
-  // Cargar datos iniciales
   useEffect(() => {
     fetchEmpresas();
   }, [fetchEmpresas]);
 
-  // Restaurar filtros si se regresa desde prorrateo dashboard
   useEffect(() => {
     if (location.state?.selectedEmpresaId) {
       setSelectedEmpresaId(location.state.selectedEmpresaId);
@@ -88,18 +89,21 @@ const ProrrateoManagement: React.FC = () => {
     fetchEmpleados();
   }, [fetchEmpleados]);
 
-  // Navegación al detalle de prorrateo por código en la URL
-  const handleProrrateoClick = (empleado: Empleado) => {
-    const codigo = empleado.codigo?.trim();
-    if (!codigo) {
-      showSnackbar(
-        "Este colaborador no tiene código asignado; no se puede abrir el prorrateo por enlace.",
-        "error"
-      );
-      return;
-    }
+  const filteredEmpleados = empleados.filter((empleado) => {
+    if (!showInactivos && !empleado.activo) return false;
+    const q = searchTerm.toLowerCase();
+    return (
+      empleado.nombre?.toLowerCase().includes(q) ||
+      empleado.apellido?.toLowerCase().includes(q) ||
+      empleado.codigo?.toLowerCase().includes(q) ||
+      empleado.correoElectronico?.toLowerCase().includes(q) ||
+      empleado.cargo?.toLowerCase().includes(q)
+    );
+  });
 
-    const empleadosIndex = filteredEmpleados
+  const empleadosActivosIndexList = React.useMemo(() => {
+    return empleados
+      .filter((e) => e.activo)
       .map((e) => ({
         id: e.id,
         codigo: e.codigo ?? null,
@@ -110,12 +114,31 @@ const ProrrateoManagement: React.FC = () => {
           .toLowerCase()
           .localeCompare(b.nombreCompleto.toLowerCase())
       );
+  }, [empleados]);
+
+  const handleProrrateoClick = (empleado: Empleado) => {
+    const codigo = empleado.codigo?.trim();
+    if (!codigo) {
+      showSnackbar(
+        "Este colaborador no tiene código asignado; no se puede abrir el prorrateo por enlace.",
+        "error"
+      );
+      return;
+    }
+
+    const indexForNavigation = resolveEmpleadosIndexForNomina(
+      empleado,
+      empleadosActivosIndexList
+    );
+    setEmpleadosIndex(indexForNavigation);
+    persistProrrateoIndexSession(indexForNavigation);
+    setSelectedEmpleado(empleado);
 
     navigate(`/prorrateo/${encodeURIComponent(codigo)}`, {
       state: {
+        fromProrrateoList: true,
         selectedEmpresaId,
         searchTerm,
-        empleadosIndex,
       },
     });
   };
@@ -123,18 +146,6 @@ const ProrrateoManagement: React.FC = () => {
   const handleCloseSnackbar = (): void => {
     setSnackbar((s) => ({ ...s, open: false }));
   };
-
-  // Filtro
-  const filteredEmpleados = empleados.filter((empleado) => {
-    const q = searchTerm.toLowerCase();
-    return (
-      empleado.nombre?.toLowerCase().includes(q) ||
-      empleado.apellido?.toLowerCase().includes(q) ||
-      empleado.codigo?.toLowerCase().includes(q) ||
-      empleado.correoElectronico?.toLowerCase().includes(q) ||
-      empleado.cargo?.toLowerCase().includes(q)
-    );
-  });
 
   return (
     <Box
@@ -157,18 +168,18 @@ const ProrrateoManagement: React.FC = () => {
 
       <Divider sx={{ mb: 3 }} />
 
-      {/* Filtros */}
       <Box sx={{ mb: 3, flexShrink: 0 }}>
         <EmpleadosFilters
           searchTerm={searchTerm}
           selectedEmpresaId={selectedEmpresaId}
           empresas={empresas}
+          showInactivos={showInactivos}
           onSearchChange={setSearchTerm}
           onEmpresaChange={setSelectedEmpresaId}
+          onShowInactivosChange={setShowInactivos}
         />
       </Box>
 
-      {/* Lista con scroll interno */}
       <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
         <EmpleadosList
           empleados={filteredEmpleados}
@@ -177,7 +188,6 @@ const ProrrateoManagement: React.FC = () => {
         />
       </Box>
 
-      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}

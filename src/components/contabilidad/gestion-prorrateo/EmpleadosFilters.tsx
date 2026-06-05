@@ -7,6 +7,8 @@ import {
   Select,
   MenuItem,
   TextField,
+  FormControlLabel,
+  Checkbox,
 } from "@mui/material";
 import { Search as SearchIcon } from "@mui/icons-material";
 import type { Empresa } from "../../../types/auth";
@@ -15,16 +17,20 @@ interface EmpleadosFiltersProps {
   searchTerm: string;
   selectedEmpresaId: string;
   empresas: Empresa[];
+  showInactivos: boolean;
   onSearchChange: (value: string) => void;
   onEmpresaChange: (value: string) => void;
+  onShowInactivosChange: (value: boolean) => void;
 }
 
 const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
   searchTerm,
   selectedEmpresaId,
   empresas,
+  showInactivos,
   onSearchChange,
   onEmpresaChange,
+  onShowInactivosChange,
 }) => {
   /** Solo consorcio, orden alfabético por nombre. */
   const empresasEnSelector = [...empresas]
@@ -85,6 +91,25 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
                 <SearchIcon sx={{ color: "action.active", mr: 1 }} />
               ),
             }}
+          />
+        </Box>
+        <Box
+          sx={{
+            flex: "0 0 auto",
+            display: "flex",
+            alignItems: "center",
+            "@media (max-width: 900px)": { width: "100%" },
+          }}
+        >
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={showInactivos}
+                onChange={(e) => onShowInactivosChange(e.target.checked)}
+                size="small"
+              />
+            }
+            label="Mostrar inactivos"
           />
         </Box>
       </Box>

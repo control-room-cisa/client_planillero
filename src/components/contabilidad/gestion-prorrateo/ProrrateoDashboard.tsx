@@ -50,6 +50,10 @@ import {
 } from "../../../services/nominaService";
 import NominaService, { type NominaDto } from "../../../services/nominaService";
 import EmpleadoService from "../../../services/empleadoService";
+import {
+  isSameEmpleadosIndex,
+  resolveEffectiveEmpleadosIndex,
+} from "../../../utils/nominasEmpleadosIndexSession";
 import DetalleRegistrosDiariosModal from "../../rrhh/gestion-empleados/detalleRegistrosDiariosModal";
 import { useAuth } from "../../../hooks/useAuth";
 import { Roles } from "../../../enums/roles";
@@ -106,10 +110,29 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     empleadoInicial,
   );
 
-  const empleadosIndex: EmpleadoIndexItem[] = React.useMemo(
-    () => indiceEntrante ?? [],
-    [indiceEntrante],
-  );
+  const empleadosIndexStableRef = React.useRef<EmpleadoIndexItem[]>([]);
+  const empleadosIndex: EmpleadoIndexItem[] = React.useMemo(() => {
+    const resolved = resolveEffectiveEmpleadosIndex(
+      empleado ?? empleadoProp ?? empleadoInicial,
+      indiceEntrante ?? []
+    );
+    if (isSameEmpleadosIndex(resolved, empleadosIndexStableRef.current)) {
+      return empleadosIndexStableRef.current;
+    }
+    empleadosIndexStableRef.current = resolved;
+    return resolved;
+  }, [indiceEntrante, empleado, empleadoProp, empleadoInicial]);
+
+  React.useEffect(() => {
+    if (!empleadoProp) return;
+    if (
+      empleado?.id !== empleadoProp.id ||
+      (empleado as any)?.codigo !== (empleadoProp as any)?.codigo
+    ) {
+      setEmpleado(empleadoProp);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empleadoProp?.id, (empleadoProp as any)?.codigo]);
 
   // intervalos locales eliminados: ahora todo se carga desde backend
 
@@ -326,6 +349,8 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       }
     }
 
+    if (!empleado.activo) return;
+
     const first = empleadosIndex[0];
     const { nombre, apellido } = splitNombre(first.nombreCompleto);
     setEmpleado(
@@ -412,9 +437,19 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
 
   const goPrev = () => {
     if (empleadosIndex?.length && hayPrev) {
-      resetContenidoColaborador();
       const prev = empleadosIndex[idx - 1];
-      cargarEmpleadoCompleto(prev.id);
+      if (prev.codigo) {
+        navigate(`/prorrateo/${encodeURIComponent(prev.codigo)}`, {
+          state: {
+            prorrateoNav: true,
+            selectedEmpresaId,
+            searchTerm,
+          },
+        });
+      } else {
+        resetContenidoColaborador();
+        cargarEmpleadoCompleto(prev.id);
+      }
     } else if (onPrevious) {
       onPrevious();
     }
@@ -422,9 +457,19 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
 
   const goNext = () => {
     if (empleadosIndex?.length && hayNext) {
-      resetContenidoColaborador();
       const next = empleadosIndex[idx + 1];
-      cargarEmpleadoCompleto(next.id);
+      if (next.codigo) {
+        navigate(`/prorrateo/${encodeURIComponent(next.codigo)}`, {
+          state: {
+            prorrateoNav: true,
+            selectedEmpresaId,
+            searchTerm,
+          },
+        });
+      } else {
+        resetContenidoColaborador();
+        cargarEmpleadoCompleto(next.id);
+      }
     } else if (onNext) {
       onNext();
     }
