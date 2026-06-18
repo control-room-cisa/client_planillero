@@ -16,6 +16,7 @@ import { Close } from "@mui/icons-material";
 import type { Activity, ActivityData } from "../../types";
 import type { JobConJerarquia } from "../hooks/useDailyTimesheet";
 import type { Vehiculo } from "../../../../services/vehiculoService";
+import { filtrarJobsParaActividad } from "../utils";
 
 const SIN_CLASS_OPTION: Vehiculo = {
   id: -1,
@@ -87,6 +88,11 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
   const vehiculosConSinClass = React.useMemo(
     () => [SIN_CLASS_OPTION, ...vehiculos],
     [vehiculos]
+  );
+
+  const jobsDisponibles = React.useMemo(
+    () => filtrarJobsParaActividad(jobs, formData.horaExtra),
+    [jobs, formData.horaExtra],
   );
 
   return (
@@ -277,7 +283,7 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
             return (
               <Box sx={{ mb: 3 }}>
                 <Autocomplete
-                  options={jobs}
+                  options={jobsDisponibles}
                   getOptionLabel={(o) => (o ? `${o.codigo} - ${o.nombre}` : "")}
                   value={selectedJob}
                   onChange={handleJobChange}

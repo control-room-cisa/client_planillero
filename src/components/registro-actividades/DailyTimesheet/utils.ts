@@ -409,4 +409,17 @@ export const formatDate = (date: Date) => {
   } de ${date.getFullYear()}`;
 };
 
+export const CODIGO_JOB_DESCONOCIDO = "E01";
+
+export function isJobDesconocido(job: { codigo?: string | null }): boolean {
+  return (job.codigo ?? "").trim().toUpperCase() === CODIGO_JOB_DESCONOCIDO;
+}
+
+/** Hora extra: jobs normales + job especial desconocido (E01). Hora normal: todos. */
+export function filtrarJobsParaActividad<
+  T extends { especial?: boolean; codigo?: string | null },
+>(jobs: T[], horaExtra: boolean): T[] {
+  if (!horaExtra) return jobs;
+  return jobs.filter((j) => !j.especial || isJobDesconocido(j));
+}
 

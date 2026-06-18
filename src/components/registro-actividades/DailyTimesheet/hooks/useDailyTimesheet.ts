@@ -36,6 +36,8 @@ import {
   splitActivityIntervals,
   isActivityOutsideRange,
   formatDate,
+  filtrarJobsParaActividad,
+  isJobDesconocido,
 } from "../utils";
 
 // Tipos específicos
@@ -322,16 +324,16 @@ export const useDailyTimesheet = () => {
         const jobsData = await JobService.getAll();
         const jobsActivos = jobsData.filter((j) => j.activo === true);
 
-        // REGLA: Si horaExtra=true, mostrar SOLO jobs NO especiales
-        // Si horaExtra=false, mostrar TODOS los jobs (incluyendo especiales)
-        // Usar el override si se proporciona, de lo contrario usar formData.horaExtra
+        // REGLA: horaExtra=true → jobs normales + E01 (desconocido).
+        // horaExtra=false → todos los jobs (incluyendo especiales).
         const horaExtraValue =
           horaExtraOverride !== undefined
             ? horaExtraOverride
             : formData.horaExtra;
-        const jobsFiltrados = horaExtraValue
-          ? jobsActivos.filter((j) => !j.especial)
-          : jobsActivos;
+        const jobsFiltrados = filtrarJobsParaActividad(
+          jobsActivos,
+          horaExtraValue,
+        );
 
         const jobMap = new Map(jobsFiltrados.map((j) => [j.codigo, j]));
 
@@ -1335,7 +1337,7 @@ export const useDailyTimesheet = () => {
               );
               next.horasInvertidas = v;
             }
-            if (selectedJob?.especial) {
+            if (selectedJob?.especial && !isJobDesconocido(selectedJob)) {
               setSelectedJob(null);
               next.job = "";
             }
