@@ -37,10 +37,10 @@ interface DeduccionesAjustesFormProps {
   loadingAlimentacion: boolean;
   onOpenDetalleAlimentacion: () => void;
 
-  // Totales
-  totalPercepciones: number;
+  // Totales (alineados con prorrateo)
+  totalBruto: number;
   totalDeducciones: number;
-  totalNetoPagar: number;
+  totalAPagar: number;
 
   // Botón de generación de nómina
   fechaInicio: string;
@@ -71,9 +71,9 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
   errorAlimentacion,
   loadingAlimentacion,
   onOpenDetalleAlimentacion,
-  totalPercepciones,
+  totalBruto,
   totalDeducciones,
-  totalNetoPagar,
+  totalAPagar,
   fechaInicio,
   fechaFin,
   nominaExiste,
@@ -93,10 +93,6 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
     inputMontoIncapacidadIHSS,
     setInputMontoIncapacidadIHSS,
     setMontoIncapacidadIHSS,
-
-    inputMontoExcedenteIHSS,
-    setInputMontoExcedenteIHSS,
-    setMontoExcedenteIHSS,
 
     inputAjuste,
     setInputAjuste,
@@ -152,7 +148,6 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
             gap: 2,
           }}
         >
-          {/* COLUMNA IZQUIERDA: 3 PERCEPCIONES + IHSS + RAP */}
           <TextField
             label="(+) Monto Incapacidad (Empresa)"
             type="text"
@@ -166,23 +161,8 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
               setMontoIncapacidadCubreEmpresa(parseDecimalValue(sanitized));
             }}
           />
-          {/* COLUMNA DERECHA: DEDUCCIONES RESTANTES */}
           <TextField
-            label="(-) Deducción ISR"
-            type="text"
-            inputMode="decimal"
-            size="small"
-            placeholder="0"
-            value={inputDeduccionISR}
-            onChange={(e) => {
-              const sanitized = sanitizeDecimalInput(e.target.value);
-              setInputDeduccionISR(sanitized);
-              setDeduccionISR(parseDecimalValue(sanitized));
-            }}
-            // En primera quincena ISR es editable (alimentación se mantiene).
-          />
-          <TextField
-            label="(+) Monto Incapacidad (IHSS) - No suma a total"
+            label="Monto Incapacidad (IHSS)"
             type="text"
             inputMode="decimal"
             size="small"
@@ -192,20 +172,6 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
               const sanitized = sanitizeDecimalInput(e.target.value);
               setInputMontoIncapacidadIHSS(sanitized);
               setMontoIncapacidadIHSS(parseDecimalValue(sanitized));
-            }}
-            helperText="Este monto es informativo y NO se incluye en el total de percepciones"
-          />
-          <TextField
-            label="(+) Monto Excedente IHSS"
-            type="text"
-            inputMode="decimal"
-            size="small"
-            placeholder="0"
-            value={inputMontoExcedenteIHSS}
-            onChange={(e) => {
-              const sanitized = sanitizeDecimalInput(e.target.value);
-              setInputMontoExcedenteIHSS(sanitized);
-              setMontoExcedenteIHSS(parseDecimalValue(sanitized));
             }}
           />
           <TextField
@@ -247,69 +213,17 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
             error={errorAlimentacion?.tieneError === true}
           />
           <TextField
-            label="(+) Ajuste"
+            label="(-) Deducción Alojamiento"
             type="text"
             inputMode="decimal"
             size="small"
             placeholder="0"
-            value={inputAjuste}
+            value={inputDeduccionAlojamiento}
             onChange={(e) => {
               const sanitized = sanitizeDecimalInput(e.target.value);
-              setInputAjuste(sanitized);
-              setAjuste(parseDecimalValue(sanitized));
+              setInputDeduccionAlojamiento(sanitized);
+              setDeduccionAlojamiento(parseDecimalValue(sanitized));
             }}
-          />
-          <TextField
-            label="(-) Cobro Préstamo"
-            type="text"
-            inputMode="decimal"
-            size="small"
-            placeholder="0"
-            value={inputCobroPrestamo}
-            onChange={(e) => {
-              const sanitized = sanitizeDecimalInput(e.target.value);
-              setInputCobroPrestamo(sanitized);
-              setCobroPrestamo(parseDecimalValue(sanitized));
-            }}
-            // En primera quincena Préstamo es editable (alimentación se mantiene).
-          />
-          <TextField
-            label="(-) Deducción IHSS"
-            type="text"
-            inputMode="decimal"
-            size="small"
-            placeholder="0"
-            value={inputDeduccionIHSS}
-            onChange={(e) => {
-              const sanitized = sanitizeDecimalInput(e.target.value);
-              setInputDeduccionIHSS(sanitized);
-              setDeduccionIHSS(parseDecimalValue(sanitized));
-            }}
-            disabled={codigoNominaTerminaEnA}
-            helperText={
-              codigoNominaTerminaEnA
-                ? "Primera quincena: sin deducciones"
-                : undefined
-            }
-          />
-          <TextField
-            label="(-) Impuesto Vecinal"
-            type="text"
-            inputMode="decimal"
-            size="small"
-            placeholder="0"
-            value={inputImpuestoVecinal}
-            onChange={(e) => {
-              const sanitized = sanitizeDecimalInput(e.target.value);
-              setInputImpuestoVecinal(sanitized);
-              setImpuestoVecinal(parseDecimalValue(sanitized));
-            }}
-            disabled={codigoNominaTerminaEnA}
-            helperText={
-              codigoNominaTerminaEnA
-                ? "Primera quincena: sin deducciones"
-                : undefined
-            }
           />
           <TextField
             label={`(-) Deducción RAP (1.5% excedente sobre ${formatCurrency(
@@ -333,6 +247,32 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
             }
           />
           <TextField
+            label="(-) Deducción ISR"
+            type="text"
+            inputMode="decimal"
+            size="small"
+            placeholder="0"
+            value={inputDeduccionISR}
+            onChange={(e) => {
+              const sanitized = sanitizeDecimalInput(e.target.value);
+              setInputDeduccionISR(sanitized);
+              setDeduccionISR(parseDecimalValue(sanitized));
+            }}
+          />
+          <TextField
+            label="(+) Ajuste"
+            type="text"
+            inputMode="decimal"
+            size="small"
+            placeholder="0"
+            value={inputAjuste}
+            onChange={(e) => {
+              const sanitized = sanitizeDecimalInput(e.target.value);
+              setInputAjuste(sanitized);
+              setAjuste(parseDecimalValue(sanitized));
+            }}
+          />
+          <TextField
             label="(-) Otros"
             type="text"
             inputMode="decimal"
@@ -346,17 +286,55 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
             }}
           />
           <TextField
-            label="(-) Deducción Alojamiento"
+            label="(-) Deducción IHSS"
             type="text"
             inputMode="decimal"
             size="small"
             placeholder="0"
-            value={inputDeduccionAlojamiento}
+            value={inputDeduccionIHSS}
             onChange={(e) => {
               const sanitized = sanitizeDecimalInput(e.target.value);
-              setInputDeduccionAlojamiento(sanitized);
-              setDeduccionAlojamiento(parseDecimalValue(sanitized));
+              setInputDeduccionIHSS(sanitized);
+              setDeduccionIHSS(parseDecimalValue(sanitized));
             }}
+            disabled={codigoNominaTerminaEnA}
+            helperText={
+              codigoNominaTerminaEnA
+                ? "Primera quincena: sin deducciones"
+                : undefined
+            }
+          />
+          <TextField
+            label="(-) Cobro Préstamo"
+            type="text"
+            inputMode="decimal"
+            size="small"
+            placeholder="0"
+            value={inputCobroPrestamo}
+            onChange={(e) => {
+              const sanitized = sanitizeDecimalInput(e.target.value);
+              setInputCobroPrestamo(sanitized);
+              setCobroPrestamo(parseDecimalValue(sanitized));
+            }}
+          />
+          <TextField
+            label="(-) Impuesto Vecinal"
+            type="text"
+            inputMode="decimal"
+            size="small"
+            placeholder="0"
+            value={inputImpuestoVecinal}
+            onChange={(e) => {
+              const sanitized = sanitizeDecimalInput(e.target.value);
+              setInputImpuestoVecinal(sanitized);
+              setImpuestoVecinal(parseDecimalValue(sanitized));
+            }}
+            disabled={codigoNominaTerminaEnA}
+            helperText={
+              codigoNominaTerminaEnA
+                ? "Primera quincena: sin deducciones"
+                : undefined
+            }
           />
           <TextField
             label="Código de nómina"
@@ -377,10 +355,10 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
         >
           <Box sx={{ display: "flex", justifyContent: "space-between" }}>
             <Typography variant="body1">
-              <strong>Total Percepciones:</strong>
+              <strong>Total Bruto:</strong>
             </Typography>
             <Typography variant="body1">
-              {formatCurrency(totalPercepciones)}
+              {formatCurrency(totalBruto)}
             </Typography>
           </Box>
           <Box sx={{ display: "flex", justifyContent: "space-between" }}>
@@ -393,10 +371,10 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
           </Box>
           <Box sx={{ display: "flex", justifyContent: "space-between" }}>
             <Typography variant="body1">
-              <strong>Total Neto a Pagar:</strong>
+              <strong>Total a Pagar:</strong>
             </Typography>
             <Typography variant="body1">
-              {formatCurrency(totalNetoPagar)}
+              {formatCurrency(totalAPagar)}
             </Typography>
           </Box>
         </Box>

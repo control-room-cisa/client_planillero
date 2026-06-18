@@ -25,6 +25,7 @@ import {
   DialogContent,
   List,
   ListItem,
+  ListItemIcon,
   ListItemText,
 } from "@mui/material";
 import {
@@ -58,6 +59,8 @@ import DetalleRegistrosDiariosModal from "../../rrhh/gestion-empleados/detalleRe
 import { useAuth } from "../../../hooks/useAuth";
 import { Roles } from "../../../enums/roles";
 import { montoPorDiasQuincena } from "../../rrhh/gestion-empleados/calculo-nominas/utils/formatters";
+import DesgloseIncidenciasComponent from "../../rrhh/gestion-empleados/DesgloseIncidencias";
+import type { DesgloseIncidencias } from "../../../services/calculoHorasTrabajoService";
 
 interface ProrrateoDashboardProps {
   empleado?: Empleado;
@@ -571,6 +574,51 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       Number(nominaSeleccionada?.montoHoras100 ?? 0),
   );
 
+  const diasLaboradosProrrateo = nominaSeleccionada?.diasLaborados ?? 0;
+  const horasNormalesProrrateo = diasLaboradosProrrateo * 8;
+
+  const desgloseIncidenciasProrrateo =
+    React.useMemo((): DesgloseIncidencias | null => {
+      if (!prorrateo) return null;
+      const ch = prorrateo.cantidadHoras;
+      const horasNormales = obtenerTotalHoras(ch.normal ?? []);
+      const horasP25 = obtenerTotalHoras(ch.p25 ?? []);
+      const horasP50 = obtenerTotalHoras(ch.p50 ?? []);
+      const horasP75 = obtenerTotalHoras(ch.p75 ?? []);
+      const horasP100 = obtenerTotalHoras(ch.p100 ?? []);
+      const hCompTom = ch.horasCompensatoriasTomadas ?? 0;
+      const hCompAcum = horasCompensatoriasAcumuladasTotal;
+      const total =
+        horasNormales +
+        horasP25 +
+        horasP50 +
+        horasP75 +
+        horasP100 +
+        hCompTom +
+        hCompAcum;
+      const pct = (h: number) =>
+        total > 0 ? `${((h / total) * 100).toFixed(1)}%` : "0%";
+
+      return {
+        normal: { horas: horasNormales, porcentaje: pct(horasNormales) },
+        overtime25: { horas: horasP25, porcentaje: pct(horasP25) },
+        overtime50: { horas: horasP50, porcentaje: pct(horasP50) },
+        overtime75: { horas: horasP75, porcentaje: pct(horasP75) },
+        overtime100: { horas: horasP100, porcentaje: pct(horasP100) },
+        compensatoriasTomadas: {
+          horas: hCompTom,
+          porcentaje: pct(hCompTom),
+        },
+        compensatoriasAcumuladas: {
+          horas: hCompAcum,
+          porcentaje: pct(hCompAcum),
+        },
+        totalHoras: total,
+        horasNormales: ch.totalHorasLaborables ?? 0,
+        diferencia: total - (ch.totalHorasLaborables ?? 0),
+      };
+    }, [prorrateo, obtenerTotalHoras, horasCompensatoriasAcumuladasTotal]);
+
   // IHSS incapacidad (monto) - fallback local (si en tu ambiente PISO_IHSS cambia por global-config,
   // idealmente usar el mismo config que usa CalculoNominasDashboard).
   const PISO_IHSS_FALLBACK = 11903.13;
@@ -649,6 +697,51 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     setExpandedClassJobs((prev) => ({ ...prev, [rowKey]: !prev[rowKey] }));
   };
 
+  const filtrarComentariosPorClass = (
+    comentarios: ComentarioProrrateoJobDto[] | undefined,
+    classNum: number | null,
+  ) => (comentarios ?? []).filter((c) => c.class === classNum);
+
+  const celdaComentariosSx = {
+    width: 132,
+    whiteSpace: "nowrap",
+    py: 0.5,
+    px: 0.5,
+  } as const;
+
+  const btnComentariosSx = {
+    whiteSpace: "nowrap",
+    minWidth: "auto",
+    minHeight: 24,
+    py: 0.25,
+    px: 1,
+    fontSize: "0.75rem",
+    lineHeight: 1.2,
+  } as const;
+
+  const renderCeldaComentarios = (
+    jobTitle: string,
+    comentarios: ComentarioProrrateoJobDto[],
+  ) => {
+    if (!comentarios.length) {
+      return (
+        <Typography variant="caption" color="text.secondary">
+          —
+        </Typography>
+      );
+    }
+    return (
+      <Button
+        size="small"
+        variant="outlined"
+        onClick={() => handleOpenComentarios(jobTitle, comentarios)}
+        sx={btnComentariosSx}
+      >
+        Ver comentarios ({comentarios.length})
+      </Button>
+    );
+  };
+
   const renderTabla = (
     titulo: string,
     items: HorasPorJobDto[],
@@ -703,7 +796,9 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                 <TableCell>Nombre del Job</TableCell>
                 <TableCell align="right">Horas</TableCell>
                 {showMonto && <TableCell align="right">Monto</TableCell>}
-                <TableCell align="center">Comentarios</TableCell>
+                <TableCell align="center" sx={celdaComentariosSx}>
+                  Comentarios
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -715,6 +810,9 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                   (c) => c.class != null,
                 );
                 const expanded = !!expandedClassJobs[rowKey];
+                const comentariosJob = j.comentarios ?? [];
+                const mostrarComentariosJob =
+                  classRows.length === 0 || !expanded;
 
                 return (
                   <React.Fragment key={rowKey}>
@@ -748,23 +846,10 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                           {formatterMonto.format(monto)}
                         </TableCell>
                       )}
-                      <TableCell align="center">
-                        {Array.isArray(j.comentarios) &&
-                        j.comentarios.length > 0 ? (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() =>
-                              handleOpenComentarios(j.nombreJob, j.comentarios!)
-                            }
-                          >
-                            Ver comentarios ({j.comentarios.length})
-                          </Button>
-                        ) : (
-                          <Typography variant="caption" color="text.secondary">
-                            —
-                          </Typography>
-                        )}
+                      <TableCell align="center" sx={celdaComentariosSx}>
+                        {mostrarComentariosJob
+                          ? renderCeldaComentarios(j.nombreJob, comentariosJob)
+                          : null}
                       </TableCell>
                     </TableRow>
                     {expanded &&
@@ -773,15 +858,20 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                         const montoClass = showMonto
                           ? calcMontoFila(j, horasClass)
                           : 0;
+                        const comentariosClass = filtrarComentariosPorClass(
+                          j.comentarios,
+                          c.class,
+                        );
+                        const classLabel = c.nombreClass
+                          ? `Class ${c.class} · ${c.nombreClass}`
+                          : `Class ${c.class}`;
                         return (
                           <TableRow
                             key={`${rowKey}-class-${c.class}`}
                             sx={{ bgcolor: "action.hover" }}
                           >
                             {hasAnyClassBreakdown && <TableCell />}
-                            <TableCell sx={{ pl: 4 }}>
-                              Class {c.class}
-                            </TableCell>
+                            <TableCell sx={{ pl: 4 }}>{classLabel}</TableCell>
                             <TableCell />
                             <TableCell align="right">
                               {formatHoras(horasClass)}
@@ -791,7 +881,12 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 {formatterMonto.format(montoClass)}
                               </TableCell>
                             )}
-                            <TableCell />
+                            <TableCell align="center" sx={celdaComentariosSx}>
+                              {renderCeldaComentarios(
+                                `${j.nombreJob} — ${classLabel}`,
+                                comentariosClass,
+                              )}
+                            </TableCell>
                           </TableRow>
                         );
                       })}
@@ -1653,6 +1748,28 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                     </Box>
                   </Box>
 
+                  {/* Horas extras (cards) */}
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="h5" gutterBottom>
+                      Horas Extras
+                    </Typography>
+                    <DesgloseIncidenciasComponent
+                      desglose={desgloseIncidenciasProrrateo}
+                      loading={loading}
+                      extrasMontos={{
+                        normal: nominaSeleccionada?.montoDiasLaborados ?? 0,
+                        p25: nominaSeleccionada?.montoHoras25 ?? 0,
+                        p50: nominaSeleccionada?.montoHoras50 ?? 0,
+                        p75: nominaSeleccionada?.montoHoras75 ?? 0,
+                        p100: nominaSeleccionada?.montoHoras100 ?? 0,
+                        compensatoriasTomadas: montoCompensatoriasTomadas,
+                        compensatoriasAcumuladas: montoCompensatoriasAcumuladasRef,
+                      }}
+                      currencyFormatter={(n) => `${formatMonto(n)} L`}
+                      horasNormales={horasNormalesProrrateo}
+                    />
+                  </Box>
+
                   {/* Tabs de conteo por horas */}
                   <Paper sx={{ p: 2 }}>
                     <Typography
@@ -1781,7 +1898,17 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                       : `Class ${c.class}`
                     : null;
                 return (
-                  <ListItem key={idx} alignItems="flex-start">
+                  <ListItem key={idx} alignItems="flex-start" sx={{ py: 0.75 }}>
+                    <ListItemIcon sx={{ minWidth: 24, mt: 0.35 }}>
+                      <Typography
+                        component="span"
+                        variant="body2"
+                        color="text.secondary"
+                        aria-hidden
+                      >
+                        •
+                      </Typography>
+                    </ListItemIcon>
                     <ListItemText
                       primary={c.texto}
                       secondary={classLabel ?? undefined}

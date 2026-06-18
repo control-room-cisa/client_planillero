@@ -132,7 +132,7 @@ export function useDeduccionesNomina({
   const [montoIncapacidadCubreEmpresa, setMontoIncapacidadCubreEmpresa] =
     React.useState<number>(montoCubreEmpresaCalculado || 0);
 
-  // Estado editable para incapacidad IHSS (solo informativo, no se suma a totales)
+  // Estado editable para incapacidad IHSS (solo informativo, no suma al total a pagar)
   const [montoIncapacidadIHSS, setMontoIncapacidadIHSS] =
     React.useState<number>(montoIncapacidadIHSSCalculado || 0);
 

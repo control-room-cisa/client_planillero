@@ -36,8 +36,10 @@ interface DesgloseIncidenciasProps {
     p50: number;
     p75: number;
     p100: number;
-    /** Valor a tarifa hora normal (×1); suma a total de percepciones */
+    /** Monto ref. a tarifa hora normal (informativo, no suma al total bruto) */
     compensatoriasTomadas?: number;
+    /** Monto ref. acumuladas (informativo, no forman parte del pago) */
+    compensatoriasAcumuladas?: number;
   };
   currencyFormatter?: (n: number) => string;
   horasNormales?: number;
@@ -68,14 +70,7 @@ const DesgloseIncidenciasComponent: React.FC<DesgloseIncidenciasProps> = ({
     );
   }
 
-  const baseIncidencias: IncidenciaItem[] = [
-    {
-      label: "Normal",
-      data: desglose.normal,
-      color: "#4caf50",
-      description: "Horas normales de trabajo",
-      montoKey: "normal",
-    },
+  const horasExtrasIncidencias: IncidenciaItem[] = [
     {
       label: "25%",
       data: desglose.overtime25,
@@ -106,7 +101,18 @@ const DesgloseIncidenciasComponent: React.FC<DesgloseIncidenciasProps> = ({
     },
   ];
 
-  const incidencias: IncidenciaItem[] = [...baseIncidencias];
+  const normalIncidencia: IncidenciaItem = {
+    label: "Normal",
+    data: desglose.normal,
+    color: "#4caf50",
+    description: "Horas normales de trabajo",
+    montoKey: "normal",
+  };
+
+  const incidencias: IncidenciaItem[] = [
+    ...horasExtrasIncidencias,
+    normalIncidencia,
+  ];
 
   if (desglose.compensatoriasTomadas.horas > 0) {
     incidencias.push({
@@ -161,18 +167,20 @@ const DesgloseIncidenciasComponent: React.FC<DesgloseIncidenciasProps> = ({
                 ? horasNormales
                 : item.data.horas}
             </Typography>
-            {item.montoKey === "compAcum" ? (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                horas ({item.data.porcentaje})
-              </Typography>
-            ) : extrasMontos && currencyFormatter ? (
+            {extrasMontos && currencyFormatter ? (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                 {"Monto: "}
                 {item.montoKey === "compTom"
                   ? currencyFormatter(extrasMontos.compensatoriasTomadas ?? 0)
-                  : currencyFormatter(
-                      extrasMontos[item.montoKey as keyof typeof extrasMontos] as number,
-                    )}
+                  : item.montoKey === "compAcum"
+                    ? currencyFormatter(
+                        extrasMontos.compensatoriasAcumuladas ?? 0,
+                      )
+                    : currencyFormatter(
+                        extrasMontos[
+                          item.montoKey as keyof typeof extrasMontos
+                        ] as number,
+                      )}
               </Typography>
             ) : (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>

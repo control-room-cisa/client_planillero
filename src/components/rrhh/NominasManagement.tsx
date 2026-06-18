@@ -40,9 +40,52 @@ import EmpleadoService from "../../services/empleadoService";
 import CalculoHorasTrabajoService from "../../services/calculoHorasTrabajoService";
 import type { Empresa } from "../../types/auth";
 import type { Empleado } from "../../services/empleadoService";
-import { Select, MenuItem, InputLabel, FormControl } from "@mui/material";
+import {
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
+  ListSubheader,
+} from "@mui/material";
 import ConfirmDialog from "../common/ConfirmDialog";
 import NominaFormModal from "./NominaFormModal";
+import {
+  calcularTotalAPagarNomina,
+  calcularTotalBrutoNomina,
+  calcularTotalDeduccionesNomina,
+  calcularTotalHorasExtraNomina,
+} from "./gestion-empleados/calculo-nominas/utils/nominaTotales";
+
+const renderPeriodosSelectItems = (
+  grupos: Array<{
+    mesLabel: string;
+    periodos: Array<{ value: string; label: string }>;
+  }>
+) =>
+  grupos.flatMap((grupo) => [
+    <ListSubheader
+      key={`sub-${grupo.mesLabel}`}
+      disableSticky
+      sx={{
+        fontWeight: 600,
+        fontSize: "0.8125rem",
+        lineHeight: 2,
+        py: 0.25,
+        color: "text.secondary",
+        bgcolor: "transparent",
+        backgroundImage: "none",
+        pointerEvents: "none",
+        userSelect: "none",
+      }}
+    >
+      {grupo.mesLabel}
+    </ListSubheader>,
+    ...grupo.periodos.map((periodo) => (
+      <MenuItem key={periodo.value} value={periodo.value} sx={{ pl: 3 }}>
+        {periodo.label}
+      </MenuItem>
+    )),
+  ]);
 
 const NominasManagement: React.FC = () => {
   const [nominas, setNominas] = useState<NominaDto[]>([]);
@@ -54,8 +97,10 @@ const NominasManagement: React.FC = () => {
     null
   );
   const [searchTerm, setSearchTerm] = useState("");
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth() + 1;
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const currentDay = now.getDate();
   const [selectedYear, setSelectedYear] = useState<number | null>(currentYear);
   const [selectedPeriodo, setSelectedPeriodo] = useState<string | null>(null);
 
@@ -159,25 +204,39 @@ const NominasManagement: React.FC = () => {
       "Noviembre",
       "Diciembre",
     ];
-    const periodos: Array<{ value: string; label: string }> = [];
-    const mesHasta = selectedYear === currentYear ? currentMonth : 12;
+    const grupos: Array<{
+      mesLabel: string;
+      periodos: Array<{ value: string; label: string }>;
+    }> = [];
+    const esAnoActual = selectedYear === currentYear;
+    const mesHasta = esAnoActual ? currentMonth : 12;
 
-    // Generar períodos en orden descendente (meses 12 a 1)
+    // Generar períodos agrupados por mes (orden descendente)
     for (let mes = 12; mes >= 1; mes--) {
       if (mes > mesHasta) continue;
       const mesStr = String(mes).padStart(2, "0");
-      // Primero segunda quincena (B), luego primera quincena (A) para cada mes
-      periodos.push({
-        value: `${mesStr}B`,
-        label: `${meses[mes - 1]} - Segunda Quincena`,
-      });
-      periodos.push({
+      const esMesActual = esAnoActual && mes === currentMonth;
+      const periodosMes: Array<{ value: string; label: string }> = [];
+
+      // Segunda quincena: ocultar si aún no ha iniciado (día 1-15 del mes actual)
+      if (!esMesActual || currentDay > 15) {
+        periodosMes.push({
+          value: `${mesStr}B`,
+          label: "Segunda Quincena",
+        });
+      }
+      periodosMes.push({
         value: `${mesStr}A`,
-        label: `${meses[mes - 1]} - Primera Quincena`,
+        label: "Primera Quincena",
+      });
+
+      grupos.push({
+        mesLabel: meses[mes - 1],
+        periodos: periodosMes,
       });
     }
-    return periodos;
-  }, [selectedYear, currentYear, currentMonth]);
+    return grupos;
+  }, [selectedYear, currentYear, currentMonth, currentDay]);
 
   // Generar años disponibles (últimos 20 años, máximo hasta el año actual)
   const añosDisponibles = useMemo(() => {
@@ -192,7 +251,9 @@ const NominasManagement: React.FC = () => {
   useEffect(() => {
     if (
       selectedPeriodo &&
-      !periodosDisponibles.some((p) => p.value === selectedPeriodo)
+      !periodosDisponibles.some((g) =>
+        g.periodos.some((p) => p.value === selectedPeriodo)
+      )
     ) {
       setSelectedPeriodo(null);
     }
@@ -247,21 +308,29 @@ const NominasManagement: React.FC = () => {
     [empleados]
   );
 
-  // Filtrar nóminas por búsqueda en frontend
+  // Filtrar y ordenar nóminas alfabéticamente por colaborador (A → Z)
   const filteredNominas = useMemo(() => {
-    if (!searchTerm.trim()) {
-      return allNominas;
-    }
+    const base = !searchTerm.trim()
+      ? allNominas
+      : allNominas.filter((nomina) => {
+          const empleadoNombre = getEmpleadoNombre(
+            nomina.empleadoId,
+          ).toLowerCase();
+          const periodoNombre = (nomina.nombrePeriodoNomina || "").toLowerCase();
+          const searchLower = searchTerm.toLowerCase();
+          return (
+            empleadoNombre.includes(searchLower) ||
+            periodoNombre.includes(searchLower)
+          );
+        });
 
-    const searchLower = searchTerm.toLowerCase();
-    return allNominas.filter((nomina) => {
-      const empleadoNombre = getEmpleadoNombre(nomina.empleadoId).toLowerCase();
-      const periodoNombre = (nomina.nombrePeriodoNomina || "").toLowerCase();
-      return (
-        empleadoNombre.includes(searchLower) ||
-        periodoNombre.includes(searchLower)
-      );
-    });
+    return [...base].sort((a, b) =>
+      getEmpleadoNombre(a.empleadoId).localeCompare(
+        getEmpleadoNombre(b.empleadoId),
+        "es",
+        { sensitivity: "base" },
+      ),
+    );
   }, [allNominas, searchTerm, getEmpleadoNombre]);
 
   // Actualizar nominas cuando cambia el filtro
@@ -295,37 +364,30 @@ const NominasManagement: React.FC = () => {
     }).format(amount);
   };
 
-  const calcularTotalHorasExtra = useCallback((nomina: NominaDto) => {
-    return (
-      (nomina.montoHoras25 ?? 0) +
-      (nomina.montoHoras50 ?? 0) +
-      (nomina.montoHoras75 ?? 0) +
-      (nomina.montoHoras100 ?? 0)
-    );
-  }, []);
-
   const aggregatedTotals = useMemo(() => {
     return nominas.reduce(
       (acc, nomina) => {
         const sueldoQuincenal = (nomina.sueldoMensual ?? 0) / 2;
         acc.sueldoQuincenal += sueldoQuincenal;
         acc.subtotal += nomina.subtotalQuincena ?? 0;
-        acc.horasExtra += calcularTotalHorasExtra(nomina);
+        acc.totalBruto += calcularTotalBrutoNomina(nomina);
+        acc.horasExtra += calcularTotalHorasExtraNomina(nomina);
         acc.ajustes += nomina.ajuste ?? 0;
-        acc.totalDeducciones += nomina.totalDeducciones ?? 0;
-        acc.totalNeto += nomina.totalNetoPagar ?? 0;
+        acc.totalDeducciones += calcularTotalDeduccionesNomina(nomina);
+        acc.totalAPagar += calcularTotalAPagarNomina(nomina);
         return acc;
       },
       {
         sueldoQuincenal: 0,
         subtotal: 0,
+        totalBruto: 0,
         horasExtra: 0,
         ajustes: 0,
         totalDeducciones: 0,
-        totalNeto: 0,
+        totalAPagar: 0,
       }
     );
-  }, [nominas, calcularTotalHorasExtra]);
+  }, [nominas]);
 
   // Abrir modal de crear/editar nómina
   const handleOpenCreateEditModal = (nomina?: NominaDto) => {
@@ -663,8 +725,8 @@ const NominasManagement: React.FC = () => {
         ],
         ["Monto permisos justificados", esc(fc(n.montoPermisosJustificados))],
         [
-          "Total percepciones",
-          `<span class="badge badge-perc">${esc(fc(n.totalPercepciones))}</span>`,
+          "Total bruto",
+          `<span class="badge badge-perc">${esc(fc(calcularTotalBrutoNomina(n)))}</span>`,
         ],
       ])
     )}
@@ -705,7 +767,7 @@ const NominasManagement: React.FC = () => {
     }</p></section>
   </div>
 
-  <div class="total-footer"><span class="badge badge-neto">Total neto a pagar: ${esc(fc(n.totalNetoPagar))}</span></div>
+  <div class="total-footer"><span class="badge badge-neto">Total a pagar: ${esc(fc(calcularTotalAPagarNomina(n)))}</span></div>
   <p class="muted">Documento generado el ${esc(
     new Date().toLocaleString("es-HN", {
       dateStyle: "short",
@@ -876,17 +938,34 @@ const NominasManagement: React.FC = () => {
             <InputLabel>Período</InputLabel>
             <Select
               value={selectedPeriodo || ""}
-              onChange={(e) => setSelectedPeriodo(e.target.value || null)}
+              onChange={(e) =>
+                setSelectedPeriodo(
+                  e.target.value ? String(e.target.value) : null
+                )
+              }
               label="Período"
+              MenuProps={{
+                PaperProps: {
+                  sx: { maxHeight: 300 },
+                },
+              }}
+              renderValue={(value) => {
+                if (!value) return "";
+                for (const grupo of periodosDisponibles) {
+                  const periodo = grupo.periodos.find(
+                    (p) => p.value === value
+                  );
+                  if (periodo) {
+                    return `${grupo.mesLabel} - ${periodo.label}`;
+                  }
+                }
+                return String(value);
+              }}
             >
               <MenuItem value="">
                 <em>Seleccione</em>
               </MenuItem>
-              {periodosDisponibles.map((periodo) => (
-                <MenuItem key={periodo.value} value={periodo.value}>
-                  {periodo.label}
-                </MenuItem>
-              ))}
+              {renderPeriodosSelectItems(periodosDisponibles)}
             </Select>
           </FormControl>
 
@@ -998,7 +1077,7 @@ const NominasManagement: React.FC = () => {
                 <TableCell>Fecha de Corte</TableCell>
                 <TableCell align="right">Subtotal</TableCell>
                 <TableCell align="right">Total Horas Extra</TableCell>
-                <TableCell align="right">Total Percepciones</TableCell>
+                <TableCell align="right">Total Bruto</TableCell>
                 <TableCell align="right">Total Deducciones</TableCell>
                 <TableCell align="right">Total a Pagar</TableCell>
                 <TableCell align="center">Estado</TableCell>
@@ -1025,16 +1104,16 @@ const NominasManagement: React.FC = () => {
                       {formatCurrency(nomina.subtotalQuincena)}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(calcularTotalHorasExtra(nomina))}
+                      {formatCurrency(calcularTotalHorasExtraNomina(nomina))}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(nomina.totalPercepciones)}
+                      {formatCurrency(calcularTotalBrutoNomina(nomina))}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(nomina.totalDeducciones)}
+                      {formatCurrency(calcularTotalDeduccionesNomina(nomina))}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(nomina.totalNetoPagar)}
+                      {formatCurrency(calcularTotalAPagarNomina(nomina))}
                     </TableCell>
                     <TableCell align="center">
                       {nomina.pagado ? (
@@ -1141,17 +1220,13 @@ const NominasManagement: React.FC = () => {
                     {formatCurrency(aggregatedTotals.horasExtra)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(
-                      aggregatedTotals.subtotal +
-                        aggregatedTotals.ajustes +
-                        aggregatedTotals.horasExtra
-                    )}
+                    {formatCurrency(aggregatedTotals.totalBruto)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
                     {formatCurrency(aggregatedTotals.totalDeducciones)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(aggregatedTotals.totalNeto)}
+                    {formatCurrency(aggregatedTotals.totalAPagar)}
                   </TableCell>
                   <TableCell />
                   <TableCell />
@@ -1473,7 +1548,7 @@ const NominasManagement: React.FC = () => {
                   <TableCell align="right">Subtotal</TableCell>
                   <TableCell align="right">Total Horas Extra</TableCell>
                   <TableCell align="right">Ajustes</TableCell>
-                  <TableCell align="right">Total Percepciones</TableCell>
+                  <TableCell align="right">Total Bruto</TableCell>
                   <TableCell align="right">Deducción IHSS</TableCell>
                   <TableCell align="right">Deducción ISR</TableCell>
                   <TableCell align="right">Deducción RAP</TableCell>
@@ -1503,13 +1578,13 @@ const NominasManagement: React.FC = () => {
                       {formatCurrency(nomina.subtotalQuincena)}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(calcularTotalHorasExtra(nomina))}
+                      {formatCurrency(calcularTotalHorasExtraNomina(nomina))}
                     </TableCell>
                     <TableCell align="right">
                       {formatCurrency(nomina.ajuste)}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(nomina.totalPercepciones)}
+                      {formatCurrency(calcularTotalBrutoNomina(nomina))}
                     </TableCell>
                     <TableCell align="right">
                       {formatCurrency(nomina.deduccionIHSS)}
@@ -1536,10 +1611,10 @@ const NominasManagement: React.FC = () => {
                       {formatCurrency(nomina.otros)}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(nomina.totalDeducciones)}
+                      {formatCurrency(calcularTotalDeduccionesNomina(nomina))}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(nomina.totalNetoPagar)}
+                      {formatCurrency(calcularTotalAPagarNomina(nomina))}
                     </TableCell>
                     <TableCell>
                       {nomina.pagado ? (
@@ -1575,7 +1650,9 @@ const NominasManagement: React.FC = () => {
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
                     {formatCurrency(aggregatedTotals.ajustes)}
                   </TableCell>
-                  <TableCell />
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.totalBruto)}
+                  </TableCell>
                   <TableCell />
                   <TableCell />
                   <TableCell />
@@ -1587,7 +1664,7 @@ const NominasManagement: React.FC = () => {
                     {formatCurrency(aggregatedTotals.totalDeducciones)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(aggregatedTotals.totalNeto)}
+                    {formatCurrency(aggregatedTotals.totalAPagar)}
                   </TableCell>
                   <TableCell />
                 </TableRow>
@@ -1848,14 +1925,14 @@ const NominasManagement: React.FC = () => {
                           color="text.secondary"
                           gutterBottom
                         >
-                          Total Percepciones
+                          Total Bruto
                         </Typography>
                         <Typography
                           variant="body1"
                           fontWeight="bold"
                           color="primary"
                         >
-                          {formatCurrency(currentNomina.totalPercepciones)}
+                          {formatCurrency(calcularTotalBrutoNomina(currentNomina))}
                         </Typography>
                       </Box>
                     </Box>
@@ -2066,7 +2143,9 @@ const NominasManagement: React.FC = () => {
                           fontWeight="bold"
                           color="error"
                         >
-                          {formatCurrency(currentNomina.totalDeducciones)}
+                          {formatCurrency(
+                            calcularTotalDeduccionesNomina(currentNomina),
+                          )}
                         </Typography>
                       </Box>
                     </Box>
@@ -2074,7 +2153,7 @@ const NominasManagement: React.FC = () => {
                 </Card>
               </Box>
 
-              {/* Total Neto */}
+              {/* Total a Pagar */}
               <Box>
                 <Card
                   variant="outlined"
@@ -2089,10 +2168,10 @@ const NominasManagement: React.FC = () => {
                       gutterBottom
                       sx={{ mb: 2, color: "inherit" }}
                     >
-                      Total Neto a Pagar
+                      Total a Pagar
                     </Typography>
                     <Typography variant="h4" fontWeight="bold" color="inherit">
-                      {formatCurrency(currentNomina.totalNetoPagar)}
+                      {formatCurrency(calcularTotalAPagarNomina(currentNomina))}
                     </Typography>
                   </CardContent>
                 </Card>

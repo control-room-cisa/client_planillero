@@ -240,7 +240,6 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     montoIncapacidadCubreEmpresa,
     montoIncapacidadIHSS,
     ajuste,
-    montoExcedenteIHSS,
     deduccionIHSS,
     deduccionRAP,
     deduccionISR,
@@ -275,9 +274,13 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
   const montoHoras100 = roundTo2Decimals(
     (horas?.p100 || 0) * salarioPorHora * 2.0,
   );
-  /** Compensatorias tomadas se valorizan a tarifa hora normal y suman a percepciones */
+  /** Compensatorias tomadas: monto ref. a tarifa normal (informativo, no suma al total bruto) */
   const montoCompensatoriasTomadas = roundTo2Decimals(
     (horas?.horasCompensatoriasTomadas || 0) * salarioPorHora,
+  );
+  /** Compensatorias acumuladas: solo informativo, no forman parte del pago */
+  const montoCompensatoriasAcumuladasRef = roundTo2Decimals(
+    horasCompensatoriasAcumuladas * salarioPorHora,
   );
 
   // ========= Alimentación =========
@@ -313,28 +316,23 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     });
 
   // ========= Totales =========
-  // NOTA: montoIncapacidadIHSS NO se suma al total de percepciones
-  const totalPercepciones =
-    (subtotalQuincena || 0) +
-    (montoExcedenteIHSS || 0) +
-    (montoHoras25 || 0) +
-    (montoHoras50 || 0) +
-    (montoHoras75 || 0) +
-    (montoHoras100 || 0) +
-    (montoCompensatoriasTomadas || 0) +
-    (ajuste || 0);
+  // Total bruto: subtotal quincena (incap. empresa sí suma; incap. IHSS es solo informativa)
+  const totalBruto = roundTo2Decimals(subtotalQuincena || 0);
 
-  const totalDeducciones =
+  const totalDeducciones = roundTo2Decimals(
     (deduccionIHSS || 0) +
-    (deduccionISR || 0) +
-    (deduccionRAP || 0) +
-    (deduccionAlimentacion || 0) +
-    (deduccionAlojamiento || 0) +
-    (cobroPrestamo || 0) +
-    (impuestoVecinal || 0) +
-    (otros || 0);
+      (deduccionISR || 0) +
+      (deduccionRAP || 0) +
+      (deduccionAlimentacion || 0) +
+      (deduccionAlojamiento || 0) +
+      (cobroPrestamo || 0) +
+      (impuestoVecinal || 0) +
+      (otros || 0),
+  );
 
-  const totalNetoPagar = (totalPercepciones || 0) - (totalDeducciones || 0);
+  const totalAPagar = roundTo2Decimals(
+    (totalBruto || 0) - (totalDeducciones || 0),
+  );
 
   // ========= Toast (MUI Snackbar) =========
   const [toastOpen, setToastOpen] = React.useState(false);
@@ -425,9 +423,8 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
         subtotalQuincena: subtotalQuincena || 0,
         montoVacaciones: montoVacaciones || 0,
         montoDiasLaborados: montoDiasLaborados || 0,
-        montoExcedenteIHSS: montoExcedenteIHSS || 0,
+        montoExcedenteIHSS: 0,
         montoIncapacidadCubreEmpresa: montoIncapacidadCubreEmpresa || 0,
-        // montoIncapacidadIHSS es informativo y NO se guarda (no se suma a totales)
         montoPermisosJustificados: montoPermisosJustificados || 0,
 
         // Horas extra (montos)
@@ -437,9 +434,9 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
         montoHoras75: montoHoras75 || 0,
         montoHoras100: montoHoras100 || 0,
 
-        // Ajustes y totales
+        // Ajustes y totales (total bruto/neto alineados con prorrateo)
         ajuste: ajuste || 0,
-        totalPercepciones: totalPercepciones || 0,
+        totalPercepciones: totalBruto || 0,
         deduccionIHSS: deduccionIHSS || 0,
         deduccionISR: deduccionISR || 0,
         deduccionRAP: deduccionRAP || 0,
@@ -449,7 +446,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
         impuestoVecinal: impuestoVecinal || 0,
         otros: otros || 0,
         totalDeducciones: totalDeducciones || 0,
-        totalNetoPagar: totalNetoPagar || 0,
+        totalNetoPagar: totalAPagar || 0,
 
         comentario: comentario || null,
       };
@@ -485,9 +482,8 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     montoHoras100,
     showToast,
     bloqueaPorValidacion,
-    montoExcedenteIHSS,
     ajuste,
-    totalPercepciones,
+    totalBruto,
     deduccionIHSS,
     deduccionISR,
     deduccionRAP,
@@ -497,7 +493,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     impuestoVecinal,
     otros,
     totalDeducciones,
-    totalNetoPagar,
+    totalAPagar,
     comentario,
     getNombrePeriodoNomina,
     refetch,
@@ -930,6 +926,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
                 p75: montoHoras75,
                 p100: montoHoras100,
                 compensatoriasTomadas: montoCompensatoriasTomadas,
+                compensatoriasAcumuladas: montoCompensatoriasAcumuladasRef,
               }}
               currencyFormatter={(n: number) => formatCurrencyCb(n || 0)}
               horasNormales={horasNormales}
@@ -952,9 +949,9 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
             onOpenDetalleAlimentacion={() =>
               setModalDetalleAlimentacionOpen(true)
             }
-            totalPercepciones={totalPercepciones}
+            totalBruto={totalBruto}
             totalDeducciones={totalDeducciones}
-            totalNetoPagar={totalNetoPagar}
+            totalAPagar={totalAPagar}
             fechaInicio={fechaInicio}
             fechaFin={fechaFin}
             nominaExiste={nominaExiste}

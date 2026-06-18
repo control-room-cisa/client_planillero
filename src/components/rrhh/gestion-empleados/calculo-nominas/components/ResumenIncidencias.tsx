@@ -315,35 +315,6 @@ const ResumenIncidencias: React.FC<ResumenIncidenciasProps> = ({
                   ) ?? "0.00"}
                 </Typography>
               </Box>
-              {/* Incapacidad en horas comentado temporalmente */}
-              {/* <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  mb: 1,
-                }}
-              >
-                <Typography variant="body1">
-                  <strong>Incapacidad cubre empresa (horas):</strong>
-                </Typography>
-                <Typography variant="body1">
-                  {horasIncapacidadCubreEmpresa.toFixed(2)}
-                </Typography>
-              </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  mb: 1,
-                }}
-              >
-                <Typography variant="body1">
-                  <strong>Incapacidad cubre IHSS (horas):</strong>
-                </Typography>
-                <Typography variant="body1">
-                  {horasIncapacidadCubreIHSS.toFixed(2)}
-                </Typography>
-              </Box> */}
             </Box>
           </Box>
         ) : (
