@@ -45,6 +45,7 @@ const SupervisorManagement: React.FC = () => {
 
   // Filtro
   const filteredEmpleados = employees.filter((empleado) => {
+    if (!empleado.activo) return false;
     const q = searchTerm.toLowerCase();
     return (
       empleado.nombre?.toLowerCase().includes(q) ||
