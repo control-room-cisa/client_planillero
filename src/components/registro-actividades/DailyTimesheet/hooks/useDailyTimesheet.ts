@@ -39,6 +39,12 @@ import {
   filtrarJobsParaActividad,
   isJobDesconocido,
 } from "../utils";
+import {
+  collectExtraActivityIntervals,
+  LUNCH_BREAK_UNCHECK_HORA_CORRIDA_MESSAGE,
+  validateExistingExtrasLunchBreak,
+  validateExtraLunchBreakForDay,
+} from "../lunchBreakValidation";
 
 // Tipos específicos
 export type JobConJerarquia = Job & {
@@ -844,16 +850,23 @@ export const useDailyTimesheet = () => {
         return;
       }
 
-      const horasCero =
-        HorarioRulesFactory.calculateNormalHours(
-          horarioValidado?.tipoHorario,
-          dayConfigData,
-          horarioValidado,
-          { now: currentDate }
-        ) === 0;
-
-      if (name === "esHoraCorrida" && horasCero) {
-        return;
+      if (name === "esHoraCorrida" && finalValue === false) {
+        const lunchError = validateExistingExtrasLunchBreak({
+          esHoraCorrida: false,
+          horaEntrada: dayConfigData.horaEntrada,
+          horaSalida: dayConfigData.horaSalida,
+          isH2,
+          activities: registroDiario?.actividades ?? [],
+          formatTime: formatTimeLocal,
+        });
+        if (lunchError) {
+          setSnackbar({
+            open: true,
+            message: LUNCH_BREAK_UNCHECK_HORA_CORRIDA_MESSAGE,
+            severity: "warning",
+          });
+          return;
+        }
       }
 
       if (
@@ -1078,6 +1091,8 @@ export const useDailyTimesheet = () => {
       dayConfigErrors,
       registroDiario,
       horaCorridaForzadaPorVentanaAlmuerzo,
+      isH2,
+      setSnackbar,
     ]
   );
 
@@ -1168,21 +1183,32 @@ export const useDailyTimesheet = () => {
 
       const esDiaLibreFinal = isHoliday ? true : dayConfigData.esDiaLibre;
       const esIncapacidadFinal = dayConfigData.esIncapacidad;
-      const horasCero =
-        HorarioRulesFactory.calculateNormalHours(
-          horarioValidado?.tipoHorario,
-          dayConfigData,
-          horarioValidado,
-          { now: currentDate }
-        ) === 0;
-      // H1_7: esHoraCorrida siempre true, sin importar si horasCero
+      // H1_7: esHoraCorrida siempre true
       const esHoraCorridaFinal = isH2
         ? true
         : horarioValidado?.tipoHorario === "H1_7"
         ? true
-        : horasCero
-        ? false
         : dayConfigData.esHoraCorrida;
+
+      if (!esHoraCorridaFinal) {
+        const lunchErrorOnSaveDay = validateExistingExtrasLunchBreak({
+          esHoraCorrida: false,
+          horaEntrada: dayConfigData.horaEntrada,
+          horaSalida: dayConfigData.horaSalida,
+          isH2,
+          activities: registroDiario?.actividades ?? [],
+          formatTime: formatTimeLocal,
+        });
+        if (lunchErrorOnSaveDay) {
+          setSnackbar({
+            open: true,
+            message: LUNCH_BREAK_UNCHECK_HORA_CORRIDA_MESSAGE,
+            severity: "warning",
+          });
+          setLoading(false);
+          return;
+        }
+      }
 
       const horasFeriado =
         horarioData?.esFestivo && horarioData.cantidadHorasLaborablesNormales
@@ -1467,8 +1493,8 @@ export const useDailyTimesheet = () => {
     horasRestantesDia + editingHoursNormales;
 
   const canAddExtraHours = horasNormales === 0 || horasRestantesDia <= 0.01;
-  // Hora corrida no aplica en H2_1 y no tiene sentido cuando el día tiene 0 horas.
-  const disableHoraCorrida = isH2 || horasNormales === 0;
+  // Hora corrida no aplica en H2_1.
+  const disableHoraCorrida = isH2;
   const disableTimeFields =
     dayConfigData.esDiaLibre ||
     dayConfigData.esDiaNoLaborable ||
@@ -1673,6 +1699,41 @@ export const useDailyTimesheet = () => {
           errors.horaFin = "Este horario se solapa con otra actividad";
         }
       }
+
+      if (
+        formData.horaExtra &&
+        horaInicio &&
+        horaFin &&
+        isValidTimeFormat(horaInicio) &&
+        isValidTimeFormat(horaFin)
+      ) {
+        const extraIntervals = collectExtraActivityIntervals(
+          registroDiario?.actividades ?? [],
+          {
+            formatTime: formatTimeLocal,
+            excludeActivityId: editingActivity?.id,
+            excludeActivityRef: editingActivity ?? undefined,
+            pending: { horaInicio, horaFin },
+          }
+        );
+
+        const lunchBreakError = validateExtraLunchBreakForDay({
+          esHoraCorrida: isH2 ? true : Boolean(dayConfigData.esHoraCorrida),
+          horaEntrada: dayConfigData.horaEntrada,
+          horaSalida: dayConfigData.horaSalida,
+          isH2,
+          extraIntervals,
+        });
+
+        if (lunchBreakError) {
+          errors.horaExtra = lunchBreakError;
+          setSnackbar({
+            open: true,
+            message: lunchBreakError,
+            severity: "error",
+          });
+        }
+      }
     }
 
     if (
@@ -1699,6 +1760,8 @@ export const useDailyTimesheet = () => {
     registroDiario,
     editingActivity,
     horasNormales,
+    isH2,
+    setSnackbar,
   ]);
 
   const handleSubmit = React.useCallback(async () => {
@@ -1899,17 +1962,6 @@ export const useDailyTimesheet = () => {
       await Promise.all([loadJobs(), loadVehiculos()]);
     }
   }, [horasNormales, horasRestantesDia, loadJobs, loadVehiculos]);
-
-  // Efectos adicionales
-  React.useEffect(() => {
-    if (horasCero) {
-      setDayConfigData((prev) => {
-        if (!prev.esHoraCorrida) return prev;
-        return { ...prev, esHoraCorrida: false };
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [horasCero, dayConfigData.horaEntrada, dayConfigData.horaSalida]);
 
   React.useEffect(() => {
     if (!isHoliday) return;

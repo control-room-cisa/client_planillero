@@ -82,7 +82,6 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
     disableCreateEditActivities,
     dayConfigHasChanges,
     forceExtra,
-    horasCero,
     shouldForceExtra,
     isProgressComplete,
     isProgressIncomplete,
@@ -481,7 +480,6 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                       disabled={
                         readOnly ||
                         initialLoading ||
-                        horasCero ||
                         disableHoraCorrida ||
                         horaCorridaForzadaPorVentanaAlmuerzo ||
                         isIncapacidad ||

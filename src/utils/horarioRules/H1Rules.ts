@@ -127,6 +127,9 @@ export const H1Rules: HorarioRuleEngine = {
       const salida = prevFormData.horaSalida;
       if (!entrada || !salida)
         return { ...prevFormData, [fieldName]: nextValue };
+      // Sin horas laborables (ej. sáb/dom/feriado 07:00-07:00): solo togglear el flag.
+      if (entrada === salida)
+        return { ...prevFormData, [fieldName]: nextValue };
       const s = timeToMinutes(entrada);
       let e = timeToMinutes(salida);
       const esTurnoNoche = s > e;

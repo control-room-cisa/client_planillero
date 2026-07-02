@@ -11,6 +11,7 @@ import {
   Divider,
   Autocomplete,
   CircularProgress,
+  Alert,
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
 import type { Activity, ActivityData } from "../../types";
@@ -509,6 +510,11 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
           {/* Botones */}
           <Box sx={{ mt: "auto", pt: 3, pb: 3 }}>
             <Divider sx={{ mb: 3 }} />
+            {formErrors.horaExtra && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {formErrors.horaExtra}
+              </Alert>
+            )}
             <Box sx={{ display: "flex", gap: 2 }}>
               <Button
                 variant="outlined"
