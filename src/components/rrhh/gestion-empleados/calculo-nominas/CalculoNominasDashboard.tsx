@@ -316,8 +316,17 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     });
 
   // ========= Totales =========
-  // Total bruto: subtotal quincena (incap. empresa sí suma; incap. IHSS es solo informativa)
-  const totalBruto = roundTo2Decimals(subtotalQuincena || 0);
+  const totalHorasExtra = roundTo2Decimals(
+    (montoHoras25 || 0) +
+      (montoHoras50 || 0) +
+      (montoHoras75 || 0) +
+      (montoHoras100 || 0),
+  );
+
+  // Total bruto = subtotal quincena + horas extra + ajuste (alineado con NominaFormModal)
+  const totalBruto = roundTo2Decimals(
+    (subtotalQuincena || 0) + totalHorasExtra + (ajuste || 0),
+  );
 
   const totalDeducciones = roundTo2Decimals(
     (deduccionIHSS || 0) +
