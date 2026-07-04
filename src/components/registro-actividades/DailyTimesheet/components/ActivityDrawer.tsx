@@ -12,12 +12,22 @@ import {
   Autocomplete,
   CircularProgress,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  type SelectChangeEvent,
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
 import type { Activity, ActivityData } from "../../types";
 import type { JobConJerarquia } from "../hooks/useDailyTimesheet";
 import type { Vehiculo } from "../../../../services/vehiculoService";
 import { filtrarJobsParaActividad } from "../utils";
+import {
+  getE02AllowedHours,
+  isJobE02,
+  resolveE02JornadaTipo,
+} from "../e02VacacionesHours";
 
 const SIN_CLASS_OPTION: Vehiculo = {
   id: -1,
@@ -44,6 +54,9 @@ type ActivityDrawerProps = {
   shouldForceExtra: boolean;
   isProgressComplete: boolean;
   isProgressIncomplete: boolean;
+  horasNormales: number;
+  e02DayBlocked: boolean;
+  handleE02JornadaChange: (tipo: "media" | "completa") => void;
   handleDrawerClose: () => void;
   handleInputChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   handleTimeKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
@@ -78,6 +91,9 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
   shouldForceExtra,
   isProgressComplete,
   isProgressIncomplete,
+  horasNormales,
+  e02DayBlocked,
+  handleE02JornadaChange,
   handleDrawerClose,
   handleInputChange,
   handleHorasBlur,
@@ -91,10 +107,34 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
     [vehiculos]
   );
 
-  const jobsDisponibles = React.useMemo(
-    () => filtrarJobsParaActividad(jobs, formData.horaExtra),
-    [jobs, formData.horaExtra],
+  const jobsDisponibles = React.useMemo(() => {
+    let list = filtrarJobsParaActividad(jobs, formData.horaExtra);
+    if (e02DayBlocked && !isJobE02(selectedJob)) {
+      list = list.filter((j) => !isJobE02(j));
+    }
+    return list;
+  }, [jobs, formData.horaExtra, e02DayBlocked, selectedJob]);
+
+  const e02AllowedHours = React.useMemo(
+    () => getE02AllowedHours(horasNormales),
+    [horasNormales]
   );
+
+  const showE02JornadaSelect =
+    !formData.horaExtra && Boolean(selectedJob && isJobE02(selectedJob));
+
+  const e02JornadaValue = React.useMemo(() => {
+    if (!showE02JornadaSelect) return "";
+    const hours = parseFloat(formData.horasInvertidas);
+    return resolveE02JornadaTipo(hours, horasNormales);
+  }, [showE02JornadaSelect, formData.horasInvertidas, horasNormales]);
+
+  const handleE02JornadaSelectChange = (event: SelectChangeEvent<string>) => {
+    const value = event.target.value;
+    if (value === "media" || value === "completa") {
+      handleE02JornadaChange(value);
+    }
+  };
 
   return (
     <Drawer
@@ -206,8 +246,40 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
             </Box>
           )}
 
-          {/* Input de horas invertidas */}
-          {/* Horas Normales: editable manualmente (solo múltiplos positivos de 0.25h = 15 min). Hora Extra: calculado automáticamente (readonly) */}
+          {/* Horas Normales: editable manualmente (solo múltiplos positivos de 0.25h = 15 min). Hora Extra: calculado automáticamente (readonly). E02: media o jornada completa. */}
+          {showE02JornadaSelect && e02AllowedHours ? (
+            <FormControl
+              fullWidth
+              required
+              size="small"
+              error={!!formErrors.horasInvertidas}
+              sx={{ mb: 3 }}
+              disabled={readOnly}
+            >
+              <InputLabel id="e02-jornada-label">Jornada (vacaciones)</InputLabel>
+              <Select
+                labelId="e02-jornada-label"
+                label="Jornada (vacaciones)"
+                value={e02JornadaValue}
+                onChange={handleE02JornadaSelectChange}
+              >
+                <MenuItem value="media">
+                  Media jornada ({e02AllowedHours.media}h)
+                </MenuItem>
+                <MenuItem value="completa">
+                  Jornada completa ({e02AllowedHours.completa}h)
+                </MenuItem>
+              </Select>
+              <Typography
+                variant="caption"
+                color={formErrors.horasInvertidas ? "error" : "text.secondary"}
+                sx={{ mt: 0.5, ml: 1.75, display: "block" }}
+              >
+                {formErrors.horasInvertidas ||
+                  "Vacaciones (E02): seleccione media jornada o jornada completa."}
+              </Typography>
+            </FormControl>
+          ) : (
           <TextField
             disabled={
               readOnly ||
@@ -275,6 +347,7 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
             }}
             sx={{ mb: 3 }}
           />
+          )}
 
           {/* Job */}
           {/* Excepción: deshabilitar job cuando es compensatorio en hora normal (Tomar hora libre compensatoria) */}

@@ -85,6 +85,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
     shouldForceExtra,
     isProgressComplete,
     isProgressIncomplete,
+    e02DayBlocked,
 
     // Handlers
     handleDrawerOpen,
@@ -98,6 +99,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
     handleInputChange,
     handleHorasBlur,
     handleJobChange,
+    handleE02JornadaChange,
     handleVehiculoChange,
     handleSubmit,
     navigateDate,
@@ -747,6 +749,9 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
         shouldForceExtra={shouldForceExtra}
         isProgressComplete={isProgressComplete}
         isProgressIncomplete={isProgressIncomplete}
+        horasNormales={horasNormales}
+        e02DayBlocked={e02DayBlocked}
+        handleE02JornadaChange={handleE02JornadaChange}
         handleDrawerClose={handleDrawerClose}
         handleInputChange={handleInputChange}
         handleHorasBlur={handleHorasBlur}

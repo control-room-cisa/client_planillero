@@ -45,6 +45,14 @@ import {
   validateExistingExtrasLunchBreak,
   validateExtraLunchBreakForDay,
 } from "../lunchBreakValidation";
+import {
+  dayHasOtherE02Activity,
+  E02_DUPLICATE_DAY_MESSAGE,
+  formatE02HoursInvalidMessage,
+  getE02AllowedHours,
+  isJobE02,
+  isValidE02Hours,
+} from "../e02VacacionesHours";
 
 // Tipos específicos
 export type JobConJerarquia = Job & {
@@ -128,7 +136,7 @@ export const useDailyTimesheet = () => {
   const [snackbar, setSnackbar] = React.useState({
     open: false,
     message: "",
-    severity: "success" as "success" | "error",
+    severity: "success" as "success" | "error" | "warning",
   });
 
   const lunchWindowHoraCorridaRef = React.useRef<{
@@ -1422,18 +1430,6 @@ export const useDailyTimesheet = () => {
     [computeHorasInvertidasWrapper, selectedJob]
   );
 
-  const handleJobChange = React.useCallback(
-    (_e: React.SyntheticEvent, value: JobConJerarquia | null) => {
-      setSelectedJob(value);
-      setFormData((prev) => ({
-        ...prev,
-        job: value ? value.id.toString() : "",
-      }));
-      if (formErrors.job) setFormErrors((prev) => ({ ...prev, job: "" }));
-    },
-    [formErrors.job]
-  );
-
   const handleVehiculoChange = React.useCallback(
     (_e: React.SyntheticEvent, value: Vehiculo | null) => {
       setSelectedVehiculo(value);
@@ -1447,6 +1443,7 @@ export const useDailyTimesheet = () => {
 
   const handleHorasBlur = React.useCallback(() => {
     if (formData.horaExtra) return;
+    if (selectedJob && isJobE02(selectedJob)) return;
     const val = parseFloat(formData.horasInvertidas);
     if (!isNaN(val) && val > 0) {
       const rounded = Math.round(val * 4) / 4;
@@ -1454,7 +1451,7 @@ export const useDailyTimesheet = () => {
     } else {
       setFormData((prev) => ({ ...prev, horasInvertidas: "" }));
     }
-  }, [formData.horaExtra, formData.horasInvertidas]);
+  }, [formData.horaExtra, formData.horasInvertidas, selectedJob]);
 
   // ===== Horas trabajadas / Totales & progreso =====
   const workedHoursNormales =
@@ -1553,6 +1550,81 @@ export const useDailyTimesheet = () => {
   const isProgressComplete = horasRestantesDia <= 0.01;
   const isProgressIncomplete = horasRestantesDia > 0.01;
 
+  const e02DayBlocked = React.useMemo(() => {
+    const jobsById = new Map(jobs.map((j) => [j.id, j]));
+    return dayHasOtherE02Activity({
+      activities: registroDiario?.actividades ?? [],
+      jobsById,
+      excludeActivityId: editingActivity?.id,
+      excludeActivityIndex: editingIndex,
+    });
+  }, [jobs, registroDiario?.actividades, editingActivity?.id, editingIndex]);
+
+  const handleJobChange = React.useCallback(
+    (_e: React.SyntheticEvent, value: JobConJerarquia | null) => {
+      if (value && isJobE02(value) && !formData.horaExtra) {
+        const jobsById = new Map(jobs.map((j) => [j.id, j]));
+        if (
+          dayHasOtherE02Activity({
+            activities: registroDiario?.actividades ?? [],
+            jobsById,
+            excludeActivityId: editingActivity?.id,
+            excludeActivityIndex: editingIndex,
+          })
+        ) {
+          setSnackbar({
+            open: true,
+            message: E02_DUPLICATE_DAY_MESSAGE,
+            severity: "warning",
+          });
+          return;
+        }
+      }
+
+      setSelectedJob(value);
+      setFormData((prev) => {
+        const next = {
+          ...prev,
+          job: value ? value.id.toString() : "",
+        };
+        if (value && isJobE02(value) && !prev.horaExtra) {
+          const allowed = getE02AllowedHours(horasNormales);
+          if (allowed) {
+            next.horasInvertidas = allowed.completa.toFixed(2);
+          }
+        }
+        return next;
+      });
+      if (formErrors.job) setFormErrors((prev) => ({ ...prev, job: "" }));
+    },
+    [
+      formData.horaExtra,
+      formErrors.job,
+      jobs,
+      registroDiario?.actividades,
+      editingActivity?.id,
+      editingIndex,
+      horasNormales,
+      setSnackbar,
+    ]
+  );
+
+  const handleE02JornadaChange = React.useCallback(
+    (tipo: "media" | "completa") => {
+      const allowed = getE02AllowedHours(horasNormales);
+      if (!allowed) return;
+      const hours = tipo === "media" ? allowed.media : allowed.completa;
+      setFormData((prev) => ({
+        ...prev,
+        horasInvertidas: hours.toFixed(2),
+      }));
+      if (formErrors.horasInvertidas) {
+        setFormErrors((prev) => ({ ...prev, horasInvertidas: "" }));
+      }
+    },
+    [horasNormales, formErrors.horasInvertidas]
+  );
+
   // Validación del formulario
   const validateForm = React.useCallback((): boolean => {
     const errors: { [key: string]: string } = {};
@@ -1598,6 +1670,22 @@ export const useDailyTimesheet = () => {
         }
       }
     } else {
+      const jobIsE02 = Boolean(selectedJob && isJobE02(selectedJob));
+
+      if (jobIsE02) {
+        const jobsById = new Map(jobs.map((j) => [j.id, j]));
+        if (
+          dayHasOtherE02Activity({
+            activities: registroDiario?.actividades ?? [],
+            jobsById,
+            excludeActivityId: editingActivity?.id,
+            excludeActivityIndex: editingIndex,
+          })
+        ) {
+          errors.job = E02_DUPLICATE_DAY_MESSAGE;
+        }
+      }
+
       if (!formData.horasInvertidas.trim()) {
         errors.horasInvertidas =
           "Las horas invertidas son obligatorias para actividades normales";
@@ -1605,15 +1693,17 @@ export const useDailyTimesheet = () => {
         const hours = parseFloat(formData.horasInvertidas);
         if (isNaN(hours) || hours <= 0) {
           errors.horasInvertidas = "Ingresa un número válido mayor a 0";
-        } else {
-          if (horasDisponiblesValidacionForm <= 0) {
-            errors.horasInvertidas =
-              "Sin horas normales disponibles. Activa Hora Extra para continuar.";
-          } else if (hours > horasDisponiblesValidacionForm) {
-            errors.horasInvertidas = `Las horas exceden el límite disponible. Solo quedan ${horasDisponiblesValidacionForm.toFixed(
-              2
-            )} horas.`;
+        } else if (jobIsE02) {
+          if (!isValidE02Hours(hours, horasNormales)) {
+            errors.horasInvertidas = formatE02HoursInvalidMessage(horasNormales);
           }
+        } else if (horasDisponiblesValidacionForm <= 0) {
+          errors.horasInvertidas =
+            "Sin horas normales disponibles. Activa Hora Extra para continuar.";
+        } else if (hours > horasDisponiblesValidacionForm) {
+          errors.horasInvertidas = `Las horas exceden el límite disponible. Solo quedan ${horasDisponiblesValidacionForm.toFixed(
+            2
+          )} horas.`;
         }
       }
     }
@@ -1738,6 +1828,7 @@ export const useDailyTimesheet = () => {
 
     if (
       !formData.horaExtra &&
+      !(selectedJob && isJobE02(selectedJob)) &&
       (horasNormales === 0 || horasDisponiblesValidacionForm <= 0)
     ) {
       errors.horasInvertidas =
@@ -1759,8 +1850,11 @@ export const useDailyTimesheet = () => {
     dayConfigData,
     registroDiario,
     editingActivity,
+    editingIndex,
     horasNormales,
     isH2,
+    jobs,
+    selectedJob,
     setSnackbar,
   ]);
 
@@ -2138,6 +2232,7 @@ export const useDailyTimesheet = () => {
     shouldForceExtra,
     isProgressComplete,
     isProgressIncomplete,
+    e02DayBlocked,
 
     // Handlers
     handleDrawerOpen: handleDrawerOpenWithHours,
@@ -2152,6 +2247,7 @@ export const useDailyTimesheet = () => {
     handleInputChange,
     handleHorasBlur,
     handleJobChange,
+    handleE02JornadaChange,
     handleVehiculoChange,
     validateForm,
     handleSubmit,
