@@ -24,6 +24,11 @@ const ErrorValidacionNomina: React.FC<ErrorValidacionNominaProps> = ({
     error?.message?.includes("Network Error") ||
     error?.code === "ERR_NETWORK";
 
+  const validationErrors = error.response?.data?.validationErrors;
+  const fechasNoAprobadas = validationErrors?.fechasNoAprobadas ?? [];
+  const fechasSinRegistro = validationErrors?.fechasSinRegistro ?? [];
+  const erroresIncapacidad = validationErrors?.erroresIncapacidad ?? [];
+
   return (
     <Alert severity="error" sx={{ mb: 3 }}>
       {esErrorDeRed ? (
@@ -131,13 +136,32 @@ const ErrorValidacionNomina: React.FC<ErrorValidacionNominaProps> = ({
               </Box>
             </Box>
           )}
+          {error.response.data.validationErrors.erroresIncapacidad?.length >
+            0 && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle1" color="error" gutterBottom>
+                Incapacidad IHSS — Techo IHSS faltante:
+              </Typography>
+              <Box sx={{ pl: 1 }}>
+                {error.response.data.validationErrors.erroresIncapacidad.map(
+                  (msg: string, i: number) => (
+                    <Typography key={i} variant="body2" color="error">
+                      • {msg}
+                    </Typography>
+                  ),
+                )}
+              </Box>
+            </Box>
+          )}
           {/* Otros errores de validación generales (empleadoId, etc.) */}
           {Object.entries(error.response.data.validationErrors)
             .filter(
               ([k]) =>
-                !["fechasNoAprobadas", "fechasSinRegistro"].includes(
-                  k as string,
-                ),
+                ![
+                  "fechasNoAprobadas",
+                  "fechasSinRegistro",
+                  "erroresIncapacidad",
+                ].includes(k as string),
             )
             .map(([campo, mensajes]: any) => (
               <Box key={campo} sx={{ mt: 1 }}>
@@ -155,10 +179,22 @@ const ErrorValidacionNomina: React.FC<ErrorValidacionNominaProps> = ({
                 )}
               </Box>
             ))}
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            💡 Contacte al supervisor para aprobar los registros pendientes o
-            complete los registros faltantes.
-          </Typography>
+          {fechasNoAprobadas.length > 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              Contacte al supervisor para aprobar los registros pendientes.
+            </Typography>
+          )}
+          {fechasSinRegistro.length > 0 && fechasNoAprobadas.length === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              Complete los registros diarios faltantes en el período.
+            </Typography>
+          )}
+          {erroresIncapacidad.length > 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              Agregue el Techo IHSS faltante en Parámetros de nómina → pestaña
+              Techo IHSS.
+            </Typography>
+          )}
         </Box>
       ) : (
         // Regular error message

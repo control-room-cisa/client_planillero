@@ -14,7 +14,10 @@ interface ResumenIncidenciasProps {
   /** Días laborados usados en nómina (sin restar compensatorias tomadas) */
   diasLaborados: number;
   diasIncapacidadCubreEmpresa: number;
-  diasIncapacidadCubreIHSS: number;
+  /** Días IHSS calendario en la quincena (literal, para subsidio). */
+  diasIncapacidadIhssCalendario: number;
+  /** Días IHSS en base 15 (LRM); solo cuadre planilla. */
+  diasIncapacidadCubreIHSSLrm?: number;
   montoDiasLaborados: number;
   montoVacaciones: number;
   montoIncapacidadCubreEmpresa: number;
@@ -34,7 +37,8 @@ const ResumenIncidencias: React.FC<ResumenIncidenciasProps> = ({
   periodoNomina,
   diasLaborados,
   diasIncapacidadCubreEmpresa,
-  diasIncapacidadCubreIHSS,
+  diasIncapacidadIhssCalendario,
+  diasIncapacidadCubreIHSSLrm,
   montoDiasLaborados,
   montoVacaciones,
   montoIncapacidadCubreEmpresa,
@@ -131,12 +135,29 @@ const ResumenIncidencias: React.FC<ResumenIncidenciasProps> = ({
                 }}
               >
                 <Typography variant="body1">
-                  <strong>Incapacidad cubre IHSS (días):</strong>
+                  <strong>Incapacidad cubre IHSS (días calendario):</strong>
                 </Typography>
                 <Typography variant="body1">
-                  {diasIncapacidadCubreIHSS}
+                  {diasIncapacidadIhssCalendario}
                 </Typography>
               </Box>
+              {diasIncapacidadCubreIHSSLrm != null &&
+                diasIncapacidadCubreIHSSLrm !== diasIncapacidadIhssCalendario && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Incap. IHSS (base 15 LRM):
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {diasIncapacidadCubreIHSSLrm}
+                    </Typography>
+                  </Box>
+                )}
               <Box
                 sx={{
                   display: "flex",

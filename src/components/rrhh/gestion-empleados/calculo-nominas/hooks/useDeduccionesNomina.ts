@@ -1,5 +1,8 @@
 import * as React from "react";
-import { roundTo2Decimals } from "../utils/formatters";
+import {
+  montoPorDiasQuincena,
+  roundTo2Decimals,
+} from "../utils/formatters";
 
 export interface UseDeduccionesNominaParams {
   // Condiciones de período
@@ -10,12 +13,19 @@ export interface UseDeduccionesNominaParams {
 
   // Contexto económico
   sueldoMensual: number;
+  salarioQuincenal: number;
   PISO_IHSS: number;
   DEDUCCION_IHSS_FIJA: number;
 
-  // Días de incapacidad (del resumen)
+  /**
+   * Días incapacidad en base 15 (LRM) — cuadre planilla.
+   * diasLaborados + vac + perm + incapEmpresa(LRM) + incapIHSS(LRM) = 15
+   */
   diasIncapacidadCubreEmpresa: number;
   diasIncapacidadCubreIHSS: number;
+
+  /** Monto IHSS: días calendario literales en quincena × subsidioDiario (backend). */
+  montoIncapacidadIHSSFromBackend?: number;
 
   /** Deducciones predefinidas del colaborador (solo aplican en quincena B) */
   empleadoIsr?: number;
@@ -81,6 +91,8 @@ export interface UseDeduccionesNominaReturn {
   // Derivados
   deduccionRAPBase: number;
   montoIncapacidadIHSSCalculado: number;
+  /** (días incap LRM empresa + IHSS) × salarioQuincenal / 15 */
+  montoIncapacidadTotalCalculado: number;
   montoCubreEmpresaCalculado: number;
 }
 
@@ -99,34 +111,40 @@ export function useDeduccionesNomina({
   codigoNominaTerminaEnA,
   isPrimeraQuincena,
   sueldoMensual,
+  salarioQuincenal,
   PISO_IHSS,
   DEDUCCION_IHSS_FIJA,
   diasIncapacidadCubreEmpresa,
   diasIncapacidadCubreIHSS,
+  montoIncapacidadIHSSFromBackend,
   empleadoIsr = 0,
   empleadoAporteVoluntarioRap = 0,
 }: UseDeduccionesNominaParams): UseDeduccionesNominaReturn {
-  // Cálculo de montos de incapacidad según fórmulas especificadas
-  // Monto incapacidad IHSS: diasIncapacidadIHSS * (PISO_IHSS * 0.66) / 30
+  // IHSS: monto literal (días calendario × subsidio); no usa días LRM
   const montoIncapacidadIHSSCalculado = React.useMemo(() => {
-    if (!diasIncapacidadCubreIHSS) return 0;
-    return roundTo2Decimals((diasIncapacidadCubreIHSS * PISO_IHSS * 0.66) / 30);
-  }, [diasIncapacidadCubreIHSS, PISO_IHSS]);
+    if (montoIncapacidadIHSSFromBackend != null) {
+      return roundTo2Decimals(montoIncapacidadIHSSFromBackend);
+    }
+    return 0;
+  }, [montoIncapacidadIHSSFromBackend]);
 
-  // Monto incapacidad cubre empresa: ((diasIncapacidadIHSS + diasIncapacidadEmpresa) * SalarioMensual / 30) - MontoIncapacidadIHSS
-  const montoCubreEmpresaCalculado = React.useMemo(() => {
-    if (!sueldoMensual) return 0;
-    const totalDiasIncapacidad =
-      diasIncapacidadCubreIHSS + diasIncapacidadCubreEmpresa;
-    const montoTotalIncapacidad = (totalDiasIncapacidad * sueldoMensual) / 30;
-    const montoIHSS = montoIncapacidadIHSSCalculado;
-    return roundTo2Decimals(Math.max(0, montoTotalIncapacidad - montoIHSS));
+  // Total incapacidad (LRM base 15) menos IHSS literal → cubre empresa
+  const montoIncapacidadTotalCalculado = React.useMemo(() => {
+    const totalDiasIncapacidadLrm =
+      diasIncapacidadCubreEmpresa + diasIncapacidadCubreIHSS;
+    if (!totalDiasIncapacidadLrm || !salarioQuincenal) return 0;
+    return montoPorDiasQuincena(salarioQuincenal, totalDiasIncapacidadLrm, 15);
   }, [
-    sueldoMensual,
+    salarioQuincenal,
     diasIncapacidadCubreEmpresa,
     diasIncapacidadCubreIHSS,
-    montoIncapacidadIHSSCalculado,
   ]);
+
+  const montoCubreEmpresaCalculado = React.useMemo(() => {
+    return roundTo2Decimals(
+      Math.max(0, montoIncapacidadTotalCalculado - montoIncapacidadIHSSCalculado)
+    );
+  }, [montoIncapacidadTotalCalculado, montoIncapacidadIHSSCalculado]);
 
   // Estado editable para incapacidad cubierta por empresa (inicial por cálculo)
   const [montoIncapacidadCubreEmpresa, setMontoIncapacidadCubreEmpresa] =
@@ -343,6 +361,7 @@ export function useDeduccionesNomina({
 
     deduccionRAPBase,
     montoIncapacidadIHSSCalculado,
+    montoIncapacidadTotalCalculado,
     montoCubreEmpresaCalculado,
   };
 }

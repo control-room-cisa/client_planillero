@@ -152,6 +152,9 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     conteoDias?.incapacidadEmpresa ??
     conteoDias?.incapacidadCubreEmpresaDias ??
     0;
+  // Incapacidad IHSS: días calendario literales (subsidio); cuadre días usa LRM en conteoDias
+  const diasIncapacidadIhssCalendario =
+    resumenHoras?.conteoHoras?.incapacidadIhss?.diasIhss ?? 0;
   const diasIncapacidadCubreIHSS =
     conteoDias?.incapacidadIHSS ?? conteoDias?.incapacidadCubreIHSSDias ?? 0;
 
@@ -229,10 +232,13 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     codigoNominaTerminaEnA,
     isPrimeraQuincena,
     sueldoMensual,
+    salarioQuincenal,
     PISO_IHSS,
     DEDUCCION_IHSS_FIJA,
     diasIncapacidadCubreEmpresa,
     diasIncapacidadCubreIHSS,
+    montoIncapacidadIHSSFromBackend:
+      resumenHoras?.conteoHoras?.incapacidadIhss?.montoIhss,
     empleadoIsr,
     empleadoAporteVoluntarioRap,
   });
@@ -910,7 +916,8 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
             periodoNomina={periodoNomina}
             diasLaborados={diasLaborados}
             diasIncapacidadCubreEmpresa={diasIncapacidadCubreEmpresa}
-            diasIncapacidadCubreIHSS={diasIncapacidadCubreIHSS}
+            diasIncapacidadIhssCalendario={diasIncapacidadIhssCalendario}
+            diasIncapacidadCubreIHSSLrm={diasIncapacidadCubreIHSS}
             montoDiasLaborados={montoDiasLaborados}
             montoVacaciones={montoVacaciones}
             montoIncapacidadCubreEmpresa={montoIncapacidadCubreEmpresa}

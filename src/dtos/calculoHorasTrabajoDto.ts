@@ -26,6 +26,7 @@ export interface ConteoHorasValidationErrorDto {
   fechasSinRegistro: string[]; // Fechas que no tienen registro diario creado
   /** E01 Job Desconocido: fechas con actividades cuyo job no está registrado. No se lanza excepción; se notifica en validationErrors. */
   fechasConJobDesconocido?: string[];
+  erroresIncapacidad?: string[];
 }
 
 export interface DeduccionAlimentacionDetalleDto {
@@ -85,6 +86,17 @@ export interface ConteoHorasTrabajadasDto {
     // Aliases para compatibilidad con código existente
     incapacidadCubreEmpresaDias?: number; // Alias de incapacidadEmpresa
     incapacidadCubreIHSSDias?: number; // Alias de incapacidadIHSS
+  };
+  /** Monto IHSS por incapacidad en el período (días IHSS × subsidioDiario). */
+  incapacidadIhss?: {
+    diasIhss: number;
+    montoIhss: number;
+    secuencias: Array<{
+      fechaInicioSecuencia: string;
+      subsidioDiario: number;
+      diasIhssEnRango: number;
+      montoIhssEnRango: number;
+    }>;
   };
   /**
    * Deducciones de alimentación calculadas
