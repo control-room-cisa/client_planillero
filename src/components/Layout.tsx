@@ -231,6 +231,12 @@ export default function Layout() {
           icon: <AccountBalanceIcon />,
           path: "/prorrateo",
         },
+        {
+          id: "nominas",
+          text: "Gestión de Nóminas",
+          icon: <ReceiptIcon />,
+          path: "/rrhh/nominas-gestion",
+        },
       ];
     }
 

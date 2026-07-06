@@ -34,6 +34,8 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import PrintIcon from "@mui/icons-material/Print";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import PaymentsIcon from "@mui/icons-material/Payments";
 import NominaService, { type NominaDto } from "../../services/nominaService";
 import { empresaService } from "../../services/empresaService";
 import EmpleadoService from "../../services/empleadoService";
@@ -49,6 +51,8 @@ import {
 } from "@mui/material";
 import ConfirmDialog from "../common/ConfirmDialog";
 import NominaFormModal from "./NominaFormModal";
+import { useAuth } from "../../hooks/useAuth";
+import { Roles } from "../../enums/roles";
 import {
   calcularTotalAPagarNomina,
   calcularTotalBrutoNomina,
@@ -88,6 +92,11 @@ const renderPeriodosSelectItems = (
   ]);
 
 const NominasManagement: React.FC = () => {
+  const { user } = useAuth();
+  const isRrhh = user?.rolId === Roles.RRHH;
+  const isSupervisorContabilidad =
+    user?.rolId === Roles.SUPERVISOR_CONTABILIDAD;
+
   const [nominas, setNominas] = useState<NominaDto[]>([]);
   const [allNominas, setAllNominas] = useState<NominaDto[]>([]); // Todas las nóminas para filtrado
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
@@ -138,6 +147,9 @@ const NominasManagement: React.FC = () => {
     nomina: null,
   });
   const [printingNominaId, setPrintingNominaId] = useState<number | null>(null);
+  const [downloadingPlantilla, setDownloadingPlantilla] = useState(false);
+  const [payingPlanilla, setPayingPlanilla] = useState(false);
+  const [confirmPagarPlanilla, setConfirmPagarPlanilla] = useState(false);
 
   // Función para mostrar notificaciones
   const showSnackbar = useCallback(
@@ -865,6 +877,62 @@ const NominasManagement: React.FC = () => {
     setSnackbar((s) => ({ ...s, open: false }));
   };
 
+  const nominasPendientesCount = useMemo(
+    () => nominas.filter((n) => !n.pagado).length,
+    [nominas]
+  );
+
+  const handleDownloadPlantillaPago = async () => {
+    if (!selectedEmpresaId || !codigoNominaFiltro) return;
+    setDownloadingPlantilla(true);
+    try {
+      const blob = await NominaService.downloadPlantillaPago(
+        selectedEmpresaId,
+        codigoNominaFiltro
+      );
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `plantilla-pago-${codigoNominaFiltro}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      showSnackbar("Plantilla de pago descargada", "success");
+    } catch (err: any) {
+      console.error("Error al descargar plantilla de pago:", err);
+      const errorMessage =
+        err?.response?.data?.message || "Error al descargar la plantilla de pago";
+      showSnackbar(errorMessage, "error");
+    } finally {
+      setDownloadingPlantilla(false);
+    }
+  };
+
+  const handleConfirmPagarPlanilla = async () => {
+    if (!selectedEmpresaId || !codigoNominaFiltro) return;
+    setPayingPlanilla(true);
+    try {
+      const result = await NominaService.pagarPlanilla(
+        selectedEmpresaId,
+        codigoNominaFiltro
+      );
+      showSnackbar(
+        `${result.actualizadas} nómina(s) marcada(s) como pagada(s)`,
+        "success"
+      );
+      setConfirmPagarPlanilla(false);
+      await fetchNominas();
+    } catch (err: any) {
+      console.error("Error al pagar planilla:", err);
+      const errorMessage =
+        err?.response?.data?.message || "Error al pagar la planilla";
+      showSnackbar(errorMessage, "error");
+    } finally {
+      setPayingPlanilla(false);
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -1020,21 +1088,102 @@ const NominasManagement: React.FC = () => {
           </Tooltip>
         </Box>
 
-        {/* Botón Crear Nómina - Separado para mayor visibilidad */}
-        <Box sx={{ display: "flex", justifyContent: "flex-start", mt: 1 }}>
-          <Tooltip title="Registrar nueva nómina">
-            <span>
-              <Button
-                variant="contained"
-                color="primary"
-                size="medium"
-                onClick={() => handleOpenCreateEditModal()}
-                sx={{ minWidth: 150 }}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "flex-start",
+            flexWrap: "wrap",
+            gap: 1,
+            mt: 1,
+          }}
+        >
+          {isRrhh && (
+            <Tooltip title="Registrar nueva nómina">
+              <span>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="medium"
+                  onClick={() => handleOpenCreateEditModal()}
+                  sx={{ minWidth: 150 }}
+                >
+                  Crear Nómina
+                </Button>
+              </span>
+            </Tooltip>
+          )}
+
+          {isSupervisorContabilidad && (
+            <>
+              <Tooltip
+                title={
+                  !selectedEmpresaId || !codigoNominaFiltro
+                    ? "Seleccionar filtros primero"
+                    : nominas.length === 0
+                    ? "Sin nóminas listadas"
+                    : "Descargar plantilla de pago"
+                }
               >
-                Crear Nómina
-              </Button>
-            </span>
-          </Tooltip>
+                <span>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    size="medium"
+                    startIcon={
+                      downloadingPlantilla ? (
+                        <CircularProgress size={18} color="inherit" />
+                      ) : (
+                        <FileDownloadIcon />
+                      )
+                    }
+                    onClick={handleDownloadPlantillaPago}
+                    disabled={
+                      downloadingPlantilla ||
+                      !selectedEmpresaId ||
+                      !codigoNominaFiltro ||
+                      nominas.length === 0
+                    }
+                  >
+                    Plantilla de pago
+                  </Button>
+                </span>
+              </Tooltip>
+
+              <Tooltip
+                title={
+                  !selectedEmpresaId || !codigoNominaFiltro
+                    ? "Seleccionar filtros primero"
+                    : nominasPendientesCount === 0
+                    ? "No hay nóminas pendientes de pago"
+                    : "Marcar todas las nóminas del período como pagadas"
+                }
+              >
+                <span>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    size="medium"
+                    startIcon={
+                      payingPlanilla ? (
+                        <CircularProgress size={18} color="inherit" />
+                      ) : (
+                        <PaymentsIcon />
+                      )
+                    }
+                    onClick={() => setConfirmPagarPlanilla(true)}
+                    disabled={
+                      payingPlanilla ||
+                      !selectedEmpresaId ||
+                      !codigoNominaFiltro ||
+                      nominasPendientesCount === 0
+                    }
+                  >
+                    Pagar planilla
+                  </Button>
+                </span>
+              </Tooltip>
+            </>
+          )}
         </Box>
       </Paper>
 
@@ -1164,44 +1313,48 @@ const NominasManagement: React.FC = () => {
                           </IconButton>
                         </span>
                       </Tooltip>
-                      <Tooltip
-                        title={
-                          nomina.pagado
-                            ? "Nómina ya pagada"
-                            : "Modificar esta nómina"
-                        }
-                      >
-                        <span>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpenCreateEditModal(nomina)}
-                            disabled={nomina.pagado === true}
-                            color="primary"
-                            aria-label="Editar nómina"
+                      {isRrhh && (
+                        <>
+                          <Tooltip
+                            title={
+                              nomina.pagado
+                                ? "Nómina ya pagada"
+                                : "Modificar esta nómina"
+                            }
                           >
-                            <EditIcon />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip
-                        title={
-                          nomina.pagado
-                            ? "Nómina ya pagada"
-                            : "Eliminar esta nómina"
-                        }
-                      >
-                        <span>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDelete(nomina)}
-                            disabled={nomina.pagado === true}
-                            color="error"
-                            aria-label="Eliminar nómina"
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleOpenCreateEditModal(nomina)}
+                                disabled={nomina.pagado === true}
+                                color="primary"
+                                aria-label="Editar nómina"
+                              >
+                                <EditIcon />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <Tooltip
+                            title={
+                              nomina.pagado
+                                ? "Nómina ya pagada"
+                                : "Eliminar esta nómina"
+                            }
                           >
-                            <DeleteIcon />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDelete(nomina)}
+                                disabled={nomina.pagado === true}
+                                color="error"
+                                aria-label="Eliminar nómina"
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -2222,6 +2375,17 @@ const NominasManagement: React.FC = () => {
         cancelText="Conservar"
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
+      />
+
+      <ConfirmDialog
+        open={confirmPagarPlanilla}
+        title="Confirmar pago de planilla"
+        message={`¿Desea marcar como pagadas las ${nominasPendientesCount} nómina(s) pendiente(s) del período seleccionado? Esta acción no se puede deshacer.`}
+        confirmText="Pagar planilla"
+        cancelText="Cancelar"
+        confirmColor="primary"
+        onConfirm={handleConfirmPagarPlanilla}
+        onCancel={() => setConfirmPagarPlanilla(false)}
       />
 
       {/* Snackbar */}

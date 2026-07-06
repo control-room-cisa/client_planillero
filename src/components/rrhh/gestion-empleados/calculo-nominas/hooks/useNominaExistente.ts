@@ -1,5 +1,6 @@
 import * as React from "react";
 import NominaService from "../../../../../services/nominaService";
+import { derivarCodigoNomina } from "../utils/periodos";
 
 export interface UseNominaExistenteParams {
   empleadoId: number | string | undefined | null;
@@ -15,9 +16,8 @@ export interface UseNominaExistenteReturn {
 }
 
 /**
- * Verifica automáticamente si ya existe una nómina del empleado con el mismo
- * intervalo exacto de fechas (fechaInicio y fechaFin). Se usa para deshabilitar
- * el botón de "Generar Nómina" y mostrar el aviso correspondiente.
+ * Verifica automáticamente si ya existe una nómina del empleado para el período
+ * seleccionado (mismo código de nómina, intervalo exacto o traslape de fechas).
  */
 export function useNominaExistente({
   empleadoId,
@@ -42,25 +42,30 @@ export function useNominaExistente({
           empleadoId: Number(empleadoId),
         });
 
-        // Verificar si existe una nómina con el mismo intervalo exacto (fechaInicio y fechaFin iguales)
-        const existeMismoIntervalo = existentes.some((n) => {
-          const nFechaInicio =
-            n.fechaInicio &&
-            typeof n.fechaInicio === "object" &&
-            "toISOString" in n.fechaInicio
-              ? (n.fechaInicio as Date).toISOString().split("T")[0]
-              : String(n.fechaInicio || "").split("T")[0];
-          const nFechaFin =
-            n.fechaFin &&
-            typeof n.fechaFin === "object" &&
-            "toISOString" in n.fechaFin
-              ? (n.fechaFin as Date).toISOString().split("T")[0]
-              : String(n.fechaFin || "").split("T")[0];
+        const codigoPeriodo = derivarCodigoNomina(fechaInicio, fechaFin);
+        const toDate = (s: string) =>
+          new Date(s + (s.length === 10 ? "T00:00:00" : ""));
+        const startNew = toDate(fechaInicio);
+        const endNew = toDate(fechaFin);
 
-          return nFechaInicio === fechaInicio && nFechaFin === fechaFin;
+        const existeMismoPeriodo = existentes.some((n) => {
+          if (n.codigoNomina && n.codigoNomina === codigoPeriodo) {
+            return true;
+          }
+
+          const nFechaInicio = String(n.fechaInicio || "").split("T")[0];
+          const nFechaFin = String(n.fechaFin || "").split("T")[0];
+
+          if (nFechaInicio === fechaInicio && nFechaFin === fechaFin) {
+            return true;
+          }
+
+          const s = toDate(nFechaInicio);
+          const e = toDate(nFechaFin);
+          return s <= endNew && startNew <= e;
         });
 
-        setNominaExiste(existeMismoIntervalo);
+        setNominaExiste(existeMismoPeriodo);
       } catch (error) {
         console.error("Error al verificar nóminas existentes:", error);
         setNominaExiste(false);

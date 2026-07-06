@@ -156,7 +156,9 @@ const AppRoutes: React.FC = () => {
         <Route
           path="rrhh/nominas-gestion"
           element={
-            <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
+            <RoleProtectedRoute
+              allowedRoles={[Roles.RRHH, Roles.SUPERVISOR_CONTABILIDAD]}
+            >
               <NominasManagement />
             </RoleProtectedRoute>
           }

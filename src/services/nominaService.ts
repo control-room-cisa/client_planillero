@@ -43,6 +43,27 @@ class NominaService {
   static async delete(id: number): Promise<void> {
     await api.delete<ApiResponse<void>>(`/nominas/${id}`);
   }
+
+  static async downloadPlantillaPago(
+    empresaId: number,
+    codigoNomina: string
+  ): Promise<Blob> {
+    const response = await api.get("/nominas/plantilla-pago", {
+      params: { empresaId, codigoNomina },
+      responseType: "blob",
+    });
+    return response.data;
+  }
+
+  static async pagarPlanilla(
+    empresaId: number,
+    codigoNomina: string
+  ): Promise<{ actualizadas: number; total: number }> {
+    const response = await api.post<
+      ApiResponse<{ actualizadas: number; total: number }>
+    >("/nominas/pagar-planilla", { empresaId, codigoNomina });
+    return response.data.data;
+  }
 }
 
 export default NominaService;

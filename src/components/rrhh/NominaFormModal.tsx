@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 import NominaService, { type NominaDto } from "../../services/nominaService";
 import EmpleadoService from "../../services/empleadoService";
+import { toYmdLocal } from "./gestion-empleados/calculo-nominas/utils/periodos";
 import type { Empresa } from "../../types/auth";
 import type { Empleado } from "../../services/empleadoService";
 
@@ -171,8 +172,8 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         fechaFin = new Date(ano, mes - 1, 26);
       }
 
-      setFormFechaInicio(fechaInicio.toISOString().split("T")[0]);
-      setFormFechaFin(fechaFin.toISOString().split("T")[0]);
+      setFormFechaInicio(toYmdLocal(fechaInicio));
+      setFormFechaFin(toYmdLocal(fechaFin));
     },
     []
   );
@@ -826,6 +827,20 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       };
 
       if (isCreating) {
+        const existentes = await NominaService.list({
+          empleadoId: formEmpleadoId!,
+        });
+        const duplicada = existentes.some(
+          (n) => n.codigoNomina && n.codigoNomina === formCodigoNomina
+        );
+        if (duplicada) {
+          showSnackbar(
+            `Ya existe una nómina para este colaborador en el período ${formCodigoNomina}`,
+            "error"
+          );
+          return;
+        }
+
         await NominaService.create(payload);
         showSnackbar("Nómina creada exitosamente", "success");
       } else if (nomina) {

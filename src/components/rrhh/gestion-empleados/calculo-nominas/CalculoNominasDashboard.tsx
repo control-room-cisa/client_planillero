@@ -34,6 +34,7 @@ import {
   formatCurrency,
   montoPorDiasQuincena,
 } from "./utils/formatters";
+import { derivarCodigoNomina } from "./utils/periodos";
 
 // Hooks de negocio del módulo de cálculo de nóminas
 import {
@@ -409,6 +410,18 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
         new Date(s + (s.length === 10 ? "T00:00:00" : ""));
       const startNew = toDate(fechaInicio);
       const endNew = toDate(fechaFin);
+      const codigoPeriodo = derivarCodigoNomina(fechaInicio, fechaFin);
+      const duplicadaPorCodigo = existentes.some(
+        (n) => n.codigoNomina && n.codigoNomina === codigoPeriodo
+      );
+      if (duplicadaPorCodigo) {
+        showToast(
+          `Ya existe una nómina para este colaborador en el período ${codigoPeriodo}`,
+          "error"
+        );
+        return;
+      }
+
       const overlapped = existentes.some((n) => {
         const s = toDate(n.fechaInicio as any);
         const e = toDate(n.fechaFin as any);

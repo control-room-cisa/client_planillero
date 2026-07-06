@@ -19,6 +19,42 @@ export const toYmdLocal = (d: Date): string => {
   return `${y}-${m}-${day}`;
 };
 
+/**
+ * Deriva el código de nómina (YYYYMMP) a partir de fechas ISO locales.
+ * Debe mantenerse alineado con generarCodigoNomina del backend.
+ */
+export function derivarCodigoNomina(
+  fechaInicio: string,
+  fechaFin: string
+): string {
+  const inicio = new Date(
+    fechaInicio + (fechaInicio.length === 10 ? "T00:00:00" : "")
+  );
+  const fin = new Date(fechaFin + (fechaFin.length === 10 ? "T00:00:00" : ""));
+  const diaFin = fin.getDate();
+  const diaInicio = inicio.getDate();
+
+  let periodo: string;
+  let año: number;
+  let mes: string;
+
+  if (diaFin === 11 || diaInicio === 27) {
+    periodo = "A";
+    año = fin.getFullYear();
+    mes = String(fin.getMonth() + 1).padStart(2, "0");
+  } else if (diaFin === 26 || diaInicio === 12) {
+    periodo = "B";
+    año = fin.getFullYear();
+    mes = String(fin.getMonth() + 1).padStart(2, "0");
+  } else {
+    año = fin.getFullYear();
+    mes = String(fin.getMonth() + 1).padStart(2, "0");
+    periodo = diaFin <= 15 ? "A" : "B";
+  }
+
+  return `${año}${mes}${periodo}`;
+}
+
 export const MESES_LARGOS_ES = [
   "Enero",
   "Febrero",
