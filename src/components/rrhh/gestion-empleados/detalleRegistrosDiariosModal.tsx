@@ -986,7 +986,7 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                       }">${
                         act.esCompensatorio === true
                           ? act.esExtra === true
-                            ? "Pago Compensatoria"
+                            ? "Acumula compensatoria"
                             : "Toma Compensatoria"
                           : act.esExtra === true
                           ? "Extra"
@@ -1647,7 +1647,7 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                                       label={
                                         act.esCompensatorio === true
                                           ? act.esExtra === true
-                                            ? "Pago Compensatoria"
+                                            ? "Acumula compensatoria"
                                             : "Toma Compensatoria"
                                           : act.esExtra === true
                                           ? "Extra"

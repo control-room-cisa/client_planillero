@@ -466,7 +466,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                       )}
                       {actividad.esCompensatorio && actividad.esExtra && (
                         <Chip
-                          label="Compensatorio devuelto"
+                          label="Acumula compensatoria"
                           size="small"
                           color="success"
                           sx={{ display: { xs: "none", sm: "flex" } }}
@@ -531,7 +531,7 @@ export const ActivityList: React.FC<ActivityListProps> = ({
                           )}
                           {actividad.esCompensatorio && actividad.esExtra && (
                             <Chip
-                              label="Compensatorio devuelto"
+                              label="Acumula compensatoria"
                               size="small"
                               color="success"
                             />

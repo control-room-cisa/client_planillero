@@ -1062,7 +1062,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                         label={
                                           act.esCompensatorio === true
                                             ? act.esExtra === true
-                                              ? "Pago Compensatoria"
+                                              ? "Acumula compensatoria"
                                               : "Toma Compensatoria"
                                             : act.esExtra === true
                                             ? "Extra"
@@ -1277,7 +1277,7 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                                         label={
                                           act.esCompensatorio === true
                                             ? act.esExtra === true
-                                              ? "Pago Compensatoria"
+                                              ? "Acumula compensatoria"
                                               : "Toma Compensatoria"
                                             : act.esExtra === true
                                             ? "Extra"

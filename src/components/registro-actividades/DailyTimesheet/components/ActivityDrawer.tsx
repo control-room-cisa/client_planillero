@@ -563,7 +563,7 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
               }
               label={
                 formData.horaExtra
-                  ? "Devolver hora compensatoria"
+                  ? "Acumula compensatoria"
                   : "Tomar hora libre compensatoria"
               }
             />
@@ -574,7 +574,7 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
                 sx={{ display: "block", mt: 0.5, ml: 4 }}
               >
                 {formData.horaExtra
-                  ? "Se suma al saldo de horas compensatorias (No se paga como extra)"
+                  ? "Acumula horas compensatorias (no se paga como extra)"
                   : "Se resta del saldo de horas compensatorias."}
               </Typography>
             )}
