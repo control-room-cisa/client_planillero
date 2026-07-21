@@ -56,6 +56,8 @@ import {
   resolveEffectiveEmpleadosIndex,
 } from "../../../utils/nominasEmpleadosIndexSession";
 import DetalleRegistrosDiariosModal from "../../rrhh/gestion-empleados/detalleRegistrosDiariosModal";
+import TiempoCompensatorioAcumulado from "../../common/TiempoCompensatorioAcumulado";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { useAuth } from "../../../hooks/useAuth";
 import { Roles } from "../../../enums/roles";
 import { montoPorDiasQuincena } from "../../rrhh/gestion-empleados/calculo-nominas/utils/formatters";
@@ -162,6 +164,8 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     }>
   >([]);
   const [modalRegistrosOpen, setModalRegistrosOpen] = React.useState(false);
+  const [modalCompensatorioOpen, setModalCompensatorioOpen] =
+    React.useState(false);
 
   const lastFullEmployeeLoadedIdRef = React.useRef<number | null>(null);
   const prevEmpleadoIdRef = React.useRef<number | string | null>(null);
@@ -1122,8 +1126,17 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
             )}
           </Paper>
 
-          {/* Botón para revisar registros diarios */}
-          <Box sx={{ mt: 3, textAlign: "center" }}>
+          {/* Botones: registros diarios y tiempo compensatorio */}
+          <Box
+            sx={{
+              mt: 3,
+              textAlign: "center",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 2,
+              justifyContent: "center",
+            }}
+          >
             <Button
               variant="contained"
               color="primary"
@@ -1150,6 +1163,24 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
               }}
             >
               Revisar Actividades Diarias
+            </Button>
+            <Button
+              variant="outlined"
+              color="primary"
+              size="large"
+              startIcon={<AccessTimeIcon />}
+              onClick={() => setModalCompensatorioOpen(true)}
+              disabled={!empleado}
+              sx={{
+                px: 4,
+                py: 1.5,
+                fontSize: "1rem",
+                fontWeight: 600,
+                textTransform: "none",
+                borderRadius: 2,
+              }}
+            >
+              Tiempo Compensatorio Acumulado
             </Button>
           </Box>
 
@@ -1877,6 +1908,13 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
         nombreEmpleado={`${empleado?.nombre ?? ""} ${empleado?.apellido ?? ""}`.trim()}
         allowRejectActions={false}
         allowEditJob={allowEditJob}
+      />
+
+      <TiempoCompensatorioAcumulado
+        open={modalCompensatorioOpen}
+        onClose={() => setModalCompensatorioOpen(false)}
+        empleadoId={Number(empleado?.id || 0)}
+        nombreEmpleado={`${empleado?.nombre ?? ""} ${empleado?.apellido ?? ""}`.trim()}
       />
 
       {/* Modal de comentarios */}

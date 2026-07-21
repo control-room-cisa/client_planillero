@@ -176,6 +176,57 @@ class RegistroDiarioService {
     );
     return response.data.data;
   }
+
+  /**
+   * Tiempo compensatorio del colaborador: actividades acumuladas/tomadas + banco por job.
+   */
+  static async getTiempoCompensatorio(
+    idEmpleado: number
+  ): Promise<TiempoCompensatorioData> {
+    const response = await api.get<ApiResponse<TiempoCompensatorioData>>(
+      "/registrodiario/tiempo-compensatorio",
+      { params: { idEmpleado } }
+    );
+    return response.data.data;
+  }
 }
+
+export type ActividadCompensatoriaItem = {
+  id: number;
+  fecha: string;
+  empleadoId: number;
+  jobId: number | null;
+  jobCodigo: string | null;
+  jobNombre: string | null;
+  duracionHoras: number;
+  esExtra: boolean;
+  esCompensatorio: boolean;
+  descripcion: string;
+  horaInicio?: string | null;
+  horaFin?: string | null;
+};
+
+export type BancoCompensatoriaJobItem = {
+  id: number;
+  empleadoId: number;
+  jobId: number;
+  jobCodigo: string | null;
+  jobNombre: string | null;
+  horasAcumuladas: number;
+};
+
+export type TiempoCompensatorioData = {
+  empleadoId: number;
+  tiempoVacacionesHoras?: number | null;
+  tiempoCompensatorioHoras?: number | null;
+  acumuladas: ActividadCompensatoriaItem[];
+  tomadas: ActividadCompensatoriaItem[];
+  porJob: BancoCompensatoriaJobItem[];
+  totales: {
+    horasAcumuladasActividades: number;
+    horasTomadasActividades: number;
+    horasAcumuladasPorJob: number;
+  };
+};
 
 export default RegistroDiarioService;

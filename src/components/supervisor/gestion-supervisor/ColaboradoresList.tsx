@@ -16,37 +16,16 @@ import {
   InputAdornment,
   Tooltip,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
 } from "@mui/material";
 import {
   EventAvailable as EventAvailableIcon,
   Search as SearchIcon,
-  AccessTime as AccessTimeIcon,
+  MoreTime as MoreTimeIcon,
 } from "@mui/icons-material";
 import type { Empleado } from "../../../services/empleadoService";
 import { getImageUrl } from "../../../utils/imageUtils";
 import { ymdInTimeZone } from "../../../utils/dateTime";
-
-function safeHoras(v: unknown): number | null {
-  if (v === null || v === undefined) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-function formatCompensatorioLabel(horas: number | null): string {
-  if (horas === null) return "—";
-  return `${horas} horas`;
-}
-
-function formatVacacionesLabel(horas: number | null): string {
-  if (horas === null) return "—";
-  const dias = horas / 8;
-  return `${dias.toFixed(2)} días (${horas} horas)`;
-}
+import TiempoCompensatorioAcumulado from "../../common/TiempoCompensatorioAcumulado";
 
 interface ColaboradoresListProps {
   empleados: Empleado[];
@@ -65,7 +44,7 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
   onDetalleClick,
   showSearch = true,
 }) => {
-  const [saldoModalEmpleado, setSaldoModalEmpleado] =
+  const [compensatorioModalEmpleado, setCompensatorioModalEmpleado] =
     React.useState<Empleado | null>(null);
 
   const fullName = (e: Empleado) =>
@@ -348,14 +327,14 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
                           <EventAvailableIcon />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Tiempo compensatorio y vacaciones">
+                      <Tooltip title="Tiempo compensatorio acumulado">
                         <IconButton
                           color="primary"
                           size="small"
-                          onClick={() => setSaldoModalEmpleado(empleado)}
-                          aria-label="Tiempo compensatorio y vacaciones"
+                          onClick={() => setCompensatorioModalEmpleado(empleado)}
+                          aria-label="Tiempo compensatorio acumulado"
                         >
-                          <AccessTimeIcon />
+                          <MoreTimeIcon />
                         </IconButton>
                       </Tooltip>
                     </Box>
@@ -367,47 +346,16 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
         </Table>
       </TableContainer>
 
-      <Dialog
-        open={Boolean(saldoModalEmpleado)}
-        onClose={() => setSaldoModalEmpleado(null)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>Tiempo compensatorio y vacaciones</DialogTitle>
-        <DialogContent dividers>
-          {saldoModalEmpleado ? (
-            <Box sx={{ pt: 1 }}>
-              <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
-                {fullName(saldoModalEmpleado)}
-              </Typography>
-              {saldoModalEmpleado.codigo ? (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 2 }}
-                >
-                  Código: {saldoModalEmpleado.codigo}
-                </Typography>
-              ) : null}
-              <Typography variant="body1" sx={{ mb: 1 }}>
-                <strong>Tiempo compensatorio:</strong>{" "}
-                {formatCompensatorioLabel(
-                  safeHoras(saldoModalEmpleado.tiempoCompensatorioHoras),
-                )}
-              </Typography>
-              <Typography variant="body1">
-                <strong>Vacaciones:</strong>{" "}
-                {formatVacacionesLabel(
-                  safeHoras(saldoModalEmpleado.tiempoVacacionesHoras),
-                )}
-              </Typography>
-            </Box>
-          ) : null}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSaldoModalEmpleado(null)}>Cerrar</Button>
-        </DialogActions>
-      </Dialog>
+      <TiempoCompensatorioAcumulado
+        open={Boolean(compensatorioModalEmpleado)}
+        onClose={() => setCompensatorioModalEmpleado(null)}
+        empleadoId={Number(compensatorioModalEmpleado?.id || 0)}
+        nombreEmpleado={
+          compensatorioModalEmpleado
+            ? fullName(compensatorioModalEmpleado)
+            : undefined
+        }
+      />
     </Paper>
   );
 };

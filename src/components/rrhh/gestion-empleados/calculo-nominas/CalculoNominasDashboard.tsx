@@ -17,6 +17,7 @@ import {
 } from "@mui/icons-material";
 import { ArrowBack as ArrowBackIcon } from "@mui/icons-material";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { useNavigate } from "react-router-dom";
 import type { Empleado } from "../../../../services/empleadoService";
 import type { EmpleadoIndexItem } from "../../../Layout";
@@ -27,6 +28,7 @@ import NominaService, {
   type CrearNominaDto,
 } from "../../../../services/nominaService";
 import DetalleRegistrosDiariosModal from "../detalleRegistrosDiariosModal";
+import TiempoCompensatorioAcumulado from "../../../common/TiempoCompensatorioAcumulado";
 
 // Utilidades puras del módulo de cálculo de nóminas
 import {
@@ -312,6 +314,8 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
 
   // ========= Estado local UI (modales / toast) =========
   const [modalRegistrosOpen, setModalRegistrosOpen] = React.useState(false);
+  const [modalCompensatorioOpen, setModalCompensatorioOpen] =
+    React.useState(false);
 
   // ========= Nómina existente =========
   const { nominaExiste, setNominaExiste, loadingNominaCheck } =
@@ -891,8 +895,17 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
             formatCurrency={formatCurrencyCb}
           />
 
-          {/* Botón para revisar registros diarios */}
-          <Box sx={{ mt: 3, textAlign: "center" }}>
+          {/* Botones: registros diarios y tiempo compensatorio */}
+          <Box
+            sx={{
+              mt: 3,
+              textAlign: "center",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 2,
+              justifyContent: "center",
+            }}
+          >
             <Button
               variant="contained"
               color="primary"
@@ -919,6 +932,24 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
               }}
             >
               Revisar Actividades Diarias
+            </Button>
+            <Button
+              variant="outlined"
+              color="primary"
+              size="large"
+              startIcon={<AccessTimeIcon />}
+              onClick={() => setModalCompensatorioOpen(true)}
+              disabled={!empleado}
+              sx={{
+                px: 4,
+                py: 1.5,
+                fontSize: "1rem",
+                fontWeight: 600,
+                textTransform: "none",
+                borderRadius: 2,
+              }}
+            >
+              Tiempo Compensatorio Acumulado
             </Button>
           </Box>
 
@@ -998,6 +1029,13 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
           fechaInicio={fechaInicio}
           fechaFin={fechaFin}
           nombreEmpleado={`${empleado.nombre} ${empleado.apellido}`}
+        />
+
+        <TiempoCompensatorioAcumulado
+          open={modalCompensatorioOpen}
+          onClose={() => setModalCompensatorioOpen(false)}
+          empleadoId={Number(empleado.id)}
+          nombreEmpleado={`${empleado.nombre} ${empleado.apellido ?? ""}`.trim()}
         />
 
         <ModalDetalleAlimentacion
