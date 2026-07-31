@@ -183,7 +183,7 @@ export const useDailyTimesheet = () => {
 
   // Mostrar "Día no laborable" para tipos que requieren esta UX (client-only).
   // - H1_3/H1_4/H1_6: no usan Día Libre (oculto), pero sí editan horas
-  // - H1_5: Día Libre es read-only desde backend, pero aún requiere el toggle "Día no laborable"
+  // - H1_5: Día Libre editable (default domingo/feriado desde backend); también tiene "Día no laborable"
   // - H1_7: horas no editables, Día Libre desde backend; el usuario puede marcar "Día no laborable"
   const showDiaNoLaborable = Boolean(
     ["H1_3", "H1_4", "H1_5", "H1_7"].includes(horarioValidado?.tipoHorario || "")
@@ -544,8 +544,8 @@ export const useDailyTimesheet = () => {
                     // En H1_5, entrada/salida no son editables pero se cargan del registro si existe.
                     horaEntrada: formatTimeLocal(registro.horaEntrada),
                     horaSalida: formatTimeLocal(registro.horaSalida),
-                    // Día libre viene del backend y es read-only en UI.
-                    esDiaLibre: Boolean(horarioData.esDiaLibre),
+                    // Preferir lo guardado; el backend solo aporta el default (domingo/feriado).
+                    esDiaLibre: Boolean(registro.esDiaLibre),
                     esDiaNoLaborable: false,
                     esIncapacidad: registro.esIncapacidad || false,
                     comentarioEmpleado: registro.comentarioEmpleado || "",
@@ -1029,6 +1029,40 @@ export const useDailyTimesheet = () => {
               horaEntrada: "07:00",
               horaSalida: "07:00",
               esHoraCorrida: false,
+            };
+          } else {
+            next = {
+              ...next,
+              jornada: "D",
+              horaEntrada: defaults.horaEntrada,
+              horaSalida: defaults.horaSalida,
+            };
+          }
+        } else if (
+          horarioValidado?.tipoHorario === "H1_5" &&
+          name === "esDiaLibre"
+        ) {
+          // H1_5: Día Libre editable. Al activar, colapsar a 0h; al desactivar, restaurar horario.
+          const defaults = getDefaultHorario("D");
+          if (Boolean(finalValue)) {
+            next = {
+              ...next,
+              jornada: "D",
+              horaEntrada: "07:00",
+              horaSalida: "07:00",
+            };
+          } else if (next.esIncapacidad) {
+            // Mantener horas colapsadas si sigue incapacidad
+          } else if (
+            registroDiario?.horaEntrada &&
+            registroDiario?.horaSalida &&
+            !registroDiario.esDiaLibre
+          ) {
+            next = {
+              ...next,
+              jornada: "D",
+              horaEntrada: formatTimeLocal(registroDiario.horaEntrada),
+              horaSalida: formatTimeLocal(registroDiario.horaSalida),
             };
           } else {
             next = {

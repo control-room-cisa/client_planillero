@@ -242,8 +242,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
             color="secondary"
             variant="outlined"
           />
-          {(isHoliday ||
-            (isH2_2 ? dayConfigData.esDiaLibre : registroDiario.esDiaLibre)) && (
+          {(isHoliday || dayConfigData.esDiaLibre) && (
             <Chip
               label="Día Libre"
               size="small"

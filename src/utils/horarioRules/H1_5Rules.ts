@@ -1,11 +1,11 @@
 import type { HorarioRuleEngine } from "./interfaces";
 
 /**
- * REGLAS DE NEGOCIO PARA HORARIO H1_5
+ * REGLAS DE NEGOCIO PARA HORARIO H1_5 (Medio Ambiente)
  *
  * Requisitos:
  * - Hora entrada/salida NO editable (se carga del backend)
- * - Día libre visible pero NO seleccionable (se carga del backend)
+ * - Día libre visible y editable; el backend lo activa solo los domingos/feriados
  * - Día no laborable (client-only) funciona como H1_4: fuerza 07:00-07:00 (0 horas)
  * - Jornada oculta, por defecto día ("D")
  * - Hora corrida igual que H1_1 (ajusta horaSalida ±60 min cuando NO es turno nocturno)
@@ -27,7 +27,7 @@ export const H1_5Rules: HorarioRuleEngine = {
       },
       esDiaLibre: {
         visible: true,
-        enabled: false,
+        enabled: true,
         required: false,
         defaultValue: false,
       },
@@ -66,7 +66,7 @@ export const H1_5Rules: HorarioRuleEngine = {
       const next = { ...prev };
 
       next.jornada = "D";
-      // Día libre viene del backend y se muestra, pero no se puede cambiar.
+      // Default desde backend (domingo/feriado); el usuario puede modificarlo.
       next.esDiaLibre = Boolean(apiData?.esDiaLibre);
       // Client-only default
       if (typeof next.esDiaNoLaborable !== "boolean")
