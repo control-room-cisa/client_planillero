@@ -25,6 +25,9 @@ import { useAuth } from "../../hooks/useAuth";
 import type { LoginRequest } from "../../types/auth";
 import { useNavigate } from "react-router-dom";
 
+const EMPRESA_NOMBRE =
+  (import.meta.env.VITE_EMPRESA_NOMBRE as string | undefined)?.trim() || "";
+
 export default function Login() {
   const { login, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
@@ -107,6 +110,16 @@ export default function Login() {
             <Typography component="h1" variant="h4" fontWeight="bold">
               Planillero
             </Typography>
+            {EMPRESA_NOMBRE && (
+              <Typography
+                variant="h6"
+                color="primary"
+                fontWeight="medium"
+                sx={{ mt: 0.5 }}
+              >
+                {EMPRESA_NOMBRE}
+              </Typography>
+            )}
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               Inicia sesión con correo, DNI, usuario o código de empleado
             </Typography>
