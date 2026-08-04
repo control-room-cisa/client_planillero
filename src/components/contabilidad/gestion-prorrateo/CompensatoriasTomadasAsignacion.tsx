@@ -113,11 +113,11 @@ const CompensatoriasTomadasAsignacion: React.FC<
       if (current.length > 0) onChange([]);
       return;
     }
-    const prevByKey = new Map(
-      current.map((a) => [`${a.jobId ?? "null"}`, a] as const)
+    const prevByKey = new Map<string, AsignacionCompensatoriaTomada>(
+      current.map((a) => [String(a.jobId ?? "null"), a])
     );
     const next: AsignacionCompensatoriaTomada[] = banco.map((b) => {
-      const key = `${b.jobId ?? "null"}`;
+      const key = String(b.jobId ?? "null");
       const prev = prevByKey.get(key);
       const horasDisponibles = round2(Number(b.horasAcumuladas ?? 0));
       const horasPrev = round2(Number(prev?.horas ?? 0));
