@@ -824,6 +824,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         totalDeducciones: formTotalDeducciones ?? 0,
         totalNetoPagar: formTotalNetoPagar ?? 0,
         comentario: formComentario || null,
+        bancoCompensatoriasAplicadas: [],
       };
 
       if (isCreating) {

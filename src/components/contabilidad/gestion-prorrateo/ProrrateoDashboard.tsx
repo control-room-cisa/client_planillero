@@ -27,6 +27,7 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  Snackbar,
 } from "@mui/material";
 import {
   NavigateBefore as NavigateBeforeIcon,
@@ -35,6 +36,7 @@ import {
   CalendarToday as CalendarTodayIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
   KeyboardArrowUp as KeyboardArrowUpIcon,
+  Save as SaveIcon,
 } from "@mui/icons-material";
 import type {
   ComentarioProrrateoJobDto,
@@ -51,6 +53,7 @@ import {
 } from "../../../services/nominaService";
 import NominaService, { type NominaDto } from "../../../services/nominaService";
 import EmpleadoService from "../../../services/empleadoService";
+import ProrrateoService from "../../../services/prorrateoService";
 import {
   isSameEmpleadosIndex,
   resolveEffectiveEmpleadosIndex,
@@ -63,6 +66,11 @@ import { Roles } from "../../../enums/roles";
 import { montoPorDiasQuincena } from "../../rrhh/gestion-empleados/calculo-nominas/utils/formatters";
 import DesgloseIncidenciasComponent from "../../rrhh/gestion-empleados/DesgloseIncidencias";
 import type { DesgloseIncidencias } from "../../../services/calculoHorasTrabajoService";
+import CompensatoriasTomadasAsignacion, {
+  asignacionesCubrenTotal,
+  asignacionesValidasContraBanco,
+  type AsignacionCompensatoriaTomada,
+} from "./CompensatoriasTomadasAsignacion";
 
 interface ProrrateoDashboardProps {
   empleado?: Empleado;
@@ -166,6 +174,16 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   const [modalRegistrosOpen, setModalRegistrosOpen] = React.useState(false);
   const [modalCompensatorioOpen, setModalCompensatorioOpen] =
     React.useState(false);
+  const [guardandoProrrateo, setGuardandoProrrateo] = React.useState(false);
+  const [prorrateoYaGuardado, setProrrateoYaGuardado] = React.useState(false);
+  const [asignacionesCompTomadas, setAsignacionesCompTomadas] = React.useState<
+    AsignacionCompensatoriaTomada[]
+  >([]);
+  const [snackbar, setSnackbar] = React.useState<{
+    open: boolean;
+    message: string;
+    severity: "success" | "error" | "info";
+  }>({ open: false, message: "", severity: "success" });
 
   const lastFullEmployeeLoadedIdRef = React.useRef<number | null>(null);
   const prevEmpleadoIdRef = React.useRef<number | string | null>(null);
@@ -197,6 +215,8 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     setModalComments([]);
     setModalJobTitle("");
     setTab(0);
+    setProrrateoYaGuardado(false);
+    setAsignacionesCompTomadas([]);
     lastFullEmployeeLoadedIdRef.current = null;
   }, []);
 
@@ -293,6 +313,88 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     fechaFin,
     enabled: !!empleado && hasPeriodoSeleccionado,
   });
+
+  React.useEffect(() => {
+    setProrrateoYaGuardado(false);
+    setAsignacionesCompTomadas([]);
+    const nominaId = nominaSeleccionada?.id;
+    if (!nominaId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const estado = await ProrrateoService.getEstado(nominaId);
+        if (!cancelled) setProrrateoYaGuardado(!!estado.guardado);
+      } catch (e) {
+        console.error("[ProrrateoDashboard] Error consultando estado prorrateo:", e);
+        if (!cancelled) setProrrateoYaGuardado(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [nominaSeleccionada?.id]);
+
+  const horasCompensatoriasTomadasParaAsignar =
+    prorrateo?.cantidadHoras?.horasCompensatoriasTomadas ?? 0;
+
+  const asignacionCompTomadasOk =
+    horasCompensatoriasTomadasParaAsignar <= 0.001 ||
+    (asignacionesCubrenTotal(
+      horasCompensatoriasTomadasParaAsignar,
+      asignacionesCompTomadas
+    ) &&
+      asignacionesValidasContraBanco(asignacionesCompTomadas));
+
+  const puedeGuardarProrrateo =
+    !!nominaSeleccionada?.id &&
+    !!nominaSeleccionada?.pagado &&
+    !!prorrateo &&
+    !error &&
+    !loading &&
+    !guardandoProrrateo &&
+    !prorrateoYaGuardado &&
+    asignacionCompTomadasOk;
+
+  const handleGuardarProrrateo = async () => {
+    if (!nominaSeleccionada?.id || !puedeGuardarProrrateo) return;
+    setGuardandoProrrateo(true);
+    try {
+      const asignacionesPayload = asignacionesCompTomadas
+        .filter((a) => Number(a.horas) > 0)
+        .map((a) => ({
+          jobId: a.jobId,
+          horas: Number(a.horas),
+        }));
+
+      const result = await ProrrateoService.guardar({
+        nominaId: nominaSeleccionada.id,
+        asignacionesCompensatoriasTomadas: asignacionesPayload,
+      });
+      setProrrateoYaGuardado(true);
+      setSnackbar({
+        open: true,
+        message: `Prorrateo guardado (${result.cantidadFilas} filas)`,
+        severity: "success",
+      });
+    } catch (e: any) {
+      const message =
+        e?.response?.data?.message ||
+        e?.message ||
+        "No se pudo guardar el prorrateo";
+      setSnackbar({
+        open: true,
+        message,
+        severity: "error",
+      });
+      if (e?.response?.status === 409) {
+        setProrrateoYaGuardado(true);
+      }
+    } finally {
+      setGuardandoProrrateo(false);
+    }
+  };
 
   const eq = (a: any, b: any) =>
     a != null && b != null && String(a) === String(b);
@@ -640,58 +742,6 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       Number(montoIncapacidadIHSSCalculado ?? 0),
   );
   const totalAPagar = roundMonto2(totalResumen - totalDeducciones);
-
-  // Comentarios de compensatorias tomadas (desglose por job en backend; fila única en UI)
-  const comentariosCompensatoriasTomadas = React.useMemo(() => {
-    const jobs =
-      prorrateo?.cantidadHoras?.horasCompensatoriasTomadasPorJob ?? [];
-    const vistos = new Set<string>();
-    const out: ComentarioProrrateoJobDto[] = [];
-    for (const j of jobs) {
-      for (const c of j.comentarios ?? []) {
-        const key = `${c.class ?? "null"}::${c.texto}`;
-        if (vistos.has(key)) continue;
-        vistos.add(key);
-        out.push(c);
-      }
-    }
-    return out;
-  }, [prorrateo?.cantidadHoras?.horasCompensatoriasTomadasPorJob]);
-
-  const filasCompensatoriasTomadasProrrateo = React.useMemo(() => {
-    if (horasCompensatoriasTomadasProrrateo <= 0) return [];
-    return [
-      {
-        jobId: 0,
-        codigoJob: "—",
-        nombreJob: "Compensatorias tomadas",
-        cantidadHoras: horasCompensatoriasTomadasProrrateo,
-        comentarios: comentariosCompensatoriasTomadas,
-      },
-    ];
-  }, [
-    horasCompensatoriasTomadasProrrateo,
-    comentariosCompensatoriasTomadas,
-  ]);
-
-  const horasNormalesConCompTomadas = React.useMemo(
-    () => [
-      ...(prorrateo?.cantidadHoras?.normal ?? []),
-      ...filasCompensatoriasTomadasProrrateo,
-    ],
-    [prorrateo?.cantidadHoras?.normal, filasCompensatoriasTomadasProrrateo],
-  );
-
-  const totalHorasNormalesConCompTomadas = React.useMemo(
-    () =>
-      obtenerTotalHoras(prorrateo?.cantidadHoras?.normal ?? []) +
-      horasCompensatoriasTomadasProrrateo,
-    [
-      prorrateo?.cantidadHoras?.normal,
-      horasCompensatoriasTomadasProrrateo,
-      obtenerTotalHoras,
-    ],
-  );
 
   const [expandedClassJobs, setExpandedClassJobs] = React.useState<
     Record<string, boolean>
@@ -1821,15 +1871,18 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                       <Tab label="50%" />
                       <Tab label="75%" />
                       <Tab label="100%" />
+                      <Tab label="Comp. Tomadas" />
                       <Tab label="Comp. acumuladas" />
                     </Tabs>
                     <Box sx={{ p: 2 }}>
                       {tab === 0 &&
                         renderTabla(
                           "Horas Normales",
-                          horasNormalesConCompTomadas,
+                          prorrateo.cantidadHoras.normal ?? [],
                           {
-                            totalHoras: totalHorasNormalesConCompTomadas,
+                            totalHoras: obtenerTotalHoras(
+                              prorrateo.cantidadHoras.normal ?? [],
+                            ),
                             totalMonto:
                               nominaSeleccionada?.montoDiasLaborados ?? 0,
                           },
@@ -1866,7 +1919,18 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                             totalMonto: nominaSeleccionada?.montoHoras100 ?? 0,
                           },
                         )}
-                      {tab === 5 &&
+                      {tab === 5 && (
+                        <CompensatoriasTomadasAsignacion
+                          empleadoId={Number(empleado?.id || 0)}
+                          resetKey={nominaSeleccionada?.id ?? null}
+                          horasACubrir={horasCompensatoriasTomadasProrrateo}
+                          disabled={prorrateoYaGuardado}
+                          asignaciones={asignacionesCompTomadas}
+                          onChange={setAsignacionesCompTomadas}
+                          formatHoras={formatHoras}
+                        />
+                      )}
+                      {tab === 6 &&
                         (horasCompensatoriasAcumuladasTotal > 0 ? (
                           renderTabla(
                             "Compensatorias acumuladas (no forman parte del pago)",
@@ -1887,6 +1951,63 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                         ))}
                     </Box>
                   </Paper>
+
+                  <Box
+                    sx={{
+                      mt: 3,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-end",
+                      gap: 1,
+                    }}
+                  >
+                    {!nominaSeleccionada?.pagado && (
+                      <Typography variant="body2" color="text.secondary">
+                        La nómina debe estar pagada para guardar el prorrateo.
+                      </Typography>
+                    )}
+                    {prorrateoYaGuardado && (
+                      <Typography variant="body2" color="success.main">
+                        Prorrateo ya guardado (cerrado).
+                      </Typography>
+                    )}
+                    {!prorrateoYaGuardado &&
+                      horasCompensatoriasTomadasParaAsignar > 0.001 &&
+                      !asignacionCompTomadasOk && (
+                        <Typography variant="body2" color="warning.main">
+                          Completa la asignación de Comp. Tomadas (pestaña) para
+                          poder guardar.
+                        </Typography>
+                      )}
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="large"
+                      startIcon={
+                        guardandoProrrateo ? (
+                          <CircularProgress size={18} color="inherit" />
+                        ) : (
+                          <SaveIcon />
+                        )
+                      }
+                      onClick={handleGuardarProrrateo}
+                      disabled={!puedeGuardarProrrateo}
+                      sx={{
+                        px: 4,
+                        py: 1.5,
+                        fontSize: "1rem",
+                        fontWeight: 600,
+                        textTransform: "none",
+                        borderRadius: 2,
+                      }}
+                    >
+                      {guardandoProrrateo
+                        ? "Guardando..."
+                        : prorrateoYaGuardado
+                          ? "Prorrateo guardado"
+                          : "Guardar prorrateo"}
+                    </Button>
+                  </Box>
                 </>
               ) : (
                 <Typography variant="body1" color="text.secondary">
@@ -1916,6 +2037,22 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
         empleadoId={Number(empleado?.id || 0)}
         nombreEmpleado={`${empleado?.nombre ?? ""} ${empleado?.apellido ?? ""}`.trim()}
       />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={5000}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       {/* Modal de comentarios */}
       <Dialog

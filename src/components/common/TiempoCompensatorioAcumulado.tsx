@@ -15,6 +15,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   Typography,
   Paper,
 } from "@mui/material";
@@ -23,6 +24,7 @@ import RegistroDiarioService, {
   type ActividadCompensatoriaItem,
   type BancoCompensatoriaJobItem,
   type TiempoCompensatorioData,
+  type TiempoCompensatorioSeccion,
 } from "../../services/registroDiarioService";
 
 export type TiempoCompensatorioAcumuladoProps = {
@@ -32,6 +34,15 @@ export type TiempoCompensatorioAcumuladoProps = {
   empleadoId: number;
   nombreEmpleado?: string;
 };
+
+const PAGE_SIZE = 10;
+
+const TAB_SECCIONES: TiempoCompensatorioSeccion[] = [
+  "porJob",
+  "acumuladas",
+  "tomadas",
+  "vacaciones",
+];
 
 function formatFecha(fecha: string): string {
   if (!fecha) return "—";
@@ -58,8 +69,10 @@ function formatVacacionesSaldo(horas: number | null | undefined): string {
 
 function jobLabel(
   codigo: string | null | undefined,
-  nombre: string | null | undefined
+  nombre: string | null | undefined,
+  jobId?: number | null
 ): string {
+  if (jobId == null && !codigo && !nombre) return "Job no definido";
   const c = (codigo || "").trim();
   const n = (nombre || "").trim();
   if (c && n) return `${c} — ${n}`;
@@ -70,41 +83,59 @@ const TiempoCompensatorioAcumulado: React.FC<
   TiempoCompensatorioAcumuladoProps
 > = ({ open, onClose, empleadoId, nombreEmpleado }) => {
   const [tab, setTab] = useState(0);
+  const [page, setPage] = useState(0); // MUI 0-based
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<TiempoCompensatorioData | null>(null);
 
-  const load = useCallback(async () => {
-    if (!empleadoId || empleadoId <= 0) {
-      setData(null);
-      setError("Empleado no válido");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const result =
-        await RegistroDiarioService.getTiempoCompensatorio(empleadoId);
-      setData(result);
-    } catch (err: any) {
-      console.error("Error al cargar tiempo compensatorio:", err);
-      setError(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Error al cargar tiempo compensatorio"
-      );
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [empleadoId]);
+  const load = useCallback(
+    async (seccion: TiempoCompensatorioSeccion, page1Based: number) => {
+      if (!empleadoId || empleadoId <= 0) {
+        setData(null);
+        setError("Empleado no válido");
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await RegistroDiarioService.getTiempoCompensatorio(
+          empleadoId,
+          { seccion, page: page1Based, limit: PAGE_SIZE }
+        );
+        setData(result);
+      } catch (err: any) {
+        console.error("Error al cargar tiempo compensatorio:", err);
+        setError(
+          err?.response?.data?.message ||
+            err?.message ||
+            "Error al cargar tiempo compensatorio"
+        );
+        setData(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [empleadoId]
+  );
 
   useEffect(() => {
     if (open) {
       setTab(0);
-      void load();
+      setPage(0);
+      void load("porJob", 1);
     }
   }, [open, load]);
+
+  const handleTabChange = (_: React.SyntheticEvent, nextTab: number) => {
+    setTab(nextTab);
+    setPage(0);
+    void load(TAB_SECCIONES[nextTab], 1);
+  };
+
+  const handlePageChange = (_: unknown, nextPage: number) => {
+    setPage(nextPage);
+    void load(TAB_SECCIONES[tab], nextPage + 1);
+  };
 
   const renderActividadesTable = (
     rows: ActividadCompensatoriaItem[],
@@ -136,7 +167,9 @@ const TiempoCompensatorioAcumulado: React.FC<
             {rows.map((row) => (
               <TableRow key={row.id} hover>
                 <TableCell>{formatFecha(row.fecha)}</TableCell>
-                <TableCell>{jobLabel(row.jobCodigo, row.jobNombre)}</TableCell>
+                <TableCell>
+                  {jobLabel(row.jobCodigo, row.jobNombre, row.jobId)}
+                </TableCell>
                 <TableCell align="right">
                   {formatHoras(row.duracionHoras)}
                 </TableCell>
@@ -172,17 +205,17 @@ const TiempoCompensatorioAcumulado: React.FC<
             <TableRow>
               <TableCell>Job</TableCell>
               <TableCell align="right">Horas acumuladas</TableCell>
-              <TableCell align="center">Id empleado</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.id} hover>
-                <TableCell>{jobLabel(row.jobCodigo, row.jobNombre)}</TableCell>
+                <TableCell>
+                  {jobLabel(row.jobCodigo, row.jobNombre, row.jobId)}
+                </TableCell>
                 <TableCell align="right">
                   {formatHoras(row.horasAcumuladas)}
                 </TableCell>
-                <TableCell align="center">{row.empleadoId}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -201,6 +234,10 @@ const TiempoCompensatorioAcumulado: React.FC<
       </Typography>
     </Paper>
   );
+
+  const counts = data?.counts;
+  const paginationTotal = data?.pagination?.total ?? 0;
+  const showPagination = tab !== 3;
 
   return (
     <Dialog
@@ -255,13 +292,48 @@ const TiempoCompensatorioAcumulado: React.FC<
           overflow: "hidden",
         }}
       >
-        {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-            <CircularProgress />
-          </Box>
-        ) : error ? (
-          <Alert severity="error">{error}</Alert>
-        ) : data ? (
+        {error ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        ) : null}
+
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
+        >
+          <Tabs
+            value={tab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            allowScrollButtonsMobile
+            sx={{
+              mb: 2,
+              borderBottom: 1,
+              borderColor: "divider",
+              flexShrink: 0,
+            }}
+          >
+            <Tab
+              label={`Banco acumulado por job (${counts?.porJob ?? 0})`}
+              id="tab-comp-por-job"
+            />
+            <Tab
+              label={`Historial h. acumuladas (${counts?.acumuladas ?? 0})`}
+              id="tab-comp-acumuladas"
+            />
+            <Tab
+              label={`Historial h. tomadas (${counts?.tomadas ?? 0})`}
+              id="tab-comp-tomadas"
+            />
+            <Tab label="Vacaciones" id="tab-vacaciones" />
+          </Tabs>
+
           <Box
             sx={{
               flex: 1,
@@ -269,58 +341,62 @@ const TiempoCompensatorioAcumulado: React.FC<
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
+              position: "relative",
             }}
           >
-            <Tabs
-              value={tab}
-              onChange={(_, v) => setTab(v)}
-              variant="scrollable"
-              allowScrollButtonsMobile
-              sx={{ mb: 2, borderBottom: 1, borderColor: "divider", flexShrink: 0 }}
-            >
-              <Tab
-                label={`Banco acumulado por job (${data.porJob.length})`}
-                id="tab-comp-por-job"
-              />
-              <Tab
-                label={`Historial h. acumuladas (${data.acumuladas.length})`}
-                id="tab-comp-acumuladas"
-              />
-              <Tab
-                label={`Historial h. tomadas (${data.tomadas.length})`}
-                id="tab-comp-tomadas"
-              />
-              <Tab label="Vacaciones" id="tab-vacaciones" />
-            </Tabs>
-
-            <Box
-              sx={{
-                flex: 1,
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-              }}
-            >
-              {tab === 0 && renderBancoPorJob(data.porJob)}
-              {tab === 1 &&
-                renderActividadesTable(
-                  data.acumuladas,
-                  "No hay actividades compensatorias acumuladas (extra=true)"
-                )}
-              {tab === 2 &&
-                renderActividadesTable(
-                  data.tomadas,
-                  "No hay actividades compensatorias tomadas (extra=false)"
-                )}
-              {tab === 3 && renderVacaciones(data.tiempoVacacionesHoras)}
-            </Box>
+            {loading ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  flex: 1,
+                  py: 6,
+                }}
+              >
+                <CircularProgress />
+              </Box>
+            ) : data ? (
+              <>
+                {tab === 0 && renderBancoPorJob(data.porJob)}
+                {tab === 1 &&
+                  renderActividadesTable(
+                    data.acumuladas,
+                    "No hay actividades compensatorias acumuladas (extra=true)"
+                  )}
+                {tab === 2 &&
+                  renderActividadesTable(
+                    data.tomadas,
+                    "No hay actividades compensatorias tomadas (extra=false)"
+                  )}
+                {tab === 3 && renderVacaciones(data.tiempoVacacionesHoras)}
+              </>
+            ) : (
+              <Typography
+                color="text.secondary"
+                sx={{ py: 3, textAlign: "center" }}
+              >
+                Sin datos
+              </Typography>
+            )}
           </Box>
-        ) : (
-          <Typography color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
-            Sin datos
-          </Typography>
-        )}
+
+          {showPagination && data && !loading ? (
+            <TablePagination
+              component="div"
+              count={paginationTotal}
+              page={page}
+              onPageChange={handlePageChange}
+              rowsPerPage={PAGE_SIZE}
+              rowsPerPageOptions={[PAGE_SIZE]}
+              labelRowsPerPage="Filas"
+              labelDisplayedRows={({ from, to, count }) =>
+                `${from}–${to} de ${count !== -1 ? count : `más de ${to}`}`
+              }
+              sx={{ flexShrink: 0, borderTop: 1, borderColor: "divider" }}
+            />
+          ) : null}
+        </Box>
       </DialogContent>
     </Dialog>
   );

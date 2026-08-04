@@ -208,20 +208,8 @@ export default function Layout() {
           path: `/registro-actividades/${todayDateString}`,
         },
         {
-          id: "jobs-y-empresas",
-          text: "Jobs y Empresas",
-          icon: <DashboardIcon />,
-          path: "/contabilidad",
-        },
-        {
-          id: "contabilidad-accesos-asistentes",
-          text: "Accesos asistentes",
-          icon: <GroupAddIcon />,
-          path: "/rrhh/accesos-asistentes-contabilidad",
-        },
-        {
           id: "supervision",
-          text: "Vista Supervisor",
+          text: "Revisión de actividades diarias",
           icon: <FindInPageIcon />,
           path: "/supervision/planillas",
         },
@@ -236,6 +224,18 @@ export default function Layout() {
           text: "Gestión de Nóminas",
           icon: <ReceiptIcon />,
           path: "/rrhh/nominas-gestion",
+        },
+        {
+          id: "jobs-y-empresas",
+          text: "Jobs y Empresas",
+          icon: <DashboardIcon />,
+          path: "/jobs-empresas",
+        },
+        {
+          id: "contabilidad-accesos-asistentes",
+          text: "Accesos asistentes",
+          icon: <GroupAddIcon />,
+          path: "/rrhh/accesos-asistentes-contabilidad",
         },
       ];
     }

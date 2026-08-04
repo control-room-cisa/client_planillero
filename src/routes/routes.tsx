@@ -210,7 +210,7 @@ const AppRoutes: React.FC = () => {
 
         {/* Supervisor contabilidad: jobs y empresas (mismo módulo), accesos asistentes */}
         <Route
-          path="contabilidad"
+          path="jobs-empresas"
           element={
             <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR_CONTABILIDAD]}>
               <ContabilidadDashboard />
@@ -218,12 +218,16 @@ const AppRoutes: React.FC = () => {
           }
         />
         <Route
+          path="contabilidad"
+          element={<Navigate to="/jobs-empresas" replace />}
+        />
+        <Route
           path="rrhh/gestion-jobs"
-          element={<Navigate to="/contabilidad" replace />}
+          element={<Navigate to="/jobs-empresas" replace />}
         />
         <Route
           path="rrhh/gestion-empresas-consorcio"
-          element={<Navigate to="/contabilidad" replace />}
+          element={<Navigate to="/jobs-empresas" replace />}
         />
         <Route
           path="rrhh/accesos-asistentes-contabilidad"

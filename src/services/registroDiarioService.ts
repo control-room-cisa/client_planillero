@@ -179,17 +179,37 @@ class RegistroDiarioService {
 
   /**
    * Tiempo compensatorio del colaborador: actividades acumuladas/tomadas + banco por job.
+   * Con seccion/page/limit pagina desde backend (limit default 10).
+   * Sin seccion: listas completas (compat).
    */
   static async getTiempoCompensatorio(
-    idEmpleado: number
+    idEmpleado: number,
+    options?: {
+      seccion?: TiempoCompensatorioSeccion;
+      page?: number;
+      limit?: number;
+    }
   ): Promise<TiempoCompensatorioData> {
     const response = await api.get<ApiResponse<TiempoCompensatorioData>>(
       "/registrodiario/tiempo-compensatorio",
-      { params: { idEmpleado } }
+      {
+        params: {
+          idEmpleado,
+          ...(options?.seccion ? { seccion: options.seccion } : {}),
+          ...(options?.page != null ? { page: options.page } : {}),
+          ...(options?.limit != null ? { limit: options.limit } : {}),
+        },
+      }
     );
     return response.data.data;
   }
 }
+
+export type TiempoCompensatorioSeccion =
+  | "porJob"
+  | "acumuladas"
+  | "tomadas"
+  | "vacaciones";
 
 export type ActividadCompensatoriaItem = {
   id: number;
@@ -209,7 +229,7 @@ export type ActividadCompensatoriaItem = {
 export type BancoCompensatoriaJobItem = {
   id: number;
   empleadoId: number;
-  jobId: number;
+  jobId: number | null;
   jobCodigo: string | null;
   jobNombre: string | null;
   horasAcumuladas: number;
@@ -219,9 +239,21 @@ export type TiempoCompensatorioData = {
   empleadoId: number;
   tiempoVacacionesHoras?: number | null;
   tiempoCompensatorioHoras?: number | null;
+  seccion?: TiempoCompensatorioSeccion | null;
   acumuladas: ActividadCompensatoriaItem[];
   tomadas: ActividadCompensatoriaItem[];
   porJob: BancoCompensatoriaJobItem[];
+  counts?: {
+    porJob: number;
+    acumuladas: number;
+    tomadas: number;
+  };
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  } | null;
   totales: {
     horasAcumuladasActividades: number;
     horasTomadasActividades: number;

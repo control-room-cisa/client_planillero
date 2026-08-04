@@ -1,4 +1,9 @@
 // src/dtos/nominaDto.ts
+export type BancoCompensatoriaAplicadaDto = {
+  jobId: number | null;
+  horas: number;
+};
+
 export interface NominaDto {
   id: number;
   empleadoId: number;
@@ -14,6 +19,8 @@ export interface NominaDto {
   diasIncapacidadEmpresa?: number | null;
   diasIncapacidadIHSS?: number | null;
   horasCompensatorias?: number | null;
+  /** Snapshot inmutable de lo aplicado al banco al crear */
+  bancoCompensatoriasAplicadas?: BancoCompensatoriaAplicadaDto[] | null;
 
   subtotalQuincena?: number | null;
   montoVacaciones?: number | null;
@@ -60,6 +67,8 @@ export interface CrearNominaDto {
   diasIncapacidadEmpresa?: number | null;
   diasIncapacidadIHSS?: number | null;
   horasCompensatorias?: number | null;
+  /** Desglose de horas acumuladas por job (horas crudas > 0) */
+  bancoCompensatoriasAplicadas?: BancoCompensatoriaAplicadaDto[];
 
   subtotalQuincena?: number | null;
   montoVacaciones?: number | null;
@@ -89,4 +98,10 @@ export interface CrearNominaDto {
   comentario?: string | null;
 }
 
-export interface ActualizarNominaDto extends Partial<CrearNominaDto> {}
+/** En actualización no se permiten cambiar empleado, horas compensatorias ni el snapshot del banco. */
+export type ActualizarNominaDto = Partial<
+  Omit<
+    CrearNominaDto,
+    "empleadoId" | "horasCompensatorias" | "bancoCompensatoriasAplicadas"
+  >
+>;

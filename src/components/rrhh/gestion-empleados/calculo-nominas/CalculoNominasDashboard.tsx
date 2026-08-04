@@ -27,6 +27,7 @@ import DesgloseIncidenciasComponent from "../DesgloseIncidencias";
 import NominaService, {
   type CrearNominaDto,
 } from "../../../../services/nominaService";
+import RegistroDiarioService from "../../../../services/registroDiarioService";
 import DetalleRegistrosDiariosModal from "../detalleRegistrosDiariosModal";
 import TiempoCompensatorioAcumulado from "../../../common/TiempoCompensatorioAcumulado";
 
@@ -439,6 +440,39 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
         return;
       }
 
+      // Desglose de horas acumuladas crudas por job (actividades esCompensatorio + esExtra)
+      const tiempoComp = await RegistroDiarioService.getTiempoCompensatorio(
+        Number(empleado.id),
+      );
+      const horasPorJobMap = new Map<string, { jobId: number | null; horas: number }>();
+      for (const act of tiempoComp.acumuladas) {
+        const fechaAct = String(act.fecha).slice(0, 10);
+        if (fechaAct < fechaInicio || fechaAct > fechaFin) continue;
+        const horas = Number(act.duracionHoras || 0);
+        if (horas <= 0) continue;
+        const jobId =
+          act.jobId == null || Number.isNaN(Number(act.jobId))
+            ? null
+            : Number(act.jobId);
+        const key = jobId == null ? "null" : String(jobId);
+        const prev = horasPorJobMap.get(key);
+        if (prev) prev.horas += horas;
+        else horasPorJobMap.set(key, { jobId, horas });
+      }
+      const bancoCompensatoriasAplicadas = Array.from(horasPorJobMap.values())
+        .map((row) => ({
+          jobId: row.jobId,
+          horas: roundTo2Decimals(row.horas),
+        }))
+        .filter((row) => row.horas > 0);
+
+      if (bancoCompensatoriasAplicadas.some((row) => row.jobId == null)) {
+        showToast(
+          "Hay horas compensatorias acumuladas con job no identificado; se registrarán como job no definido en el banco.",
+          "warning",
+        );
+      }
+
       const payload: CrearNominaDto = {
         empleadoId: Number(empleado.id),
         nombrePeriodoNomina: getNombrePeriodoNomina(fechaInicio, fechaFin),
@@ -451,6 +485,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
         diasIncapacidadEmpresa: diasIncapacidadCubreEmpresa || 0,
         diasIncapacidadIHSS: diasIncapacidadCubreIHSS || 0,
         horasCompensatorias: totalCompensatoriasQuincena,
+        bancoCompensatoriasAplicadas,
 
         subtotalQuincena: subtotalQuincena || 0,
         montoVacaciones: montoVacaciones || 0,

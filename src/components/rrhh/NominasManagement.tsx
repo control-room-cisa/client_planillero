@@ -37,6 +37,7 @@ import PrintIcon from "@mui/icons-material/Print";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import NominaService, { type NominaDto } from "../../services/nominaService";
+import RegistroDiarioService from "../../services/registroDiarioService";
 import { empresaService } from "../../services/empresaService";
 import EmpleadoService from "../../services/empleadoService";
 import CalculoHorasTrabajoService from "../../services/calculoHorasTrabajoService";
@@ -142,9 +143,11 @@ const NominasManagement: React.FC = () => {
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     nomina: NominaDto | null;
+    warningNegativo: boolean;
   }>({
     open: false,
     nomina: null,
+    warningNegativo: false,
   });
   const [printingNominaId, setPrintingNominaId] = useState<number | null>(null);
   const [downloadingPlantilla, setDownloadingPlantilla] = useState(false);
@@ -822,7 +825,13 @@ const NominasManagement: React.FC = () => {
     if (!currentNomina) return;
 
     try {
-      await NominaService.update(currentNomina.id, editFormData);
+      const {
+        bancoCompensatoriasAplicadas: _banco,
+        horasCompensatorias: _horasComp,
+        empleadoId: _empleadoId,
+        ...updatePayload
+      } = editFormData;
+      await NominaService.update(currentNomina.id, updatePayload);
       showSnackbar("Nómina actualizada exitosamente", "success");
       handleCloseEditModal();
       fetchNominas();
@@ -835,7 +844,7 @@ const NominasManagement: React.FC = () => {
   };
 
   // Abrir diálogo de confirmación para eliminar
-  const handleDelete = (nomina: NominaDto) => {
+  const handleDelete = async (nomina: NominaDto) => {
     if (nomina.pagado === true) {
       showSnackbar(
         "No se puede eliminar una nómina que ya está pagada",
@@ -844,9 +853,33 @@ const NominasManagement: React.FC = () => {
       return;
     }
 
+    let warningNegativo = false;
+    try {
+      const completa = await NominaService.getById(nomina.id);
+      const snapshot = completa.bancoCompensatoriasAplicadas ?? [];
+      if (snapshot.length > 0) {
+        const banco = await RegistroDiarioService.getTiempoCompensatorio(
+          completa.empleadoId
+        );
+        const saldoPorJob = new Map<string, number>();
+        for (const row of banco.porJob) {
+          const key = row.jobId == null ? "null" : String(row.jobId);
+          saldoPorJob.set(key, Number(row.horasAcumuladas || 0));
+        }
+        warningNegativo = snapshot.some((item) => {
+          const key = item.jobId == null ? "null" : String(item.jobId);
+          const actual = saldoPorJob.get(key) ?? 0;
+          return actual - Number(item.horas || 0) < 0;
+        });
+      }
+    } catch (err) {
+      console.error("Error al evaluar saldos del banco antes de eliminar:", err);
+    }
+
     setConfirmDialog({
       open: true,
       nomina,
+      warningNegativo,
     });
   };
 
@@ -858,19 +891,19 @@ const NominasManagement: React.FC = () => {
       await NominaService.delete(confirmDialog.nomina.id);
       showSnackbar("Nómina eliminada exitosamente", "success");
       fetchNominas();
-      setConfirmDialog({ open: false, nomina: null });
+      setConfirmDialog({ open: false, nomina: null, warningNegativo: false });
     } catch (err: any) {
       console.error("Error al eliminar nómina:", err);
       const errorMessage =
         err?.response?.data?.message || "Error al eliminar la nómina";
       showSnackbar(errorMessage, "error");
-      setConfirmDialog({ open: false, nomina: null });
+      setConfirmDialog({ open: false, nomina: null, warningNegativo: false });
     }
   };
 
   // Cancelar eliminación
   const handleCancelDelete = () => {
-    setConfirmDialog({ open: false, nomina: null });
+    setConfirmDialog({ open: false, nomina: null, warningNegativo: false });
   };
 
   const handleCloseSnackbar = () => {
@@ -2368,9 +2401,15 @@ const NominasManagement: React.FC = () => {
       <ConfirmDialog
         open={confirmDialog.open}
         title="Confirmar eliminación"
-        message={`¿Está seguro que desea eliminar la nómina del período ${
-          confirmDialog.nomina?.nombrePeriodoNomina || "sin nombre"
-        }?`}
+        message={
+          confirmDialog.warningNegativo
+            ? `¿Está seguro que desea eliminar la nómina del período ${
+                confirmDialog.nomina?.nombrePeriodoNomina || "sin nombre"
+              }? Advertencia: al revertir el banco de compensatorias se aplicará un saldo negativo en uno o más jobs.`
+            : `¿Está seguro que desea eliminar la nómina del período ${
+                confirmDialog.nomina?.nombrePeriodoNomina || "sin nombre"
+              }?`
+        }
         confirmText="Eliminar"
         cancelText="Conservar"
         onConfirm={handleConfirmDelete}
