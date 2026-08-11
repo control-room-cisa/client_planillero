@@ -262,8 +262,11 @@ const VehiculosManagement: React.FC = () => {
   return (
     <Box
       sx={{
-        p: 3,
+        p: { xs: 2, md: 3 },
         height: "100%",
+        width: "100%",
+        maxWidth: { xs: "100%", md: 1100 },
+        mx: "auto",
         display: "flex",
         flexDirection: "column",
         minHeight: 0,
@@ -274,7 +277,7 @@ const VehiculosManagement: React.FC = () => {
         Gestión de Vehículos
       </Typography>
 
-      <Box sx={{ display: "flex", mb: 3, gap: 2, flexShrink: 0 }}>
+      <Box sx={{ display: "flex", mb: 2, gap: 2, flexShrink: 0 }}>
         <TextField
           label="Buscar por class, nombre o tipo"
           variant="outlined"
@@ -299,63 +302,97 @@ const VehiculosManagement: React.FC = () => {
         </Button>
       </Box>
 
-      <TableContainer
-        component={Paper}
-        sx={{ flex: 1, minHeight: 0, overflowX: "auto" }}
+      <Paper
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
       >
-        <Table stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ minWidth: 100 }}>Class</TableCell>
-              <TableCell sx={{ minWidth: 280 }}>Nombre</TableCell>
-              <TableCell sx={{ minWidth: 120 }}>Tipo</TableCell>
-              <TableCell align="center">Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
+        <TableContainer sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+          <Table stickyHeader size="small" sx={{ width: "100%" }}>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={4} align="center">
-                  <CircularProgress size={24} />
+                <TableCell sx={{ whiteSpace: "nowrap", width: "15%" }}>
+                  Class
+                </TableCell>
+                <TableCell sx={{ width: "40%" }}>Nombre</TableCell>
+                <TableCell sx={{ width: "25%" }}>Tipo</TableCell>
+                <TableCell align="center" sx={{ whiteSpace: "nowrap", width: "20%" }}>
+                  Acciones
                 </TableCell>
               </TableRow>
-            ) : filteredVehiculos.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} align="center">
-                  {searchTerm.trim()
-                    ? "No se encontraron vehículos con ese criterio"
-                    : "No hay vehículos registrados"}
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginatedVehiculos.map((vehiculo) => (
-                <TableRow key={vehiculo.id} hover>
-                  <TableCell>{vehiculo.class}</TableCell>
-                  <TableCell>{vehiculo.nombre || "-"}</TableCell>
-                  <TableCell>{vehiculo.tipo || "-"}</TableCell>
-                  <TableCell align="center">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleOpenEditModal(vehiculo)}
-                      color="primary"
-                      title="Editar"
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDelete(vehiculo)}
-                      color="error"
-                      title="Eliminar"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={4} align="center">
+                    <CircularProgress size={24} />
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : filteredVehiculos.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} align="center">
+                    {searchTerm.trim()
+                      ? "No se encontraron vehículos con ese criterio"
+                      : "No hay vehículos registrados"}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedVehiculos.map((vehiculo) => (
+                  <TableRow key={vehiculo.id} hover>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
+                      {vehiculo.class}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        maxWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title={vehiculo.nombre || undefined}
+                    >
+                      {vehiculo.nombre || "-"}
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        maxWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title={vehiculo.tipo || undefined}
+                    >
+                      {vehiculo.tipo || "-"}
+                    </TableCell>
+                    <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleOpenEditModal(vehiculo)}
+                        color="primary"
+                        title="Editar"
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDelete(vehiculo)}
+                        color="error"
+                        title="Eliminar"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
         <TablePagination
           component="div"
           count={filteredVehiculos.length}
@@ -367,8 +404,13 @@ const VehiculosManagement: React.FC = () => {
           labelDisplayedRows={({ from, to, count }) =>
             `${from}–${to} de ${count !== -1 ? count : to}`
           }
+          sx={{
+            flexShrink: 0,
+            borderTop: 1,
+            borderColor: "divider",
+          }}
         />
-      </TableContainer>
+      </Paper>
 
       <Dialog
         open={openCreateModal}
