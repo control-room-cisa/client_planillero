@@ -44,6 +44,20 @@ const TAB_SECCIONES: TiempoCompensatorioSeccion[] = [
   "vacaciones",
 ];
 
+/** Celdas compactas (misma densidad que tablas de historial / módulos RRHH). */
+const denseCellSx = {
+  py: 0.5,
+  px: 1,
+  fontSize: "0.8125rem",
+  lineHeight: 1.25,
+  whiteSpace: "nowrap" as const,
+};
+
+const denseHeadSx = {
+  ...denseCellSx,
+  fontWeight: 600,
+};
+
 function formatFecha(fecha: string): string {
   if (!fecha) return "—";
   const d = new Date(fecha.length === 10 ? `${fecha}T00:00:00` : fecha);
@@ -152,34 +166,54 @@ const TiempoCompensatorioAcumulado: React.FC<
       <TableContainer
         component={Paper}
         variant="outlined"
-        sx={{ flex: 1, minHeight: 0, maxHeight: "none" }}
+        sx={{ overflow: "auto" }}
       >
-        <Table stickyHeader size="small">
+        <Table stickyHeader size="small" sx={{ tableLayout: "fixed" }}>
           <TableHead>
             <TableRow>
-              <TableCell>Fecha</TableCell>
-              <TableCell>Job</TableCell>
-              <TableCell align="right">Horas</TableCell>
-              <TableCell>Descripción</TableCell>
+              <TableCell sx={{ ...denseHeadSx, width: 88 }}>Fecha</TableCell>
+              <TableCell sx={{ ...denseHeadSx, width: "28%" }}>Job</TableCell>
+              <TableCell align="right" sx={{ ...denseHeadSx, width: 72 }}>
+                Horas
+              </TableCell>
+              <TableCell sx={denseHeadSx}>Descripción</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.id} hover>
-                <TableCell>{formatFecha(row.fecha)}</TableCell>
-                <TableCell>
-                  {jobLabel(row.jobCodigo, row.jobNombre, row.jobId)}
-                </TableCell>
-                <TableCell align="right">
-                  {formatHoras(row.duracionHoras)}
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" noWrap title={row.descripcion}>
-                    {row.descripcion || "—"}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ))}
+            {rows.map((row) => {
+              const job = jobLabel(row.jobCodigo, row.jobNombre, row.jobId);
+              const desc = row.descripcion || "—";
+              return (
+                <TableRow key={row.id} hover>
+                  <TableCell sx={denseCellSx}>
+                    {formatFecha(row.fecha)}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      ...denseCellSx,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                    title={job}
+                  >
+                    {job}
+                  </TableCell>
+                  <TableCell align="right" sx={denseCellSx}>
+                    {formatHoras(row.duracionHoras)}
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      ...denseCellSx,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                    title={desc}
+                  >
+                    {desc}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </TableContainer>
@@ -198,26 +232,38 @@ const TiempoCompensatorioAcumulado: React.FC<
       <TableContainer
         component={Paper}
         variant="outlined"
-        sx={{ flex: 1, minHeight: 0, maxHeight: "none" }}
+        sx={{ overflow: "auto" }}
       >
-        <Table stickyHeader size="small">
+        <Table stickyHeader size="small" sx={{ tableLayout: "fixed" }}>
           <TableHead>
             <TableRow>
-              <TableCell>Job</TableCell>
-              <TableCell align="right">Horas acumuladas</TableCell>
+              <TableCell sx={denseHeadSx}>Job</TableCell>
+              <TableCell align="right" sx={{ ...denseHeadSx, width: 140 }}>
+                Horas acumuladas
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.id} hover>
-                <TableCell>
-                  {jobLabel(row.jobCodigo, row.jobNombre, row.jobId)}
-                </TableCell>
-                <TableCell align="right">
-                  {formatHoras(row.horasAcumuladas)}
-                </TableCell>
-              </TableRow>
-            ))}
+            {rows.map((row) => {
+              const job = jobLabel(row.jobCodigo, row.jobNombre, row.jobId);
+              return (
+                <TableRow key={row.id} hover>
+                  <TableCell
+                    sx={{
+                      ...denseCellSx,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                    title={job}
+                  >
+                    {job}
+                  </TableCell>
+                  <TableCell align="right" sx={denseCellSx}>
+                    {formatHoras(row.horasAcumuladas)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </TableContainer>
@@ -247,9 +293,8 @@ const TiempoCompensatorioAcumulado: React.FC<
       fullWidth
       PaperProps={{
         sx: {
-          width: "92vw",
-          maxWidth: "92vw",
-          height: "90vh",
+          width: { xs: "96vw", sm: 880 },
+          maxWidth: "96vw",
           maxHeight: "90vh",
           m: 1,
           display: "flex",
@@ -263,16 +308,17 @@ const TiempoCompensatorioAcumulado: React.FC<
           alignItems: "center",
           justifyContent: "space-between",
           gap: 1,
+          py: 1.25,
           pr: 1,
           flexShrink: 0,
         }}
       >
         <Box>
-          <Typography variant="h6" component="span">
+          <Typography variant="subtitle1" component="span" fontWeight={600}>
             Tiempo Compensatorio Acumulado
           </Typography>
           {nombreEmpleado ? (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" display="block">
               {nombreEmpleado}
             </Typography>
           ) : null}
@@ -285,11 +331,10 @@ const TiempoCompensatorioAcumulado: React.FC<
       <DialogContent
         dividers
         sx={{
-          flex: 1,
-          minHeight: 0,
           display: "flex",
           flexDirection: "column",
-          overflow: "hidden",
+          overflow: "auto",
+          py: 1.5,
         }}
       >
         {error ? (
@@ -298,25 +343,24 @@ const TiempoCompensatorioAcumulado: React.FC<
           </Alert>
         ) : null}
 
-        <Box
-          sx={{
-            flex: 1,
-            minHeight: 0,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
+        <Box sx={{ display: "flex", flexDirection: "column" }}>
           <Tabs
             value={tab}
             onChange={handleTabChange}
             variant="scrollable"
             allowScrollButtonsMobile
             sx={{
-              mb: 2,
+              mb: 1,
+              minHeight: 36,
               borderBottom: 1,
               borderColor: "divider",
               flexShrink: 0,
+              "& .MuiTab-root": {
+                minHeight: 36,
+                py: 0.5,
+                px: 1.5,
+                fontSize: "0.8125rem",
+              },
             }}
           >
             <Tab
@@ -334,27 +378,17 @@ const TiempoCompensatorioAcumulado: React.FC<
             <Tab label="Vacaciones" id="tab-vacaciones" />
           </Tabs>
 
-          <Box
-            sx={{
-              flex: 1,
-              minHeight: 0,
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              position: "relative",
-            }}
-          >
+          <Box sx={{ position: "relative" }}>
             {loading ? (
               <Box
                 sx={{
                   display: "flex",
                   justifyContent: "center",
                   alignItems: "center",
-                  flex: 1,
-                  py: 6,
+                  py: 4,
                 }}
               >
-                <CircularProgress />
+                <CircularProgress size={32} />
               </Box>
             ) : data ? (
               <>
@@ -393,7 +427,16 @@ const TiempoCompensatorioAcumulado: React.FC<
               labelDisplayedRows={({ from, to, count }) =>
                 `${from}–${to} de ${count !== -1 ? count : `más de ${to}`}`
               }
-              sx={{ flexShrink: 0, borderTop: 1, borderColor: "divider" }}
+              sx={{
+                flexShrink: 0,
+                borderTop: 1,
+                borderColor: "divider",
+                minHeight: 44,
+                "& .MuiTablePagination-toolbar": {
+                  minHeight: 44,
+                  px: 1,
+                },
+              }}
             />
           ) : null}
         </Box>

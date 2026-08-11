@@ -996,6 +996,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                   <MenuItem value={Roles.ASISTENTE_CONTABILIDAD}>
                     Asistente Contabilidad
                   </MenuItem>
+                  <MenuItem value={Roles.LOGISTICA}>Logística</MenuItem>
                 </Select>
                 {fieldErrors.rolId && (
                   <Typography

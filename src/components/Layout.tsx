@@ -37,6 +37,7 @@ import LockOpenIcon from "@mui/icons-material/LockOpen";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import BusinessIcon from "@mui/icons-material/Business";
 import SettingsIcon from "@mui/icons-material/Settings";
+import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
@@ -160,6 +161,8 @@ export default function Layout() {
           navigate("/rrhh/colaboradores", { replace: true });
         } else if (user.rolId === Roles.SUPERVISOR_CONTABILIDAD) {
           navigate("/prorrateo", { replace: true });
+        } else if (user.rolId === Roles.LOGISTICA) {
+          navigate("/logistica/vehiculos", { replace: true });
         } else if (
           user.rolId === Roles.EMPLEADO ||
           user.rolId === Roles.SUPERVISOR ||
@@ -180,6 +183,8 @@ export default function Layout() {
             navigate("/rrhh/colaboradores");
           } else if (user.rolId === Roles.SUPERVISOR_CONTABILIDAD) {
             navigate("/prorrateo");
+          } else if (user.rolId === Roles.LOGISTICA) {
+            navigate("/logistica/vehiculos");
           } else if (
             user.rolId === Roles.EMPLEADO ||
             user.rolId === Roles.SUPERVISOR ||
@@ -324,6 +329,18 @@ export default function Layout() {
           text: "Revisión de Actividades Diarias",
           icon: <FindInPageIcon />,
           path: "/supervision/planillas",
+        },
+      ];
+    }
+
+    // Logística
+    if (user?.rolId === Roles.LOGISTICA) {
+      return [
+        {
+          id: "vehiculos",
+          text: "Gestión de Vehículos",
+          icon: <DirectionsCarIcon />,
+          path: "/logistica/vehiculos",
         },
       ];
     }
