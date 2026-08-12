@@ -34,7 +34,7 @@ import VehiculoService, {
 } from "../../services/vehiculoService";
 import ConfirmDialog from "../common/ConfirmDialog";
 
-const ROWS_PER_PAGE = 15;
+const ROWS_PER_PAGE = 10;
 
 const VehiculosManagement: React.FC = () => {
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
@@ -267,17 +267,16 @@ const VehiculosManagement: React.FC = () => {
         width: "100%",
         maxWidth: { xs: "100%", md: 1100 },
         mx: "auto",
-        display: "flex",
-        flexDirection: "column",
-        minHeight: 0,
-        overflow: "hidden",
+        boxSizing: "border-box",
+        overflowY: "auto",
+        overflowX: "hidden",
       }}
     >
-      <Typography variant="h4" gutterBottom sx={{ flexShrink: 0 }}>
+      <Typography variant="h4" gutterBottom>
         Gestión de Vehículos
       </Typography>
 
-      <Box sx={{ display: "flex", mb: 2, gap: 2, flexShrink: 0 }}>
+      <Box sx={{ display: "flex", mb: 2, gap: 2 }}>
         <TextField
           label="Buscar por class, nombre o tipo"
           variant="outlined"
@@ -302,18 +301,9 @@ const VehiculosManagement: React.FC = () => {
         </Button>
       </Box>
 
-      <Paper
-        sx={{
-          flex: 1,
-          minHeight: 0,
-          width: "100%",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        <TableContainer sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
-          <Table stickyHeader size="small" sx={{ width: "100%" }}>
+      <Paper sx={{ width: "100%" }}>
+        <TableContainer sx={{ overflowX: "auto", overflowY: "visible" }}>
+          <Table size="small" sx={{ width: "100%" }}>
             <TableHead>
               <TableRow>
                 <TableCell sx={{ whiteSpace: "nowrap", width: "15%" }}>
@@ -347,28 +337,8 @@ const VehiculosManagement: React.FC = () => {
                     <TableCell sx={{ whiteSpace: "nowrap" }}>
                       {vehiculo.class}
                     </TableCell>
-                    <TableCell
-                      sx={{
-                        maxWidth: 0,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                      title={vehiculo.nombre || undefined}
-                    >
-                      {vehiculo.nombre || "-"}
-                    </TableCell>
-                    <TableCell
-                      sx={{
-                        maxWidth: 0,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                      title={vehiculo.tipo || undefined}
-                    >
-                      {vehiculo.tipo || "-"}
-                    </TableCell>
+                    <TableCell>{vehiculo.nombre || "-"}</TableCell>
+                    <TableCell>{vehiculo.tipo || "-"}</TableCell>
                     <TableCell align="center" sx={{ whiteSpace: "nowrap" }}>
                       <IconButton
                         size="small"
@@ -405,7 +375,6 @@ const VehiculosManagement: React.FC = () => {
             `${from}–${to} de ${count !== -1 ? count : to}`
           }
           sx={{
-            flexShrink: 0,
             borderTop: 1,
             borderColor: "divider",
           }}

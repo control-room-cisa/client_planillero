@@ -4,6 +4,7 @@ import { Box, CircularProgress } from "@mui/material";
 import { useAuth } from "../hooks/useAuth";
 import Auth from "./auth/Auth";
 import { Navigate } from "react-router-dom";
+import { normalizeRolIds } from "../utils/roles";
 
 interface RoleProtectedRouteProps {
   children: ReactNode;
@@ -39,8 +40,9 @@ export default function RoleProtectedRoute({
     return <Auth />;
   }
 
+  const rolIds = normalizeRolIds(user);
   // Si está autenticado pero no tiene el rol permitido, redirigir
-  if (!user || !allowedRoles.includes(user.rolId)) {
+  if (!user || !rolIds.some((r) => allowedRoles.includes(r))) {
     return <Navigate to={redirectPath} replace />;
   }
 

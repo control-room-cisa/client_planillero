@@ -79,18 +79,11 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       >
-        {/* Registro (EMPLEADO + SUPERVISOR + ASISTENTE_CONTABILIDAD + SUPERVISOR_CONTABILIDAD) */}
+        {/* Registro: solo EMPLEADO (Colaborador) */}
         <Route
           path="registro-actividades/:fecha?"
           element={
-            <RoleProtectedRoute
-              allowedRoles={[
-                Roles.EMPLEADO,
-                Roles.SUPERVISOR,
-                Roles.ASISTENTE_CONTABILIDAD,
-                Roles.SUPERVISOR_CONTABILIDAD,
-              ]}
-            >
+            <RoleProtectedRoute allowedRoles={[Roles.EMPLEADO]}>
               <DailyTimesheet />
             </RoleProtectedRoute>
           }
@@ -101,13 +94,11 @@ const AppRoutes: React.FC = () => {
           element={<Navigate to="registro-actividades" replace />}
         />
 
-        {/* Supervisor */}
+        {/* Supervisor: solo rol SUPERVISOR */}
         <Route
           path="supervision/planillas"
           element={
-            <RoleProtectedRoute
-              allowedRoles={[Roles.SUPERVISOR, Roles.SUPERVISOR_CONTABILIDAD]}
-            >
+            <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR]}>
               <SupervisorManagement />
             </RoleProtectedRoute>
           }
@@ -115,9 +106,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="supervision/planillas/detalle"
           element={
-            <RoleProtectedRoute
-              allowedRoles={[Roles.SUPERVISOR, Roles.SUPERVISOR_CONTABILIDAD]}
-            >
+            <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR]}>
               <SupervisorRoute />
             </RoleProtectedRoute>
           }
@@ -267,11 +256,11 @@ const AppRoutes: React.FC = () => {
           element={<Navigate to="/prorrateo" replace />}
         />
 
-        {/* Notificaciones (EMPLEADO + ASISTENTE_CONTABILIDAD) */}
+        {/* Notificaciones: solo EMPLEADO (Colaborador) */}
         <Route
           path="notificaciones"
           element={
-            <RoleProtectedRoute allowedRoles={[Roles.EMPLEADO, Roles.ASISTENTE_CONTABILIDAD]}>
+            <RoleProtectedRoute allowedRoles={[Roles.EMPLEADO]}>
               <NotificationsEmployee />
             </RoleProtectedRoute>
           }

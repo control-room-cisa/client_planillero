@@ -63,6 +63,7 @@ import TiempoCompensatorioAcumulado from "../../common/TiempoCompensatorioAcumul
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { useAuth } from "../../../hooks/useAuth";
 import { Roles } from "../../../enums/roles";
+import { hasAnyRole, normalizeRolIds } from "../../../utils/roles";
 import { montoPorDiasQuincena } from "../../rrhh/gestion-empleados/calculo-nominas/utils/formatters";
 import DesgloseIncidenciasComponent from "../../rrhh/gestion-empleados/DesgloseIncidencias";
 import type { DesgloseIncidencias } from "../../../services/calculoHorasTrabajoService";
@@ -90,9 +91,11 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   hasNext = false,
 }) => {
   const { user } = useAuth();
-  const allowEditJob =
-    user?.rolId === Roles.SUPERVISOR_CONTABILIDAD ||
-    user?.rolId === Roles.ASISTENTE_CONTABILIDAD;
+  const allowEditJob = hasAnyRole(
+    normalizeRolIds(user),
+    Roles.SUPERVISOR_CONTABILIDAD,
+    Roles.ASISTENTE_CONTABILIDAD,
+  );
 
   const navigate = useNavigate();
   const location = useLocation() as any;

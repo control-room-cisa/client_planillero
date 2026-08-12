@@ -45,6 +45,7 @@ import { empresaService } from "../../services/empresaService";
 import type { Empresa } from "../../types/auth";
 import ConfirmDialog from "../common/ConfirmDialog";
 import { Roles } from "../../enums/roles";
+import { hasAnyRole, normalizeRolIds } from "../../utils/roles";
 
 const PlanillaAccesoRevisionManagement: React.FC = () => {
   // Estados
@@ -171,12 +172,14 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
         const empresaIdNum = parseInt(empresaId);
         const data = await EmpleadoService.getAll(empresaIdNum);
         // Filtrar solo empleados con roles permitidos para ser supervisores
-        const supervisoresPermitidos = data.filter(
-          (empleado) =>
-            empleado.rolId === Roles.SUPERVISOR ||
-            empleado.rolId === Roles.SUPERVISOR_CONTABILIDAD ||
-            empleado.rolId === Roles.GERENCIA ||
-            empleado.rolId === Roles.RRHH
+        const supervisoresPermitidos = data.filter((empleado) =>
+          hasAnyRole(
+            normalizeRolIds(empleado),
+            Roles.SUPERVISOR,
+            Roles.SUPERVISOR_CONTABILIDAD,
+            Roles.GERENCIA,
+            Roles.RRHH,
+          ),
         );
         setSupervisores(supervisoresPermitidos);
       } catch (err) {

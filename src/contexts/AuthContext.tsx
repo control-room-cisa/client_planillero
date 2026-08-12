@@ -8,6 +8,11 @@ import type {
   Empleado,
 } from "../types/auth";
 import { authService } from "../services/authService";
+import { normalizeRolIds } from "../utils/roles";
+
+function withNormalizedRoles(user: Empleado): Empleado {
+  return { ...user, rolIds: normalizeRolIds(user) };
+}
 
 // Estado inicial
 const initialState: AuthState = {
@@ -81,7 +86,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         dispatch({
           type: "LOGIN_SUCCESS",
           payload: {
-            user: response.data.empleado,
+            user: withNormalizedRoles(response.data.empleado),
             token: response.data.token,
           },
         });
@@ -134,7 +139,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         dispatch({
           type: "RESTORE_SESSION",
           payload: {
-            user: storedUser,
+            user: withNormalizedRoles(storedUser),
             token: storedToken,
           },
         });

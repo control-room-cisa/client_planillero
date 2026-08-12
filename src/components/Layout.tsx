@@ -44,10 +44,43 @@ import { useAuth } from "../hooks/useAuth";
 import { useNotificationCount } from "../hooks/useNotificationCount";
 import type { Empleado } from "../services/empleadoService";
 import { Roles } from "../enums/roles";
+import {
+  HOME_ROLE_PRIORITY,
+  hasAnyRole,
+  normalizeRolIds,
+} from "../utils/roles";
 import ChangePassword from "./auth/ChangePassword";
 import { Snackbar, Alert } from "@mui/material";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import LogoutIcon from "@mui/icons-material/Logout";
+
+type NavItem = {
+  id: string;
+  text: string;
+  icon: React.ReactNode;
+  path: string;
+};
+
+function homePathForRole(role: number, todayDateString: string): string | null {
+  switch (role) {
+    case Roles.RRHH:
+      return "/rrhh/colaboradores";
+    case Roles.SUPERVISOR_CONTABILIDAD:
+      return "/prorrateo";
+    case Roles.LOGISTICA:
+      return "/logistica/vehiculos";
+    case Roles.SUPERVISOR:
+      return "/supervision/planillas";
+    case Roles.ASISTENTE_CONTABILIDAD:
+      return "/prorrateo";
+    case Roles.GERENCIA:
+    case Roles.SISTEMAS:
+    case Roles.EMPLEADO:
+      return `/registro-actividades/${todayDateString}`;
+    default:
+      return null;
+  }
+}
 
 const drawerWidth = 240;
 
@@ -146,7 +179,8 @@ export default function Layout() {
   React.useEffect(() => {
     // Solo ejecutar si estamos en la ruta raíz y el usuario está cargado
     if (location.pathname !== "/") return;
-    if (!user?.rolId) return; // Esperar a que el usuario esté cargado
+    const rolIds = normalizeRolIds(user);
+    if (!rolIds.length) return; // Esperar a que el usuario esté cargado
 
     // Validar que todayDateString sea válido antes de navegar
     if (!todayDateString || !/^\d{4}-\d{2}-\d{2}$/.test(todayDateString)) {
@@ -154,44 +188,22 @@ export default function Layout() {
       return;
     }
 
+    const primaryRole = HOME_ROLE_PRIORITY.find((r) => rolIds.includes(r));
+    const targetPath = primaryRole
+      ? homePathForRole(primaryRole, todayDateString)
+      : null;
+    if (!targetPath) return;
+
     // Usar setTimeout para asegurar que el router esté completamente inicializado
     const timeoutId = setTimeout(() => {
       try {
-        if (user.rolId === Roles.RRHH) {
-          navigate("/rrhh/colaboradores", { replace: true });
-        } else if (user.rolId === Roles.SUPERVISOR_CONTABILIDAD) {
-          navigate("/prorrateo", { replace: true });
-        } else if (user.rolId === Roles.LOGISTICA) {
-          navigate("/logistica/vehiculos", { replace: true });
-        } else if (
-          user.rolId === Roles.EMPLEADO ||
-          user.rolId === Roles.SUPERVISOR ||
-          user.rolId === Roles.ASISTENTE_CONTABILIDAD
-        ) {
-          // EMPLEADO, SUPERVISOR o ASISTENTE_CONTABILIDAD -> redirigir con fecha actual
-          const targetPath = `/registro-actividades/${todayDateString}`;
-          // Validar que la ruta sea válida antes de navegar
-          if (targetPath.startsWith("/") && !targetPath.includes("..")) {
-            navigate(targetPath, { replace: true });
-          }
+        if (targetPath.startsWith("/") && !targetPath.includes("..")) {
+          navigate(targetPath, { replace: true });
         }
       } catch (error) {
         console.error("Error al navegar:", error);
-        // Fallback: intentar navegar sin replace si hay error
         try {
-          if (user.rolId === Roles.RRHH) {
-            navigate("/rrhh/colaboradores");
-          } else if (user.rolId === Roles.SUPERVISOR_CONTABILIDAD) {
-            navigate("/prorrateo");
-          } else if (user.rolId === Roles.LOGISTICA) {
-            navigate("/logistica/vehiculos");
-          } else if (
-            user.rolId === Roles.EMPLEADO ||
-            user.rolId === Roles.SUPERVISOR ||
-            user.rolId === Roles.ASISTENTE_CONTABILIDAD
-          ) {
-            navigate(`/registro-actividades/${todayDateString}`);
-          }
+          navigate(targetPath);
         } catch (fallbackError) {
           console.error("Error en fallback de navegación:", fallbackError);
         }
@@ -199,25 +211,21 @@ export default function Layout() {
     }, 0);
 
     return () => clearTimeout(timeoutId);
-  }, [location.pathname, navigate, user?.rolId, todayDateString]);
+  }, [location.pathname, navigate, user?.rolIds, todayDateString]);
 
-  // ===== Menú por rol → path
+  // ===== Menú: unión de ítems de todos los roles del usuario (dedupe por id)
   const navItems = React.useMemo(() => {
-    // Contabilidad
-    if (user?.rolId === Roles.SUPERVISOR_CONTABILIDAD) {
-      return [
-        {
-          id: "registro",
-          text: "Registro de actividades",
-          icon: <PostAddIcon />,
-          path: `/registro-actividades/${todayDateString}`,
-        },
-        {
-          id: "supervision",
-          text: "Revisión de actividades diarias",
-          icon: <FindInPageIcon />,
-          path: "/supervision/planillas",
-        },
+    const rolIds = normalizeRolIds(user);
+    const byId = new Map<string, NavItem>();
+
+    const addItems = (items: NavItem[]) => {
+      for (const item of items) {
+        if (!byId.has(item.id)) byId.set(item.id, item);
+      }
+    };
+
+    if (hasAnyRole(rolIds, Roles.SUPERVISOR_CONTABILIDAD)) {
+      addItems([
         {
           id: "prorrateo",
           text: "Prorrateo",
@@ -242,40 +250,22 @@ export default function Layout() {
           icon: <GroupAddIcon />,
           path: "/rrhh/accesos-asistentes-contabilidad",
         },
-      ];
+      ]);
     }
 
-    // Asistente Contabilidad
-    if (user?.rolId === Roles.ASISTENTE_CONTABILIDAD) {
-      return [
-        {
-          id: "registro",
-          text: "Nuevo Registro Diario",
-          icon: <PostAddIcon />,
-          path: `/registro-actividades/${todayDateString}`,
-        },
-        {
-          id: "notificaciones",
-          text: "Notificaciones",
-          icon: (
-            <Badge badgeContent={notificationCount} color="error">
-              <NotificationsIcon />
-            </Badge>
-          ),
-          path: "/notificaciones",
-        },
+    if (hasAnyRole(rolIds, Roles.ASISTENTE_CONTABILIDAD)) {
+      addItems([
         {
           id: "prorrateo",
           text: "Prorrateo",
           icon: <AccountBalanceIcon />,
           path: "/prorrateo",
         },
-      ];
+      ]);
     }
 
-    // RRHH -> sin notificaciones
-    if (user?.rolId === Roles.RRHH) {
-      return [
+    if (hasAnyRole(rolIds, Roles.RRHH)) {
+      addItems([
         {
           id: "colaboradores",
           text: "Gestión de Colaboradores",
@@ -312,12 +302,34 @@ export default function Layout() {
           icon: <SettingsIcon />,
           path: "/rrhh/parametros-nomina",
         },
-      ];
+      ]);
     }
 
-    // Supervisor -> sin notificaciones
-    if (user?.rolId === Roles.SUPERVISOR) {
-      return [
+    if (hasAnyRole(rolIds, Roles.SUPERVISOR)) {
+      addItems([
+        {
+          id: "supervision",
+          text: "Revisión de Actividades Diarias",
+          icon: <FindInPageIcon />,
+          path: "/supervision/planillas",
+        },
+      ]);
+    }
+
+    if (hasAnyRole(rolIds, Roles.LOGISTICA)) {
+      addItems([
+        {
+          id: "vehiculos",
+          text: "Gestión de Vehículos",
+          icon: <DirectionsCarIcon />,
+          path: "/logistica/vehiculos",
+        },
+      ]);
+    }
+
+    // Registro y notificaciones: solo rol Colaborador (EMPLEADO)
+    if (hasAnyRole(rolIds, Roles.EMPLEADO)) {
+      addItems([
         {
           id: "registro",
           text: "Nuevo Registro Diario",
@@ -325,46 +337,20 @@ export default function Layout() {
           path: `/registro-actividades/${todayDateString}`,
         },
         {
-          id: "supervision",
-          text: "Revisión de Actividades Diarias",
-          icon: <FindInPageIcon />,
-          path: "/supervision/planillas",
+          id: "notificaciones",
+          text: "Notificaciones",
+          icon: (
+            <Badge badgeContent={notificationCount} color="error">
+              <NotificationsIcon />
+            </Badge>
+          ),
+          path: "/notificaciones",
         },
-      ];
+      ]);
     }
 
-    // Logística
-    if (user?.rolId === Roles.LOGISTICA) {
-      return [
-        {
-          id: "vehiculos",
-          text: "Gestión de Vehículos",
-          icon: <DirectionsCarIcon />,
-          path: "/logistica/vehiculos",
-        },
-      ];
-    }
-
-    // Colaborador (rol 1) -> con notificaciones
-    return [
-      {
-        id: "registro",
-        text: "Nuevo Registro Diario",
-        icon: <PostAddIcon />,
-        path: `/registro-actividades/${todayDateString}`,
-      },
-      {
-        id: "notificaciones",
-        text: "Notificaciones",
-        icon: (
-          <Badge badgeContent={notificationCount} color="error">
-            <NotificationsIcon />
-          </Badge>
-        ),
-        path: "/notificaciones",
-      },
-    ];
-  }, [user?.rolId, notificationCount, todayDateString]);
+    return Array.from(byId.values());
+  }, [user?.rolIds, notificationCount, todayDateString]);
 
   const handleOpenUserMenu = (e: React.MouseEvent<HTMLElement>) =>
     setAnchorElUser(e.currentTarget);

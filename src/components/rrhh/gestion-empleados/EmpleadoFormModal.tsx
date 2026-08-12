@@ -23,6 +23,8 @@ import {
   ListItemText,
   CircularProgress,
   InputAdornment,
+  Chip,
+  Checkbox,
 } from "@mui/material";
 import { AttachFile as AttachFileIcon } from "@mui/icons-material";
 import type {
@@ -39,6 +41,24 @@ import {
 import EmpleadoService from "../../../services/empleadoService";
 import { Roles } from "../../../enums/roles";
 import { getTipoHorarioLabel, TIPOS_HORARIO } from "../../../enums/tipoHorario";
+import { normalizeRolIds } from "../../../utils/roles";
+
+const ROLE_OPTIONS: { id: number; label: string }[] = [
+  { id: Roles.EMPLEADO, label: "Colaborador" },
+  { id: Roles.SUPERVISOR, label: "Supervisor" },
+  { id: Roles.RRHH, label: "RRHH" },
+  { id: Roles.SUPERVISOR_CONTABILIDAD, label: "Supervisor Contabilidad" },
+  { id: Roles.ASISTENTE_CONTABILIDAD, label: "Asistente Contabilidad" },
+  { id: Roles.LOGISTICA, label: "Logística" },
+];
+
+function normalizeSelectedRolIds(rolIds: number[]): number[] {
+  return Array.from(
+    new Set(
+      (rolIds || []).map(Number).filter((id) => Number.isFinite(id) && id > 0)
+    )
+  ).sort((a, b) => a - b);
+}
 
 /**
  * Convierte el valor mapeado de tipoContrato del backend al código del enum
@@ -151,7 +171,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     telefono: "",
     direccion: "",
     contrasena: "",
-    rolId: Roles.EMPLEADO,
+    rolIds: [Roles.EMPLEADO],
     departamentoId: 1,
     activo: true,
     nombreUsuario: "",
@@ -276,7 +296,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         telefono: empleadoCompleto.telefono || "",
         direccion: empleadoCompleto.direccion || "",
         contrasena: "",
-        rolId: empleadoCompleto.rolId || Roles.EMPLEADO,
+        rolIds: normalizeSelectedRolIds(normalizeRolIds(empleadoCompleto)),
         departamentoId, // CHANGED
         empresaId, // NEW
         activo: empleadoCompleto.activo ?? true,
@@ -331,7 +351,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       telefono: "",
       direccion: "",
       contrasena: "",
-      rolId: Roles.EMPLEADO,
+      rolIds: [Roles.EMPLEADO],
       departamentoId: 1,
       activo: true,
       nombreUsuario: "",
@@ -522,6 +542,16 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     validateAndSetError(name, value);
   };
 
+  const handleRolIdsChange = (e: any) => {
+    const raw = e.target.value as number[] | string;
+    const selected = (
+      typeof raw === "string" ? raw.split(",").map(Number) : raw
+    ).map(Number);
+    const rolIds = normalizeSelectedRolIds(selected);
+    setFormData({ ...formData, rolIds });
+    validateAndSetError("rolIds", rolIds);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files } = e.target;
     if (files && files[0]) {
@@ -566,6 +596,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       setLoading(true);
 
       const fd = trimEmpleadoFormForSubmit(formData);
+      fd.rolIds = normalizeSelectedRolIds(fd.rolIds ?? []);
 
       if (isEditing && empleado) {
         const { contrasena, empresaId, ...updateFields } = fd;
@@ -631,7 +662,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       formData.tipoHorario &&
       formData.tipoContrato &&
       formData.tipoCuenta &&
-      formData.rolId &&
+      formData.rolIds?.length > 0 &&
       formData.empresaId &&
       formData.departamentoId &&
       (isEditing || formData.contrasena) &&
@@ -978,33 +1009,44 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                 helperText="Permite editar registros fuera del rango normal hasta esta fecha/hora"
               />
 
-              <FormControl fullWidth error={!!fieldErrors.rolId}>
-                <InputLabel>Rol *</InputLabel>
+              <FormControl fullWidth error={!!fieldErrors.rolIds}>
+                <InputLabel>Roles *</InputLabel>
                 <Select
-                  name="rolId"
-                  value={formData.rolId}
-                  onChange={handleSelectChange}
-                  label="Rol *"
+                  name="rolIds"
+                  multiple
+                  value={formData.rolIds}
+                  onChange={handleRolIdsChange}
+                  label="Roles *"
                   required
+                  renderValue={(selected) => (
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                      {(selected as number[]).map((id) => {
+                        const opt = ROLE_OPTIONS.find((o) => o.id === id);
+                        return (
+                          <Chip
+                            key={id}
+                            size="small"
+                            label={opt?.label ?? id}
+                          />
+                        );
+                      })}
+                    </Box>
+                  )}
                 >
-                  <MenuItem value={Roles.EMPLEADO}>Colaborador</MenuItem>
-                  <MenuItem value={Roles.SUPERVISOR}>Supervisor</MenuItem>
-                  <MenuItem value={Roles.RRHH}>RRHH</MenuItem>
-                  <MenuItem value={Roles.SUPERVISOR_CONTABILIDAD}>
-                    Supervisor Contabilidad
-                  </MenuItem>
-                  <MenuItem value={Roles.ASISTENTE_CONTABILIDAD}>
-                    Asistente Contabilidad
-                  </MenuItem>
-                  <MenuItem value={Roles.LOGISTICA}>Logística</MenuItem>
+                  {ROLE_OPTIONS.map((opt) => (
+                    <MenuItem key={opt.id} value={opt.id}>
+                      <Checkbox checked={formData.rolIds.includes(opt.id)} />
+                      <ListItemText primary={opt.label} />
+                    </MenuItem>
+                  ))}
                 </Select>
-                {fieldErrors.rolId && (
+                {fieldErrors.rolIds && (
                   <Typography
                     variant="caption"
                     color="error"
                     sx={{ mt: 0.5, ml: 1 }}
                   >
-                    {fieldErrors.rolId}
+                    {fieldErrors.rolIds}
                   </Typography>
                 )}
               </FormControl>

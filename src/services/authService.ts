@@ -1,5 +1,13 @@
 import type { LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, Empleado, ChangePasswordRequest, ChangePasswordResponse } from '../types/auth';
 import { API_CONFIG } from '../config/api';
+import { normalizeRolIds } from '../utils/roles';
+
+function withNormalizedRoles(empleado: Empleado): Empleado {
+  return {
+    ...empleado,
+    rolIds: normalizeRolIds(empleado),
+  };
+}
 
 class AuthService {
   private getAuthHeaders(): HeadersInit {
@@ -53,9 +61,11 @@ class AuthService {
             "Su cuenta está desactivada. Comuníquese con recursos humanos."
           );
         }
+        const empleado = withNormalizedRoles(data.data.empleado);
+        data.data.empleado = empleado;
         // Guardar token y datos del usuario en localStorage
         localStorage.setItem('authToken', data.data.token);
-        localStorage.setItem('userData', JSON.stringify(data.data.empleado));
+        localStorage.setItem('userData', JSON.stringify(empleado));
       }
 
       return data;
@@ -114,7 +124,12 @@ class AuthService {
 
   getStoredUser(): Empleado | null {
     const userData = localStorage.getItem('userData');
-    return userData ? JSON.parse(userData) : null;
+    if (!userData) return null;
+    try {
+      return withNormalizedRoles(JSON.parse(userData) as Empleado);
+    } catch {
+      return null;
+    }
   }
 
   isAuthenticated(): boolean {

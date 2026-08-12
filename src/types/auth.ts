@@ -48,7 +48,9 @@ export interface Empleado {
   correoElectronico: string;
   activo?: boolean;
   departamentoId: number;
-  rolId: number;
+  rolIds: number[];
+  /** Legacy single role from older sessions; prefer rolIds */
+  rolId?: number;
   horasDiariasTrabajadas?: number | null;
   dni?: string | null;
   editTime?: string | null; // Fecha/hora hasta la cual el empleado puede editar registros fuera del rango normal

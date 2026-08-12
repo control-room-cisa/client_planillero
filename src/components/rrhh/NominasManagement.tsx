@@ -54,6 +54,7 @@ import ConfirmDialog from "../common/ConfirmDialog";
 import NominaFormModal from "./NominaFormModal";
 import { useAuth } from "../../hooks/useAuth";
 import { Roles } from "../../enums/roles";
+import { hasAnyRole, normalizeRolIds } from "../../utils/roles";
 import {
   calcularTotalAPagarNomina,
   calcularTotalBrutoNomina,
@@ -94,9 +95,12 @@ const renderPeriodosSelectItems = (
 
 const NominasManagement: React.FC = () => {
   const { user } = useAuth();
-  const isRrhh = user?.rolId === Roles.RRHH;
-  const isSupervisorContabilidad =
-    user?.rolId === Roles.SUPERVISOR_CONTABILIDAD;
+  const rolIds = normalizeRolIds(user);
+  const isRrhh = hasAnyRole(rolIds, Roles.RRHH);
+  const isSupervisorContabilidad = hasAnyRole(
+    rolIds,
+    Roles.SUPERVISOR_CONTABILIDAD,
+  );
 
   const [nominas, setNominas] = useState<NominaDto[]>([]);
   const [allNominas, setAllNominas] = useState<NominaDto[]>([]); // Todas las nóminas para filtrado

@@ -23,6 +23,8 @@ interface Empleado {
   telefono?: string;
   direccion?: string;
   activo?: boolean;
+  rolIds?: number[];
+  /** Legacy single role; prefer rolIds */
   rolId?: number;
   departamentoId?: number;
   registrosUltimos20Dias?: Array<{
@@ -86,7 +88,7 @@ interface CreateEmpleadoDto {
   telefono?: string;
   direccion?: string;
   contrasena?: string;
-  rolId: number;
+  rolIds: number[];
   departamentoId: number;
   activo?: boolean;
   // Campos adicionales
@@ -125,7 +127,7 @@ interface UpdateEmpleadoDto {
   isr?: number;
   telefono?: string;
   direccion?: string;
-  rolId?: number;
+  rolIds?: number[];
   departamentoId?: number;
   activo?: boolean;
   // Campos adicionales
