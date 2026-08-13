@@ -1666,6 +1666,8 @@ export const useDailyTimesheet = () => {
 
     if (!formData.descripcion.trim())
       errors.descripcion = "La descripción es obligatoria";
+    else if (formData.descripcion.length > 250)
+      errors.descripcion = "La descripción no puede exceder 250 caracteres";
 
     // Excepción: job NO es obligatorio cuando es compensatorio en hora normal (Tomar hora libre compensatoria)
     // En todos los demás casos, el job es obligatorio

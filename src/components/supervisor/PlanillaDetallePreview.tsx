@@ -1633,6 +1633,8 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
               rows={3}
               fullWidth
               placeholder="Ingresa una descripción para esta actividad"
+              inputProps={{ maxLength: 250 }}
+              helperText={`${editedDescripcion.length}/250 caracteres`}
             />
             <Autocomplete
               options={[SIN_CLASS_OPTION, ...vehiculos]}

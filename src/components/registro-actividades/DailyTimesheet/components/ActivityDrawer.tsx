@@ -186,9 +186,9 @@ export const ActivityDrawer: React.FC<ActivityDrawerProps> = ({
             error={!!formErrors.descripcion}
             helperText={
               formErrors.descripcion ||
-              `${formData.descripcion.length}/200 caracteres`
+              `${formData.descripcion.length}/250 caracteres`
             }
-            inputProps={{ maxLength: 200 }}
+            inputProps={{ maxLength: 250 }}
             sx={{ mb: 3 }}
           />
 
