@@ -10,6 +10,7 @@ import EmpleadosList from "./gestion-empleados/EmpleadosList";
 import EmpleadoFormModal from "./gestion-empleados/EmpleadoFormModal";
 import EmpleadoDetailModal from "./gestion-empleados/EmpleadoDetailModal";
 import EmpleadosFilters from "./gestion-empleados/EmpleadosFilters";
+import EmpleadoBulkEditModal from "./gestion-empleados/edicion-masiva/EmpleadoBulkEditModal";
 import type { LayoutOutletCtx } from "../Layout";
 import {
   persistEmpleadosIndexSession,
@@ -36,6 +37,7 @@ const EmpleadosManagement: React.FC = () => {
   // Estados para modales
   const [openFormModal, setOpenFormModal] = useState(false);
   const [openDetailModal, setOpenDetailModal] = useState(false);
+  const [openBulkEditModal, setOpenBulkEditModal] = useState(false);
   const [currentEmpleado, setCurrentEmpleado] = useState<Empleado | null>(null);
 
   // Estado para notificaciones
@@ -274,6 +276,8 @@ const EmpleadosManagement: React.FC = () => {
           onEmpresaChange={setSelectedEmpresaId}
           onShowInactivosChange={setShowInactivos}
           onCreateNew={handleOpenCreateModal}
+          onBulkEdit={() => setOpenBulkEditModal(true)}
+          bulkEditDisabled={!selectedEmpresaId || filteredEmpleados.length === 0}
         />
       </Box>
 
@@ -297,6 +301,14 @@ const EmpleadosManagement: React.FC = () => {
         onError={handleFormError}
         empleado={currentEmpleado}
         empresas={empresas}
+      />
+
+      <EmpleadoBulkEditModal
+        open={openBulkEditModal}
+        empleados={filteredEmpleados}
+        onClose={() => setOpenBulkEditModal(false)}
+        onSuccess={handleFormSuccess}
+        onError={handleFormError}
       />
 
       {/* Modal Detalle */}

@@ -11,7 +11,7 @@ import {
   FormControlLabel,
   Checkbox,
 } from "@mui/material";
-import { Add as AddIcon, Search as SearchIcon } from "@mui/icons-material";
+import { Add as AddIcon, Search as SearchIcon, EditNote as EditNoteIcon } from "@mui/icons-material";
 import type { Empresa } from "../../../types/auth";
 
 interface EmpleadosFiltersProps {
@@ -23,6 +23,8 @@ interface EmpleadosFiltersProps {
   onEmpresaChange: (value: string) => void;
   onShowInactivosChange: (value: boolean) => void;
   onCreateNew: () => void;
+  onBulkEdit: () => void;
+  bulkEditDisabled?: boolean;
 }
 
 const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
@@ -34,6 +36,8 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
   onEmpresaChange,
   onShowInactivosChange,
   onCreateNew,
+  onBulkEdit,
+  bulkEditDisabled = false,
 }) => {
   return (
     <Paper sx={{ p: 2 }}>
@@ -117,16 +121,28 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
         </Box>
         <Box
           sx={{
-            flex: "0 0 200px",
-            "@media (max-width: 900px)": { flex: "0 0 auto", width: "100%" },
+            flex: "0 0 auto",
+            display: "flex",
+            gap: 1,
+            "@media (max-width: 900px)": { width: "100%", flexDirection: "column" },
           }}
         >
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<EditNoteIcon />}
+            onClick={onBulkEdit}
+            disabled={bulkEditDisabled}
+            sx={{ minWidth: 180 }}
+          >
+            Edición masiva
+          </Button>
           <Button
             variant="contained"
             color="primary"
             startIcon={<AddIcon />}
             onClick={onCreateNew}
-            fullWidth
+            sx={{ minWidth: 200 }}
           >
             Nuevo Colaborador
           </Button>
