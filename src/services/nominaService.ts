@@ -44,6 +44,24 @@ class NominaService {
     await api.delete<ApiResponse<void>>(`/nominas/${id}`);
   }
 
+  static async downloadDetalleExcel(id: number): Promise<Blob> {
+    const response = await api.get(`/nominas/${id}/detalle-excel`, {
+      responseType: "blob",
+    });
+    return response.data;
+  }
+
+  static async downloadTablaDetalles(
+    empresaId: number,
+    codigoNomina: string
+  ): Promise<Blob> {
+    const response = await api.get("/nominas/detalle-tabla", {
+      params: { empresaId, codigoNomina },
+      responseType: "blob",
+    });
+    return response.data;
+  }
+
   static async downloadPlantillaPago(
     empresaId: number,
     codigoNomina: string

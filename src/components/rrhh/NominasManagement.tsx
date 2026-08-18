@@ -154,7 +154,12 @@ const NominasManagement: React.FC = () => {
     warningNegativo: false,
   });
   const [printingNominaId, setPrintingNominaId] = useState<number | null>(null);
+  const [downloadingDetalleId, setDownloadingDetalleId] = useState<number | null>(
+    null,
+  );
   const [downloadingPlantilla, setDownloadingPlantilla] = useState(false);
+  const [downloadingTablaDetalles, setDownloadingTablaDetalles] =
+    useState(false);
   const [payingPlanilla, setPayingPlanilla] = useState(false);
   const [confirmPagarPlanilla, setConfirmPagarPlanilla] = useState(false);
 
@@ -409,10 +414,16 @@ const NominasManagement: React.FC = () => {
   }, [nominas]);
 
   // Abrir modal de crear/editar nómina
-  const handleOpenCreateEditModal = (nomina?: NominaDto) => {
+  const handleOpenCreateEditModal = async (nomina?: NominaDto) => {
     if (nomina) {
       setIsCreating(false);
-      setCurrentNomina(nomina);
+      try {
+        const completa = await NominaService.getById(nomina.id);
+        setCurrentNomina(completa);
+      } catch (err) {
+        console.error("Error al cargar la nómina para editar:", err);
+        setCurrentNomina(nomina);
+      }
     } else {
       setIsCreating(true);
       setCurrentNomina(null);
@@ -919,6 +930,67 @@ const NominasManagement: React.FC = () => {
     [nominas]
   );
 
+  const handleDownloadDetalleExcel = async (nomina: NominaDto) => {
+    setDownloadingDetalleId(nomina.id);
+    try {
+      const blob = await NominaService.downloadDetalleExcel(nomina.id);
+      const codigo = nomina.codigoNomina ?? String(nomina.id);
+      const empleadoSlug = getEmpleadoNombre(nomina.empleadoId)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `detalle-nomina-${codigo}${
+        empleadoSlug ? `-${empleadoSlug}` : ""
+      }.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      showSnackbar("Detalle de nómina descargado", "success");
+    } catch (err: any) {
+      console.error("Error al descargar detalle de nómina:", err);
+      const errorMessage =
+        err?.response?.data?.message ||
+        "Error al descargar el detalle de la nómina";
+      showSnackbar(errorMessage, "error");
+    } finally {
+      setDownloadingDetalleId(null);
+    }
+  };
+
+  const handleDownloadTablaDetalles = async () => {
+    if (!selectedEmpresaId || !codigoNominaFiltro) return;
+    setDownloadingTablaDetalles(true);
+    try {
+      const blob = await NominaService.downloadTablaDetalles(
+        selectedEmpresaId,
+        codigoNominaFiltro
+      );
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `detalles-nominas-${codigoNominaFiltro}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      showSnackbar("Tabla de detalles descargada", "success");
+    } catch (err: any) {
+      console.error("Error al descargar tabla de detalles:", err);
+      const errorMessage =
+        err?.response?.data?.message ||
+        "Error al descargar la tabla de detalles";
+      showSnackbar(errorMessage, "error");
+    } finally {
+      setDownloadingTablaDetalles(false);
+    }
+  };
+
   const handleDownloadPlantillaPago = async () => {
     if (!selectedEmpresaId || !codigoNominaFiltro) return;
     setDownloadingPlantilla(true);
@@ -1120,6 +1192,38 @@ const NominasManagement: React.FC = () => {
                 }
               >
                 Ver Detalles
+              </Button>
+            </span>
+          </Tooltip>
+
+          <Tooltip
+            title={
+              !selectedEmpresaId || !codigoNominaFiltro
+                ? "Seleccionar filtros primero"
+                : nominas.length === 0
+                ? "Sin nóminas listadas"
+                : "Descargar tabla de detalles (todos los colaboradores)"
+            }
+          >
+            <span>
+              <Button
+                variant="outlined"
+                onClick={handleDownloadTablaDetalles}
+                disabled={
+                  downloadingTablaDetalles ||
+                  !selectedEmpresaId ||
+                  !codigoNominaFiltro ||
+                  nominas.length === 0
+                }
+                startIcon={
+                  downloadingTablaDetalles ? (
+                    <CircularProgress size={18} color="inherit" />
+                  ) : (
+                    <FileDownloadIcon />
+                  )
+                }
+              >
+                Descargar Excel
               </Button>
             </span>
           </Tooltip>
@@ -1326,6 +1430,23 @@ const NominasManagement: React.FC = () => {
                         >
                           <VisibilityIcon />
                         </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Descargar detalle Excel">
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDownloadDetalleExcel(nomina)}
+                            disabled={downloadingDetalleId !== null}
+                            color="info"
+                            aria-label="Descargar detalle de nómina en Excel"
+                          >
+                            {downloadingDetalleId === nomina.id ? (
+                              <CircularProgress size={18} color="inherit" />
+                            ) : (
+                              <FileDownloadIcon />
+                            )}
+                          </IconButton>
+                        </span>
                       </Tooltip>
                       <Tooltip
                         title={
@@ -1863,6 +1984,19 @@ const NominasManagement: React.FC = () => {
           </TableContainer>
         </DialogContent>
         <DialogActions>
+          <Button
+            onClick={handleDownloadTablaDetalles}
+            disabled={downloadingTablaDetalles || nominas.length === 0}
+            startIcon={
+              downloadingTablaDetalles ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <FileDownloadIcon />
+              )
+            }
+          >
+            Descargar Excel
+          </Button>
           <Button onClick={() => setOpenDetailTableModal(false)}>Cerrar</Button>
         </DialogActions>
       </Dialog>
@@ -2386,6 +2520,21 @@ const NominasManagement: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
+          <Button
+            onClick={() =>
+              currentNomina && handleDownloadDetalleExcel(currentNomina)
+            }
+            disabled={!currentNomina || downloadingDetalleId !== null}
+            startIcon={
+              downloadingDetalleId === currentNomina?.id ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <FileDownloadIcon />
+              )
+            }
+          >
+            Descargar Excel
+          </Button>
           <Button onClick={handleCloseDetailModal}>Cerrar</Button>
         </DialogActions>
       </Dialog>
