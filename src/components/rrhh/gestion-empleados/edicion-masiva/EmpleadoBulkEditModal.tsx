@@ -236,7 +236,7 @@ const EmpleadoBulkEditModal: React.FC<EmpleadoBulkEditModalProps> = ({
         payload.tipoCuenta = (value ||
           undefined) as UpdateEmpleadoDto["tipoCuenta"];
       } else {
-        (payload as Record<string, unknown>)[key] = value;
+        (payload as unknown as Record<string, unknown>)[key] = value;
       }
     }
 
