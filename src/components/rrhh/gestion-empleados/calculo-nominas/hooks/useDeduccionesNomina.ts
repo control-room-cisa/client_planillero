@@ -3,6 +3,10 @@ import {
   montoPorDiasQuincena,
   roundTo2Decimals,
 } from "../utils/formatters";
+import {
+  calcularDeduccionesAutomaticasPorCodigo,
+  calcularRapBase,
+} from "../utils/deduccionesQuincena";
 
 export interface UseDeduccionesNominaParams {
   // Condiciones de período
@@ -190,51 +194,38 @@ export function useDeduccionesNomina({
   // Cálculo de RAP: 1.5% (0.015) del excedente sobre piso IHSS
   // Si Salario ≤ 11,903.13 → Base = 0
   // Si Salario > 11,903.13 → Base = (Salario - 11,903.13) * 0.015
-  const deduccionRAPBase = React.useMemo(() => {
-    const salario = sueldoMensual || 0;
-    if (salario <= PISO_IHSS) return 0;
-    return (salario - PISO_IHSS) * 0.015;
-  }, [sueldoMensual, PISO_IHSS]);
+  const deduccionRAPBase = React.useMemo(
+    () => calcularRapBase(sueldoMensual, PISO_IHSS),
+    [sueldoMensual, PISO_IHSS],
+  );
 
-  // Defaults automáticos para IHSS y RAP
-  // Solo se calculan si el código de nómina termina en "B" (segunda quincena)
-  // Si termina en "A" (primera quincena), todas las deducciones deben ser 0
+  // Defaults automáticos para IHSS, RAP e ISR según código A/B
   React.useEffect(() => {
     if (!fechaInicio || !fechaFin) return;
 
-    if (codigoNominaTerminaEnA) {
-      // Primera quincena (A): todas las deducciones en 0
-      setDeduccionIHSS(0);
-      setInputDeduccionIHSS("");
-      setDeduccionRAP(0);
-      setInputDeduccionRAP("");
-      setDeduccionISR(0);
-      setInputDeduccionISR("");
-    } else {
-      // Segunda quincena (B): calcular deducciones normalmente
-      // IHSS siempre es 595.16
-      const valorIHSS = DEDUCCION_IHSS_FIJA;
-      const redondeadoIHSS = roundTo2Decimals(valorIHSS);
-      setDeduccionIHSS(redondeadoIHSS);
-      setInputDeduccionIHSS(String(redondeadoIHSS));
+    const auto = calcularDeduccionesAutomaticasPorCodigo({
+      codigoNominaTerminaEnA,
+      sueldoMensual,
+      pisoIhss: PISO_IHSS,
+      deduccionIhssFija: DEDUCCION_IHSS_FIJA,
+      empleadoIsr,
+      empleadoAporteVoluntarioRap,
+    });
 
-      // RAP = 1.5% excedente + aporte voluntario del colaborador
-      const valorRAP = roundTo2Decimals(
-        deduccionRAPBase + (empleadoAporteVoluntarioRap || 0),
-      );
-      setDeduccionRAP(valorRAP);
-      setInputDeduccionRAP(valorRAP > 0 ? String(valorRAP) : "");
-
-      // ISR desde deducción predefinida del colaborador
-      const valorISR = roundTo2Decimals(empleadoIsr || 0);
-      setDeduccionISR(valorISR);
-      setInputDeduccionISR(valorISR > 0 ? String(valorISR) : "");
-    }
+    setDeduccionIHSS(auto.deduccionIHSS);
+    setInputDeduccionIHSS(
+      auto.deduccionIHSS > 0 ? String(auto.deduccionIHSS) : "",
+    );
+    setDeduccionRAP(auto.deduccionRAP);
+    setInputDeduccionRAP(auto.deduccionRAP > 0 ? String(auto.deduccionRAP) : "");
+    setDeduccionISR(auto.deduccionISR);
+    setInputDeduccionISR(auto.deduccionISR > 0 ? String(auto.deduccionISR) : "");
   }, [
     fechaInicio,
     fechaFin,
-    deduccionRAPBase,
+    sueldoMensual,
     codigoNominaTerminaEnA,
+    PISO_IHSS,
     DEDUCCION_IHSS_FIJA,
     empleadoIsr,
     empleadoAporteVoluntarioRap,

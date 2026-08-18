@@ -19,7 +19,7 @@ export interface NominaDto {
   diasIncapacidadEmpresa?: number | null;
   diasIncapacidadIHSS?: number | null;
   horasCompensatorias?: number | null;
-  /** Snapshot inmutable de lo aplicado al banco al crear */
+  /** Snapshot de acumuladas aplicadas al banco (con job) */
   bancoCompensatoriasAplicadas?: BancoCompensatoriaAplicadaDto[] | null;
 
   subtotalQuincena?: number | null;
@@ -98,10 +98,7 @@ export interface CrearNominaDto {
   comentario?: string | null;
 }
 
-/** En actualización no se permiten cambiar empleado, horas compensatorias ni el snapshot del banco. */
+/** En actualización no se permite cambiar el colaborador. */
 export type ActualizarNominaDto = Partial<
-  Omit<
-    CrearNominaDto,
-    "empleadoId" | "horasCompensatorias" | "bancoCompensatoriasAplicadas"
-  >
+  Omit<CrearNominaDto, "empleadoId">
 >;

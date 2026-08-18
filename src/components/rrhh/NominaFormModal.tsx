@@ -15,10 +15,18 @@ import {
   MenuItem,
   InputLabel,
   FormControl,
+  IconButton,
 } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
 import NominaService, { type NominaDto } from "../../services/nominaService";
 import EmpleadoService from "../../services/empleadoService";
+import JobService, { type Job } from "../../services/jobService";
 import { toYmdLocal } from "./gestion-empleados/calculo-nominas/utils/periodos";
+import { calcularDeduccionesAutomaticasPorCodigo } from "./gestion-empleados/calculo-nominas/utils/deduccionesQuincena";
+import { roundTo2Decimals } from "./gestion-empleados/calculo-nominas/utils/formatters";
+import { useGlobalConfigNomina } from "./gestion-empleados/calculo-nominas/hooks/useGlobalConfigNomina";
+import { useAlimentacionPorCodigo } from "./gestion-empleados/calculo-nominas/hooks/useAlimentacionPorCodigo";
 import type { Empresa } from "../../types/auth";
 import type { Empleado } from "../../services/empleadoService";
 
@@ -31,6 +39,63 @@ interface NominaFormModalProps {
   onSave: () => Promise<void>;
   showSnackbar: (message: string, severity: "success" | "error") => void;
 }
+
+type CompAcumuladaRow = {
+  key: string;
+  jobId: number | null;
+  horasText: string;
+};
+
+const newCompRow = (): CompAcumuladaRow => ({
+  key: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  jobId: null,
+  horasText: "",
+});
+
+const parseSnapshotAcumuladas = (
+  snapshot: NominaDto["bancoCompensatoriasAplicadas"]
+): CompAcumuladaRow[] => {
+  if (!Array.isArray(snapshot) || snapshot.length === 0) return [newCompRow()];
+  const rows = snapshot
+    .filter((item) => Number(item?.horas) > 0)
+    .map((item) => ({
+      key: `${item.jobId ?? "null"}-${item.horas}-${Math.random().toString(36).slice(2, 6)}`,
+      jobId: item.jobId ?? null,
+      horasText: String(item.horas),
+    }));
+  return rows.length > 0 ? rows : [newCompRow()];
+};
+
+const horasFromText = (text: string): number => {
+  const n = Number.parseFloat(String(text).replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+};
+
+const buildBancoFromRows = (rows: CompAcumuladaRow[]) => {
+  const merged = new Map<number, number>();
+  for (const row of rows) {
+    const horas = roundTo2Decimals(horasFromText(row.horasText));
+    if (horas <= 0 || row.jobId == null) continue;
+    merged.set(
+      row.jobId,
+      roundTo2Decimals((merged.get(row.jobId) ?? 0) + horas)
+    );
+  }
+  return Array.from(merged.entries()).map(([jobId, horas]) => ({
+    jobId,
+    horas,
+  }));
+};
+
+/** Tomadas = acumuladas del snapshot − neto guardado (dashboard: neto = acum − tomadas). */
+const horasTomadasFromNomina = (nomina: NominaDto): number => {
+  const snapshot = Array.isArray(nomina.bancoCompensatoriasAplicadas)
+    ? nomina.bancoCompensatoriasAplicadas
+    : [];
+  const sumaAcum = snapshot.reduce((s, i) => s + (Number(i.horas) || 0), 0);
+  const neto = Number(nomina.horasCompensatorias ?? 0);
+  return roundTo2Decimals(Math.max(0, sumaAcum - neto));
+};
 
 const NominaFormModal: React.FC<NominaFormModalProps> = ({
   open,
@@ -104,6 +169,25 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
   // Otros
   const [formComentario, setFormComentario] = useState<string>("");
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [compAcumuladas, setCompAcumuladas] = useState<CompAcumuladaRow[]>([
+    newCompRow(),
+  ]);
+  const [formHorasCompTomadas, setFormHorasCompTomadas] = useState<number>(0);
+
+  const { cfgPisoIhss, cfgDeduccionIhssFija } = useGlobalConfigNomina();
+  const esPrimeraQuincenaA = formPeriodo === "A";
+  const empleadoSeleccionado = React.useMemo(
+    () => formEmpleados.find((e) => e.id === formEmpleadoId) ?? null,
+    [formEmpleados, formEmpleadoId],
+  );
+  const alimentacion = useAlimentacionPorCodigo({
+    empleado: open && isCreating ? empleadoSeleccionado : null,
+    fechaInicio: formFechaInicio,
+    fechaFin: formFechaFin,
+    rangoValido: Boolean(formFechaInicio && formFechaFin),
+    codigoNominaPeriodo: formCodigoNomina,
+  });
 
   // Años disponibles (año actual y los siguientes 5 años)
   const añosDisponibles = React.useMemo(() => {
@@ -264,6 +348,22 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     fetchEmpleados();
   }, [formEmpresaId, nomina, isCreating, showSnackbar]);
 
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    JobService.getAll()
+      .then((data) => {
+        if (!cancelled) setJobs(data);
+      })
+      .catch((err) => {
+        console.error("Error al cargar jobs:", err);
+        if (!cancelled) showSnackbar("Error al cargar los jobs", "error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, showSnackbar]);
+
   // Inicializar formulario cuando se abre el modal o cambia la nómina
   useEffect(() => {
     if (!open) {
@@ -315,6 +415,11 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       setFormTotalDeducciones(nomina.totalDeducciones ?? 0);
       setFormTotalNetoPagar(nomina.totalNetoPagar ?? 0);
       setFormComentario(nomina.comentario || "");
+      const tomadas = horasTomadasFromNomina(nomina);
+      setCompAcumuladas(
+        parseSnapshotAcumuladas(nomina.bancoCompensatoriasAplicadas)
+      );
+      setFormHorasCompTomadas(tomadas);
 
       setNumericText({
         sueldoMensual:
@@ -381,6 +486,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         impuestoVecinal:
           nomina.impuestoVecinal != null ? String(nomina.impuestoVecinal) : "",
         otros: nomina.otros != null ? String(nomina.otros) : "",
+        horasCompTomadas: tomadas > 0 ? String(tomadas) : "",
       });
     } else {
       // Modo creación
@@ -423,6 +529,8 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       setFormTotalDeducciones(0);
       setFormTotalNetoPagar(0);
       setFormComentario("");
+      setCompAcumuladas([newCompRow()]);
+      setFormHorasCompTomadas(0);
 
       setNumericText({});
     }
@@ -458,19 +566,40 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     }
   }, [formSueldoMensual]);
 
-  // Calcular Total Percepciones automáticamente
-  // Nota: montoExcedenteIHSS NO se incluye en totalPercepciones
-  // totalPercepciones = subtotalQuincena + horas extra + ajuste
+  // Subtotal quincena = suma de montos editables (igual que el dashboard)
   useEffect(() => {
-    const total =
-      (formSubtotalQuincena ?? 0) +
-      (formMontoHoras25 ?? 0) +
-      (formMontoHoras50 ?? 0) +
-      (formMontoHoras75 ?? 0) +
-      (formMontoHoras100 ?? 0) +
-      (formAjuste ?? 0);
+    const subtotal = roundTo2Decimals(
+      (formMontoDiasLaborados ?? 0) +
+        (formMontoVacaciones ?? 0) +
+        (formMontoIncapacidadCubreEmpresa ?? 0) +
+        (formMontoPermisosJustificados ?? 0),
+    );
+    setFormSubtotalQuincena(subtotal);
+    setNumericText((prev) => {
+      const next = subtotal > 0 ? String(subtotal) : "";
+      if (prev.subtotalQuincena === next) return prev;
+      return { ...prev, subtotalQuincena: next };
+    });
+  }, [
+    formMontoDiasLaborados,
+    formMontoVacaciones,
+    formMontoIncapacidadCubreEmpresa,
+    formMontoPermisosJustificados,
+  ]);
 
-    setFormTotalPercepciones(total);
+  // Total percepciones = subtotal + horas extra + ajuste
+  // Nota: montoExcedenteIHSS NO se incluye
+  useEffect(() => {
+    setFormTotalPercepciones(
+      roundTo2Decimals(
+        (formSubtotalQuincena ?? 0) +
+          (formMontoHoras25 ?? 0) +
+          (formMontoHoras50 ?? 0) +
+          (formMontoHoras75 ?? 0) +
+          (formMontoHoras100 ?? 0) +
+          (formAjuste ?? 0),
+      ),
+    );
   }, [
     formSubtotalQuincena,
     formMontoHoras25,
@@ -480,19 +609,67 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     formAjuste,
   ]);
 
-  // Calcular Total Deducciones automáticamente
+  // Defaults IHSS / RAP / ISR / vecinal (mismas reglas A/B del dashboard)
   useEffect(() => {
-    const total =
-      (formDeduccionIHSS ?? 0) +
-      (formDeduccionISR ?? 0) +
-      (formDeduccionRAP ?? 0) +
-      (formDeduccionAlimentacion ?? 0) +
-      (formDeduccionAlojamiento ?? 0) +
-      (formCobroPrestamo ?? 0) +
-      (formImpuestoVecinal ?? 0) +
-      (formOtros ?? 0);
+    if (!open || !isCreating || !formPeriodo) return;
 
-    setFormTotalDeducciones(total);
+    const auto = calcularDeduccionesAutomaticasPorCodigo({
+      codigoNominaTerminaEnA: esPrimeraQuincenaA,
+      sueldoMensual: formSueldoMensual,
+      pisoIhss: cfgPisoIhss,
+      deduccionIhssFija: cfgDeduccionIhssFija,
+      empleadoIsr: empleadoSeleccionado?.isr,
+      empleadoAporteVoluntarioRap: empleadoSeleccionado?.aporteVoluntarioRap,
+    });
+
+    setFormDeduccionIHSS(auto.deduccionIHSS);
+    setFormDeduccionRAP(auto.deduccionRAP);
+    setFormDeduccionISR(auto.deduccionISR);
+    setFormImpuestoVecinal(auto.impuestoVecinal);
+    setNumericText((prev) => ({
+      ...prev,
+      deduccionIHSS: esPrimeraQuincenaA ? "" : String(auto.deduccionIHSS),
+      deduccionRAP: auto.deduccionRAP > 0 ? String(auto.deduccionRAP) : "",
+      deduccionISR: auto.deduccionISR > 0 ? String(auto.deduccionISR) : "",
+      impuestoVecinal: "",
+    }));
+  }, [
+    open,
+    isCreating,
+    formPeriodo,
+    esPrimeraQuincenaA,
+    formSueldoMensual,
+    cfgPisoIhss,
+    cfgDeduccionIhssFija,
+    empleadoSeleccionado?.isr,
+    empleadoSeleccionado?.aporteVoluntarioRap,
+  ]);
+
+  // Alimentación: mismo flujo que el dashboard (rango por código A/B)
+  useEffect(() => {
+    if (!open || !isCreating) return;
+    const valor = alimentacion.deduccionAlimentacion || 0;
+    setFormDeduccionAlimentacion(valor);
+    setNumericText((prev) => ({
+      ...prev,
+      deduccionAlimentacion: valor > 0 ? String(valor) : "",
+    }));
+  }, [open, isCreating, alimentacion.deduccionAlimentacion]);
+
+  // Total deducciones = suma de las 8 líneas editables
+  useEffect(() => {
+    setFormTotalDeducciones(
+      roundTo2Decimals(
+        (formDeduccionIHSS ?? 0) +
+          (formDeduccionISR ?? 0) +
+          (formDeduccionRAP ?? 0) +
+          (formDeduccionAlimentacion ?? 0) +
+          (formDeduccionAlojamiento ?? 0) +
+          (formCobroPrestamo ?? 0) +
+          (formImpuestoVecinal ?? 0) +
+          (formOtros ?? 0),
+      ),
+    );
   }, [
     formDeduccionIHSS,
     formDeduccionISR,
@@ -504,13 +681,13 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     formOtros,
   ]);
 
-  // Calcular Total Neto a Pagar automáticamente
+  // Total neto = percepciones − deducciones
   useEffect(() => {
-    const percepciones = formTotalPercepciones ?? 0;
-    const deducciones = formTotalDeducciones ?? 0;
-    const total = percepciones - deducciones;
-
-    setFormTotalNetoPagar(total);
+    setFormTotalNetoPagar(
+      roundTo2Decimals(
+        (formTotalPercepciones ?? 0) - (formTotalDeducciones ?? 0),
+      ),
+    );
   }, [formTotalPercepciones, formTotalDeducciones]);
 
   // Handler para onChange de campos numéricos:
@@ -549,6 +726,45 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     },
     [isValidNumericText, normalizeNumericText, parseNumericOrNull]
   );
+
+  const jobsOptions = React.useMemo(() => {
+    const idsEnFilas = new Set(
+      compAcumuladas.map((r) => r.jobId).filter((id): id is number => id != null)
+    );
+    return jobs.filter((j) => j.activo || idsEnFilas.has(j.id));
+  }, [jobs, compAcumuladas]);
+
+  const handleCompHorasChange = (
+    key: string,
+    raw: string
+  ) => {
+    const nextRaw = normalizeNumericText(raw);
+    if (
+      !isValidNumericText(nextRaw, {
+        allowNegative: false,
+        allowDecimal: true,
+        maxDecimals: 2,
+      })
+    ) {
+      return;
+    }
+    setCompAcumuladas((prev) =>
+      prev.map((row) => (row.key === key ? { ...row, horasText: nextRaw } : row))
+    );
+  };
+
+  const handleCompJobChange = (key: string, job: Job | null) => {
+    setCompAcumuladas((prev) =>
+      prev.map((row) =>
+        row.key === key ? { ...row, jobId: job?.id ?? null } : row
+      )
+    );
+    setFormErrors((prev) => {
+      const next = { ...prev };
+      delete next[`compAcumJob_${key}`];
+      return next;
+    });
+  };
 
   // Handler para onKeyPress - previene entrada de caracteres no numéricos
   const handleNumericKeyPress = (
@@ -779,6 +995,16 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       }
     });
 
+    compAcumuladas.forEach((row) => {
+      const horas = horasFromText(row.horasText);
+      if (horas > 0 && row.jobId == null) {
+        errors[`compAcumJob_${row.key}`] = "Seleccione un job";
+      }
+    });
+    if (formHorasCompTomadas < 0) {
+      errors.horasCompTomadas = "Las horas tomadas no pueden ser negativas";
+    }
+
     return errors;
   };
 
@@ -791,6 +1017,15 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     }
 
     try {
+      const bancoCompensatoriasAplicadas = buildBancoFromRows(compAcumuladas);
+      const sumaAcumuladas = bancoCompensatoriasAplicadas.reduce(
+        (s, row) => s + row.horas,
+        0
+      );
+      const horasCompensatorias = roundTo2Decimals(
+        sumaAcumuladas - (formHorasCompTomadas ?? 0)
+      );
+
       const payload = {
         empleadoId: formEmpleadoId!,
         fechaInicio: formFechaInicio,
@@ -801,6 +1036,8 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         diasVacaciones: formDiasVacaciones ?? 0,
         diasIncapacidadEmpresa: formDiasIncapacidadEmpresa ?? 0,
         diasIncapacidadIHSS: formDiasIncapacidadIHSS ?? 0,
+        horasCompensatorias,
+        bancoCompensatoriasAplicadas,
         subtotalQuincena: formSubtotalQuincena ?? 0,
         montoVacaciones: formMontoVacaciones ?? 0,
         montoDiasLaborados: formMontoDiasLaborados ?? 0,
@@ -824,7 +1061,6 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         totalDeducciones: formTotalDeducciones ?? 0,
         totalNetoPagar: formTotalNetoPagar ?? 0,
         comentario: formComentario || null,
-        bancoCompensatoriasAplicadas: [],
       };
 
       if (isCreating) {
@@ -1194,7 +1430,10 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
               error={!!formErrors.diasVacaciones}
-              helperText={formErrors.diasVacaciones}
+              helperText={
+                formErrors.diasVacaciones ||
+                "Se descuentan del saldo de vacaciones (días × 8 h)"
+              }
             />
             <TextField
               label="Días incapacidad empresa"
@@ -1242,6 +1481,112 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
 
           <Divider sx={{ my: 2 }} />
 
+          <Typography variant="h6" sx={{ mt: 1 }}>
+            Compensatorias
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Acumuladas (con job) se aplican al banco. Tomadas (sin job) solo
+            afectan el neto de la nómina.
+          </Typography>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+            {compAcumuladas.map((row, index) => (
+              <Box
+                key={row.key}
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: {
+                    xs: "1fr",
+                    sm: "minmax(0, 1fr) 140px auto",
+                  },
+                  gap: 1,
+                  alignItems: "start",
+                }}
+              >
+                <Autocomplete
+                  options={jobsOptions}
+                  value={jobs.find((j) => j.id === row.jobId) || null}
+                  onChange={(_, value) => handleCompJobChange(row.key, value)}
+                  isOptionEqualToValue={(o, v) => !!v && o.id === v.id}
+                  getOptionLabel={(o) => `${o.codigo} - ${o.nombre}`}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={
+                        index === 0
+                          ? "Job (compensatorias acumuladas)"
+                          : "Job"
+                      }
+                      error={!!formErrors[`compAcumJob_${row.key}`]}
+                      helperText={formErrors[`compAcumJob_${row.key}`]}
+                    />
+                  )}
+                />
+                <TextField
+                  label="Horas"
+                  type="text"
+                  value={row.horasText}
+                  onChange={(e) =>
+                    handleCompHorasChange(row.key, e.target.value)
+                  }
+                  onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
+                  error={!!formErrors[`compAcumHoras_${row.key}`]}
+                  helperText={formErrors[`compAcumHoras_${row.key}`]}
+                />
+                <Box sx={{ display: "flex", gap: 0.5, pt: 0.5 }}>
+                  {compAcumuladas.length > 1 && (
+                    <IconButton
+                      aria-label="Quitar fila"
+                      onClick={() =>
+                        setCompAcumuladas((prev) =>
+                          prev.filter((r) => r.key !== row.key)
+                        )
+                      }
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  )}
+                  {index === compAcumuladas.length - 1 && (
+                    <IconButton
+                      aria-label="Agregar fila"
+                      onClick={() =>
+                        setCompAcumuladas((prev) => [...prev, newCompRow()])
+                      }
+                    >
+                      <AddIcon />
+                    </IconButton>
+                  )}
+                </Box>
+              </Box>
+            ))}
+            <TextField
+              label="Horas compensatorias tomadas (sin job)"
+              type="text"
+              value={numericText.horasCompTomadas ?? ""}
+              onChange={(e) =>
+                handleNumericChange(
+                  e,
+                  "horasCompTomadas",
+                  setFormHorasCompTomadas,
+                  {
+                    allowNegative: false,
+                    allowDecimal: true,
+                    maxDecimals: 2,
+                  }
+                )
+              }
+              onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
+              fullWidth
+              error={!!formErrors.horasCompTomadas}
+              helperText={
+                formErrors.horasCompTomadas ||
+                "Informativo: no mueve el banco de compensatorias"
+              }
+              sx={{ maxWidth: { sm: 360 } }}
+            />
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+
           {/* Sección: Percepciones */}
           <Typography variant="h6" sx={{ mt: 1 }}>
             Percepciones
@@ -1256,23 +1601,10 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
             <TextField
               label="Subtotal Quincena"
               type="text"
-              value={numericText.subtotalQuincena ?? ""}
-              onChange={(e) =>
-                handleNumericChange(
-                  e,
-                  "subtotalQuincena",
-                  setFormSubtotalQuincena,
-                  {
-                    allowNegative: false,
-                    allowDecimal: true,
-                    maxDecimals: 2,
-                  }
-                )
-              }
-              onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
+              value={String(formSubtotalQuincena)}
+              disabled
               fullWidth
-              error={!!formErrors.subtotalQuincena}
-              helperText={formErrors.subtotalQuincena}
+              helperText="Suma de días laborados + vacaciones + incapacidad empresa + permisos"
             />
             <TextField
               label="Monto Vacaciones"
@@ -1382,10 +1714,10 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
             <TextField
               label="Total Percepciones"
               type="text"
-              value={formTotalPercepciones ?? ""}
+              value={String(formTotalPercepciones)}
               disabled
               fullWidth
-              helperText="Calculado automáticamente"
+              helperText="Subtotal + horas extra + ajuste"
             />
           </Box>
 
@@ -1474,6 +1806,13 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
           <Typography variant="h6" sx={{ mt: 1 }}>
             Deducciones
           </Typography>
+          {isCreating && formPeriodo && (
+            <Typography variant="body2" color="text.secondary">
+              {esPrimeraQuincenaA
+                ? "Período A: IHSS, RAP e impuesto vecinal quedan en 0. Alimentación se carga del rango del código. ISR, préstamo, alojamiento y otros se pueden editar."
+                : "Período B: IHSS, RAP e ISR se calculan como en el dashboard. Alimentación se carga del rango del código."}
+            </Typography>
+          )}
           <Box
             sx={{
               display: "grid",
@@ -1509,8 +1848,16 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               }
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
+              disabled={isCreating && esPrimeraQuincenaA}
               error={!!formErrors.deduccionIHSS}
-              helperText={formErrors.deduccionIHSS}
+              helperText={
+                formErrors.deduccionIHSS ||
+                (isCreating && esPrimeraQuincenaA
+                  ? "Primera quincena: sin esta deducción"
+                  : isCreating
+                    ? "Cargado automáticamente (cuota fija IHSS)"
+                    : undefined)
+              }
             />
             <TextField
               label="Deducción ISR"
@@ -1526,7 +1873,14 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
               error={!!formErrors.deduccionISR}
-              helperText={formErrors.deduccionISR}
+              helperText={
+                formErrors.deduccionISR ||
+                (isCreating && esPrimeraQuincenaA
+                  ? "Primera quincena: inicia en 0 (editable)"
+                  : isCreating
+                    ? "Cargado del ISR del colaborador"
+                    : undefined)
+              }
             />
             <TextField
               label="Deducción RAP"
@@ -1541,8 +1895,16 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               }
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
+              disabled={isCreating && esPrimeraQuincenaA}
               error={!!formErrors.deduccionRAP}
-              helperText={formErrors.deduccionRAP}
+              helperText={
+                formErrors.deduccionRAP ||
+                (isCreating && esPrimeraQuincenaA
+                  ? "Primera quincena: sin esta deducción"
+                  : isCreating
+                    ? "1.5% del excedente sobre piso IHSS + aporte voluntario"
+                    : undefined)
+              }
             />
             <TextField
               label="Deducción Alimentación"
@@ -1562,8 +1924,27 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               }
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
-              error={!!formErrors.deduccionAlimentacion}
-              helperText={formErrors.deduccionAlimentacion}
+              disabled={isCreating && alimentacion.loadingAlimentacion}
+              InputProps={{
+                readOnly:
+                  isCreating &&
+                  alimentacion.errorAlimentacion?.tieneError !== true,
+              }}
+              error={
+                !!formErrors.deduccionAlimentacion ||
+                (isCreating &&
+                  alimentacion.errorAlimentacion?.tieneError === true)
+              }
+              helperText={
+                formErrors.deduccionAlimentacion ||
+                (isCreating && alimentacion.loadingAlimentacion
+                  ? "Cargando alimentación..."
+                  : isCreating && alimentacion.errorAlimentacion?.tieneError
+                    ? alimentacion.errorAlimentacion.mensajeError
+                    : isCreating
+                      ? "Cargada según el rango del código de nómina"
+                      : undefined)
+              }
             />
             <TextField
               label="Cobro Préstamo"
@@ -1599,8 +1980,14 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               }
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
+              disabled={isCreating && esPrimeraQuincenaA}
               error={!!formErrors.impuestoVecinal}
-              helperText={formErrors.impuestoVecinal}
+              helperText={
+                formErrors.impuestoVecinal ||
+                (isCreating && esPrimeraQuincenaA
+                  ? "Primera quincena: sin esta deducción"
+                  : undefined)
+              }
             />
             <TextField
               label="Otros"
@@ -1642,18 +2029,18 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
             <TextField
               label="Total Deducciones"
               type="text"
-              value={formTotalDeducciones ?? ""}
+              value={String(formTotalDeducciones)}
               disabled
               fullWidth
-              helperText="Calculado automáticamente"
+              helperText="Suma de todas las deducciones"
             />
             <TextField
               label="Total Neto a Pagar"
               type="text"
-              value={formTotalNetoPagar ?? ""}
+              value={String(formTotalNetoPagar)}
               disabled
               fullWidth
-              helperText="Calculado automáticamente (Percepciones - Deducciones)"
+              helperText="Percepciones − deducciones"
             />
           </Box>
 
