@@ -101,6 +101,7 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
   const [jobs, setJobs] = useState<JobConJerarquia[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobConJerarquia | null>(null);
+  const [selectedClassName, setSelectedClassName] = useState("");
   const [targetActividad, setTargetActividad] = useState<ActividadData | null>(
     null
   );
@@ -150,6 +151,9 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
     const pre =
       currentJobId != null ? list.find((j) => j.id === currentJobId) : null;
     setSelectedJob(pre ?? null);
+    setSelectedClassName(
+      actividad.className != null ? String(actividad.className) : ""
+    );
 
     setJobDialogOpen(true);
   };
@@ -157,7 +161,14 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
   const closeJobDialog = () => {
     setJobDialogOpen(false);
     setSelectedJob(null);
+    setSelectedClassName("");
     setTargetActividad(null);
+  };
+
+  const parseClassNameForUpdate = (value: string): number | string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    return /^\d+$/.test(trimmed) ? Number(trimmed) : trimmed;
   };
 
   const saveJobChange = async () => {
@@ -183,7 +194,9 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
       const updated = await RegistroDiarioService.updateJobBySupervisor(
         empleadoId,
         targetActividad.id,
-        selectedJob.id
+        selectedJob.id,
+        targetActividad.descripcion,
+        parseClassNameForUpdate(selectedClassName)
       );
       setRegistros((prev) =>
         prev.map((r) =>
@@ -1997,6 +2010,14 @@ const DetalleRegistrosDiariosModal: React.FC<Props> = ({
                     ? "Cargando jobs..."
                     : "No hay jobs activos disponibles"
                 }
+              />
+              <TextField
+                label="Class"
+                value={selectedClassName}
+                onChange={(e) => setSelectedClassName(e.target.value)}
+                fullWidth
+                placeholder="Ej: 1001 o nombre de class"
+                helperText="Se guarda junto con el cambio de job. Déjalo vacío para quitar el class."
               />
             </Stack>
           </DialogContent>
