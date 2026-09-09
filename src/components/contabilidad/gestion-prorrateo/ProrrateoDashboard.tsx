@@ -64,7 +64,6 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { useAuth } from "../../../hooks/useAuth";
 import { Roles } from "../../../enums/roles";
 import { hasAnyRole, normalizeRolIds } from "../../../utils/roles";
-import { montoPorDiasQuincena } from "../../rrhh/gestion-empleados/calculo-nominas/utils/formatters";
 import DesgloseIncidenciasComponent from "../../rrhh/gestion-empleados/DesgloseIncidencias";
 import type { DesgloseIncidencias } from "../../../services/calculoHorasTrabajoService";
 import CompensatoriasTomadasAsignacion, {
@@ -652,8 +651,6 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     nominaSeleccionada?.sueldoMensual ?? empleado?.sueldoMensual ?? 0,
   );
   const salarioPorHora = sueldoMensualParaHora / (30 * 8);
-  const salarioQuincenal = sueldoMensualParaHora / 2;
-  const periodoNominaProrrateo = 15;
 
   const horasCompensatoriasTomadasProrrateo =
     prorrateo?.cantidadHoras?.horasCompensatoriasTomadas ?? 0;
@@ -806,25 +803,10 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   ) => {
     const totalHoras = Number(options?.totalHoras ?? 0);
     const totalMonto = Number(options?.totalMonto ?? 0);
-    // Excepción E02 (vacaciones): monto proporcional al salario quincenal; redondeo al final.
-    // El resto (jobs normales + compensatorias tomadas sin job) reparte
-    // montoDiasLaborados proporcionalmente entre todas sus horas.
-    const isE02 = (codigo?: string | null) =>
-      (codigo ?? "").trim().toUpperCase() === "E02";
-    const horasE02Total = (items ?? []).reduce(
-      (acc, j) =>
-        acc + (isE02(j.codigoJob) ? Number(j.cantidadHoras ?? 0) : 0),
-      0,
-    );
-    const horasProrrateables = Math.max(0, totalHoras - horasE02Total);
-    const calcMontoFila = (j: HorasPorJobDto, horas: number) => {
-      if (isE02(j.codigoJob)) {
-        return montoPorDiasQuincena(
-          salarioQuincenal,
-          horas / 8,
-          periodoNominaProrrateo,
-        );
-      }
+    // Jobs especiales (E01–E05) no vienen en estas tablas; el monto se reparte
+    // proporcionalmente entre las horas de jobs reales.
+    const horasProrrateables = totalHoras;
+    const calcMontoFila = (_j: HorasPorJobDto, horas: number) => {
       if (totalMonto <= 0 || horasProrrateables <= 0) return 0;
       return (horas / horasProrrateables) * totalMonto;
     };
@@ -833,8 +815,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
         acc + calcMontoFila(j, Number(j.cantidadHoras ?? 0)),
       0,
     );
-    const showMonto =
-      (totalMonto > 0 && horasProrrateables > 0) || horasE02Total > 0;
+    const showMonto = totalMonto > 0 && horasProrrateables > 0;
     const hasAnyClassBreakdown = (items ?? []).some((j) =>
       (j.horasPorClass ?? []).some((c) => c.class != null),
     );
