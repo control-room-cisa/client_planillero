@@ -536,6 +536,22 @@ export const useDailyTimesheet = () => {
                   },
                   horarioData.esFestivo
                 );
+              } else if (horarioData.tipoHorario === "H1_9") {
+                return getHolidayDayConfigFlags(
+                  {
+                    ...base,
+                    jornada: "D",
+                    // H1_9: horas editables → respetar registro guardado
+                    horaEntrada: formatTimeLocal(registro.horaEntrada),
+                    horaSalida: formatTimeLocal(registro.horaSalida),
+                    esDiaLibre: Boolean(horarioData.esDiaLibre),
+                    esDiaNoLaborable: false,
+                    esIncapacidad: registro.esIncapacidad || false,
+                    esHoraCorrida: Boolean(registro.esHoraCorrida),
+                    comentarioEmpleado: registro.comentarioEmpleado || "",
+                  },
+                  horarioData.esFestivo
+                );
               } else if (horarioData.tipoHorario === "H1_5") {
                 return getHolidayDayConfigFlags(
                   {

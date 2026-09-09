@@ -152,6 +152,12 @@ export class HorarioValidator {
         const base = this.validateH1(horario, datosExistentes);
         return { ...base, mostrarJornada: false };
       }
+      case "H1_9":
+      {
+        // H1_9: como H1_1 con entrada/salida editables; jornada oculta
+        const base = this.validateH1(horario, datosExistentes);
+        return { ...base, mostrarJornada: false };
+      }
       case "H2_1":
         return this.validateH2(horario, datosExistentes);
       case "H2_2": {
