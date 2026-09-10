@@ -683,15 +683,19 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       Number(nominaSeleccionada?.montoHoras100 ?? 0),
   );
 
-  const diasLaboradosProrrateo = nominaSeleccionada?.diasLaborados ?? 0;
-  const horasNormalesProrrateo = diasLaboradosProrrateo * 8;
-
   const horasJobsNormalesProrrateo = obtenerTotalHoras(
     prorrateo?.cantidadHoras?.normal ?? [],
   );
   const horasPermisoJustificadoProrrateo = Number(
     prorrateo?.cantidadHoras?.permisoConSueldoHoras ?? 0,
   );
+  // En prorrateo, días laborados de nómina incluyen E03; aquí se restan (8h = 1d).
+  const diasLaboradosProrrateo = Math.max(
+    0,
+    (nominaSeleccionada?.diasLaborados ?? 0) -
+      horasPermisoJustificadoProrrateo / 8,
+  );
+  const horasNormalesProrrateo = diasLaboradosProrrateo * 8;
   const {
     precioHora: precioHoraNormalProrrateada,
     montoJobsNormales: montoDiasLaboradosParaJobs,
@@ -1697,9 +1701,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                               <TableRow>
                                 <TableCell>Días laborados</TableCell>
                                 <TableCell align="right">
-                                  {formatCantidadDias(
-                                    nominaSeleccionada?.diasLaborados,
-                                  )}
+                                  {formatCantidadDias(diasLaboradosProrrateo)}
                                 </TableCell>
                                 <TableCell align="right">
                                   {`${formatMonto(montoDiasLaboradosParaJobs)} L`}
