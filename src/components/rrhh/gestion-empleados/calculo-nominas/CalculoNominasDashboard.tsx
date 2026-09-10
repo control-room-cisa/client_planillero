@@ -162,12 +162,12 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
   const diasIncapacidadCubreIHSS =
     conteoDias?.incapacidadIHSS ?? conteoDias?.incapacidadCubreIHSSDias ?? 0;
 
-  // Días laborados: no se restan compensatorias tomadas (se pagan aparte como horas)
+  // Días laborados: incluye permiso justificado (E03) dentro del monto de días laborados.
+  // No se restan compensatorias tomadas (se pagan aparte como horas).
   const diasLaborados = Math.max(
     0,
     (periodoNomina || 15) -
       (diasVacaciones || 0) -
-      (diasPermisoCS || 0) -
       (diasIncapacidadCubreEmpresa || 0) -
       (diasIncapacidadCubreIHSS || 0) -
       ((conteoDias?.permisoSinSueldo ?? 0) || 0) -
@@ -198,15 +198,15 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     periodoNomina,
   );
 
-  // Horas de permisos justificados: usar horas del resumen si existen, si no días × 8
+  // Permiso justificado (E03): solo informativo (tiempo). Su pago va en montoDiasLaborados.
   const horasPermisosJustificados =
     Number(
       (resumenHoras as any)?.conteoHoras?.cantidadHoras
-        ?.permisoConSueldoHoras ?? diasPermisoCS * 8,
+        ?.permisoConSueldoHoras ??
+        (resumenHoras as any)?.conteoHoras?.cantidadHoras?.permisoConSueldo ??
+        diasPermisoCS * 8,
     ) || 0;
-  const montoPermisosJustificados = roundTo2Decimals(
-    horasPermisosJustificados * salarioPorHora,
-  );
+  const montoPermisosJustificados = 0;
 
   // Horas de incapacidades (priorizar nombres correctos del backend)
   // Comentado temporalmente - no se muestran en el dashboard por el momento
@@ -263,8 +263,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
   const subtotalQuincena =
     (montoDiasLaborados || 0) +
     (montoVacaciones || 0) +
-    (montoIncapacidadCubreEmpresa || 0) +
-    (montoPermisosJustificados || 0);
+    (montoIncapacidadCubreEmpresa || 0);
 
   // Cálculo de horas normales: días laborados × 8 horas
   const horasNormales = diasLaborados * 8;
@@ -1002,7 +1001,8 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
             montoIncapacidadCubreEmpresa={montoIncapacidadCubreEmpresa}
             montoIncapacidadIHSS={montoIncapacidadIHSS}
             subtotalQuincena={subtotalQuincena}
-            montoPermisosJustificados={montoPermisosJustificados}
+            diasPermisoJustificado={diasPermisoCS}
+            horasPermisoJustificado={horasPermisosJustificados}
             formatCurrency={formatCurrencyCb}
           />
 

@@ -64,6 +64,9 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { useAuth } from "../../../hooks/useAuth";
 import { Roles } from "../../../enums/roles";
 import { hasAnyRole, normalizeRolIds } from "../../../utils/roles";
+import {
+  repartirMontoDiasLaboradosConPermisoJustificado,
+} from "../../rrhh/gestion-empleados/calculo-nominas/utils/formatters";
 import DesgloseIncidenciasComponent from "../../rrhh/gestion-empleados/DesgloseIncidencias";
 import type { DesgloseIncidencias } from "../../../services/calculoHorasTrabajoService";
 import CompensatoriasTomadasAsignacion, {
@@ -683,6 +686,22 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   const diasLaboradosProrrateo = nominaSeleccionada?.diasLaborados ?? 0;
   const horasNormalesProrrateo = diasLaboradosProrrateo * 8;
 
+  const horasJobsNormalesProrrateo = obtenerTotalHoras(
+    prorrateo?.cantidadHoras?.normal ?? [],
+  );
+  const horasPermisoJustificadoProrrateo = Number(
+    prorrateo?.cantidadHoras?.permisoConSueldoHoras ?? 0,
+  );
+  const {
+    precioHora: precioHoraNormalProrrateada,
+    montoJobsNormales: montoDiasLaboradosParaJobs,
+    montoPermisoJustificado: montoPermisoJustificadoCalculado,
+  } = repartirMontoDiasLaboradosConPermisoJustificado(
+    Number(nominaSeleccionada?.montoDiasLaborados ?? 0),
+    horasJobsNormalesProrrateo,
+    horasPermisoJustificadoProrrateo,
+  );
+
   const desgloseIncidenciasProrrateo =
     React.useMemo((): DesgloseIncidencias | null => {
       if (!prorrateo) return null;
@@ -733,11 +752,11 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   const montoIncapacidadIHSSCalculado = roundMonto2(
     (diasIncapacidadIHSS * PISO_IHSS_FALLBACK * 0.66) / 30,
   );
-  // Total del panel Resumen: montos de nómina (sin compensatorias tomadas ni acumuladas)
+  // Total del panel Resumen: montoDiasLaborados ya incluye permiso justificado
+  // (se desglosa aparte solo informativo, sin sumarlo de nuevo).
   const totalResumen = roundMonto2(
     Number(nominaSeleccionada?.montoDiasLaborados ?? 0) +
       Number(nominaSeleccionada?.montoVacaciones ?? 0) +
-      Number(nominaSeleccionada?.montoPermisosJustificados ?? 0) +
       Number(nominaSeleccionada?.montoIncapacidadCubreEmpresa ?? 0) +
       Number(montoIncapacidadIHSSCalculado ?? 0),
   );
@@ -1391,6 +1410,20 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 </TableCell>
                               </TableRow>
                               <TableRow>
+                                <TableCell>Precio hora (normales)</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 120 }}>
+                                  {`${formatMonto(precioHoraNormalProrrateada)} L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell>Permiso justificado</TableCell>
+                                <TableCell align="right" sx={{ minWidth: 140 }}>
+                                  {`${formatHoras(horasPermisoJustificadoProrrateo)} h · ${formatMonto(
+                                    montoPermisoJustificadoCalculado,
+                                  )} L`}
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
                                 <TableCell>Número de cuenta</TableCell>
                                 <TableCell align="right" sx={{ minWidth: 140 }}>
                                   {empleado?.numeroCuenta || "—"}
@@ -1669,9 +1702,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                   )}
                                 </TableCell>
                                 <TableCell align="right">
-                                  {`${formatMonto(
-                                    nominaSeleccionada?.montoDiasLaborados,
-                                  )} L`}
+                                  {`${formatMonto(montoDiasLaboradosParaJobs)} L`}
                                 </TableCell>
                                 <TableCell align="center">+</TableCell>
                               </TableRow>
@@ -1693,12 +1724,12 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 <TableCell>Permisos justificados</TableCell>
                                 <TableCell align="right">
                                   {formatCantidadHoras(
-                                    prorrateo.cantidadHoras.permisoConSueldoHoras,
+                                    horasPermisoJustificadoProrrateo,
                                   )}
                                 </TableCell>
                                 <TableCell align="right">
                                   {`${formatMonto(
-                                    nominaSeleccionada?.montoPermisosJustificados,
+                                    montoPermisoJustificadoCalculado,
                                   )} L`}
                                 </TableCell>
                                 <TableCell align="center">+</TableCell>
@@ -1822,7 +1853,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                       desglose={desgloseIncidenciasProrrateo}
                       loading={loading}
                       extrasMontos={{
-                        normal: nominaSeleccionada?.montoDiasLaborados ?? 0,
+                        normal: montoDiasLaboradosParaJobs,
                         p25: nominaSeleccionada?.montoHoras25 ?? 0,
                         p50: nominaSeleccionada?.montoHoras50 ?? 0,
                         p75: nominaSeleccionada?.montoHoras75 ?? 0,
@@ -1864,11 +1895,8 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                           "Horas Normales",
                           prorrateo.cantidadHoras.normal ?? [],
                           {
-                            totalHoras: obtenerTotalHoras(
-                              prorrateo.cantidadHoras.normal ?? [],
-                            ),
-                            totalMonto:
-                              nominaSeleccionada?.montoDiasLaborados ?? 0,
+                            totalHoras: horasJobsNormalesProrrateo,
+                            totalMonto: montoDiasLaboradosParaJobs,
                           },
                         )}
                       {tab === 1 &&

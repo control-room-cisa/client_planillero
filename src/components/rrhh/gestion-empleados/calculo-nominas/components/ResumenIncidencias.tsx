@@ -23,7 +23,9 @@ interface ResumenIncidenciasProps {
   montoIncapacidadCubreEmpresa: number;
   montoIncapacidadIHSS: number;
   subtotalQuincena: number;
-  montoPermisosJustificados: number;
+  /** Tiempo de permiso justificado (informativo; el pago va en monto días laborados). */
+  diasPermisoJustificado?: number;
+  horasPermisoJustificado?: number;
   formatCurrency: (valor: number) => string;
 }
 
@@ -44,7 +46,8 @@ const ResumenIncidencias: React.FC<ResumenIncidenciasProps> = ({
   montoIncapacidadCubreEmpresa,
   montoIncapacidadIHSS,
   subtotalQuincena,
-  montoPermisosJustificados,
+  diasPermisoJustificado,
+  horasPermisoJustificado,
   formatCurrency,
 }) => {
   return (
@@ -256,10 +259,12 @@ const ResumenIncidencias: React.FC<ResumenIncidenciasProps> = ({
                 }}
               >
                 <Typography variant="body1">
-                  <strong>Permisos justificados:</strong>
+                  <strong>Permisos justificados (días):</strong>
                 </Typography>
                 <Typography variant="body1">
-                  {resumenHoras.conteoHoras.conteoDias?.permisoConSueldo ?? 0}
+                  {diasPermisoJustificado ??
+                    resumenHoras.conteoHoras.conteoDias?.permisoConSueldo ??
+                    0}
                 </Typography>
               </Box>
               <Box
@@ -270,10 +275,19 @@ const ResumenIncidencias: React.FC<ResumenIncidenciasProps> = ({
                 }}
               >
                 <Typography variant="body1">
-                  <strong>Monto por permisos justificados:</strong>
+                  <strong>Permisos justificados (horas):</strong>
                 </Typography>
                 <Typography variant="body1">
-                  {formatCurrency(montoPermisosJustificados || 0)}
+                  {(
+                    horasPermisoJustificado ??
+                    Number(
+                      resumenHoras.conteoHoras.cantidadHoras
+                        ?.permisoConSueldoHoras ??
+                        resumenHoras.conteoHoras.cantidadHoras
+                          ?.permisoConSueldo ??
+                        0,
+                    )
+                  ).toFixed(2)}
                 </Typography>
               </Box>
               <Box

@@ -17,6 +17,43 @@ export const montoPorDiasQuincena = (
   );
 
 /**
+ * Separa montoDiasLaborados entre horas de jobs normales y permiso justificado
+ * con la misma tarifa horaria. El permiso no se muestra en tablas por job.
+ */
+export const repartirMontoDiasLaboradosConPermisoJustificado = (
+  montoDiasLaborados: number,
+  horasJobsNormales: number,
+  horasPermisoJustificado: number,
+): {
+  precioHora: number;
+  montoJobsNormales: number;
+  montoPermisoJustificado: number;
+} => {
+  const monto = Number(montoDiasLaborados) || 0;
+  const hJobs = Math.max(0, Number(horasJobsNormales) || 0);
+  const hPermiso = Math.max(0, Number(horasPermisoJustificado) || 0);
+  const hTotal = hJobs + hPermiso;
+
+  if (monto <= 0 || hTotal <= 0) {
+    return {
+      precioHora: 0,
+      montoJobsNormales: 0,
+      montoPermisoJustificado: 0,
+    };
+  }
+
+  const precioHora = monto / hTotal;
+  const montoPermisoJustificado = roundTo2Decimals(hPermiso * precioHora);
+  const montoJobsNormales = roundTo2Decimals(monto - montoPermisoJustificado);
+
+  return {
+    precioHora,
+    montoJobsNormales,
+    montoPermisoJustificado,
+  };
+};
+
+/**
  * Sanitiza entrada mientras el usuario escribe: solo permite números y punto decimal.
  * - Permite un solo punto decimal.
  * - Limita a 2 dígitos decimales.
