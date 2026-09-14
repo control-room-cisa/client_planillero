@@ -2550,6 +2550,9 @@ const NominasManagement: React.FC = () => {
         isCreating={isCreating}
         nomina={currentNomina}
         empresas={empresas}
+        defaultEmpresaId={selectedEmpresaId}
+        defaultYear={selectedYear}
+        defaultPeriodoCode={selectedPeriodo}
         onClose={handleCloseCreateEditModal}
         onSave={handleRefreshNominas}
         showSnackbar={showSnackbar}

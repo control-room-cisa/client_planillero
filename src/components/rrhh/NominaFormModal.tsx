@@ -22,7 +22,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import NominaService, { type NominaDto } from "../../services/nominaService";
 import EmpleadoService from "../../services/empleadoService";
 import JobService, { type Job } from "../../services/jobService";
-import { toYmdLocal } from "./gestion-empleados/calculo-nominas/utils/periodos";
+import { toYmdLocal, getNombrePeriodoNomina } from "./gestion-empleados/calculo-nominas/utils/periodos";
 import { calcularDeduccionesAutomaticasPorCodigo } from "./gestion-empleados/calculo-nominas/utils/deduccionesQuincena";
 import { roundTo2Decimals } from "./gestion-empleados/calculo-nominas/utils/formatters";
 import { useGlobalConfigNomina } from "./gestion-empleados/calculo-nominas/hooks/useGlobalConfigNomina";
@@ -35,6 +35,11 @@ interface NominaFormModalProps {
   isCreating: boolean;
   nomina?: NominaDto | null;
   empresas: Empresa[];
+  /** Prefills al crear desde filtros de gestión de nóminas */
+  defaultEmpresaId?: number | null;
+  defaultYear?: number | null;
+  /** Código de período del filtro, p.ej. "09A" */
+  defaultPeriodoCode?: string | null;
   onClose: () => void;
   onSave: () => Promise<void>;
   showSnackbar: (message: string, severity: "success" | "error") => void;
@@ -102,6 +107,9 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
   isCreating,
   nomina,
   empresas,
+  defaultEmpresaId = null,
+  defaultYear = null,
+  defaultPeriodoCode = null,
   onClose,
   onSave,
   showSnackbar,
@@ -489,20 +497,37 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         horasCompTomadas: tomadas > 0 ? String(tomadas) : "",
       });
     } else {
-      // Modo creación
-      setFormEmpresaId(null);
+      // Modo creación: prefills desde filtros + defaults de días/montos
+      const mesFromCode =
+        defaultPeriodoCode && defaultPeriodoCode.length >= 3
+          ? Number.parseInt(defaultPeriodoCode.substring(0, 2), 10)
+          : null;
+      const periodoFromCode =
+        defaultPeriodoCode && defaultPeriodoCode.length >= 3
+          ? (defaultPeriodoCode.slice(-1) as "A" | "B")
+          : null;
+      const periodoValido =
+        periodoFromCode === "A" || periodoFromCode === "B"
+          ? periodoFromCode
+          : null;
+
+      setFormEmpresaId(defaultEmpresaId ?? null);
       setFormEmpleadoId(null);
-      setFormAno(null);
-      setFormMes(null);
-      setFormPeriodo(null);
+      setFormAno(defaultYear ?? null);
+      setFormMes(
+        Number.isFinite(mesFromCode) && mesFromCode! >= 1 && mesFromCode! <= 12
+          ? mesFromCode
+          : null,
+      );
+      setFormPeriodo(periodoValido);
       setFormFechaInicio("");
       setFormFechaFin("");
       setFormCodigoNomina("");
       setFormSueldoMensual(0);
       setFormNombrePeriodo("");
 
-      // Resetear todos los campos adicionales
-      setFormDiasLaborados(0);
+      // Defaults solicitados para alta manual
+      setFormDiasLaborados(15);
       setFormDiasVacaciones(0);
       setFormDiasIncapacidadEmpresa(0);
       setFormDiasIncapacidadIHSS(0);
@@ -532,10 +557,31 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       setCompAcumuladas([newCompRow()]);
       setFormHorasCompTomadas(0);
 
-      setNumericText({});
+      setNumericText({
+        diasLaborados: "15",
+        diasVacaciones: "0",
+        diasIncapacidadEmpresa: "0",
+        diasIncapacidadIHSS: "0",
+      });
     }
     setFormErrors({});
-  }, [open, nomina, isCreating, extraerAnoMesPeriodo]);
+  }, [
+    open,
+    nomina,
+    isCreating,
+    extraerAnoMesPeriodo,
+    defaultEmpresaId,
+    defaultYear,
+    defaultPeriodoCode,
+  ]);
+
+  // Nombre de período desde fechas (crear); editable después
+  useEffect(() => {
+    if (!open || !isCreating || !formFechaInicio || !formFechaFin) return;
+    setFormNombrePeriodo(
+      getNombrePeriodoNomina(formFechaInicio, formFechaFin),
+    );
+  }, [open, isCreating, formFechaInicio, formFechaFin]);
 
   // Sincronizar numericText.sueldoMensual con formSueldoMensual cuando cambia
   // (solo si el cambio viene de fuera del input, no del handleNumericChange)
@@ -565,6 +611,17 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       });
     }
   }, [formSueldoMensual]);
+
+  // Al crear: monto días laborados = sueldo/2 (editable)
+  useEffect(() => {
+    if (!open || !isCreating) return;
+    const monto = roundTo2Decimals((formSueldoMensual || 0) / 2);
+    setFormMontoDiasLaborados(monto);
+    setNumericText((prev) => ({
+      ...prev,
+      montoDiasLaborados: monto > 0 ? String(monto) : "",
+    }));
+  }, [open, isCreating, formSueldoMensual]);
 
   // Subtotal quincena = suma de montos editables (igual que el dashboard)
   useEffect(() => {
@@ -1063,21 +1120,26 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         comentario: formComentario || null,
       };
 
-      if (isCreating) {
-        const existentes = await NominaService.list({
-          empleadoId: formEmpleadoId!,
-        });
-        const duplicada = existentes.some(
-          (n) => n.codigoNomina && n.codigoNomina === formCodigoNomina
+      // List solo trae activas (deletedAt null). Al editar, excluir la nómina actual
+      // porque se archiva y no debe bloquearse a sí misma ni versiones ya inhabilitadas.
+      const existentes = await NominaService.list({
+        empleadoId: formEmpleadoId!,
+      });
+      const duplicada = existentes.some(
+        (n) =>
+          n.codigoNomina &&
+          n.codigoNomina === formCodigoNomina &&
+          (!nomina || isCreating || n.id !== nomina.id)
+      );
+      if (duplicada) {
+        showSnackbar(
+          `Ya existe una nómina para este colaborador en el período ${formCodigoNomina}`,
+          "error"
         );
-        if (duplicada) {
-          showSnackbar(
-            `Ya existe una nómina para este colaborador en el período ${formCodigoNomina}`,
-            "error"
-          );
-          return;
-        }
+        return;
+      }
 
+      if (isCreating) {
         await NominaService.create(payload);
         showSnackbar("Nómina creada exitosamente", "success");
       } else if (nomina) {
