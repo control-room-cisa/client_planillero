@@ -35,6 +35,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import PrintIcon from "@mui/icons-material/Print";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import NominaService, { type NominaDto } from "../../services/nominaService";
 import RegistroDiarioService from "../../services/registroDiarioService";
@@ -61,6 +62,10 @@ import {
   calcularTotalDeduccionesNomina,
   calcularTotalHorasExtraNomina,
 } from "./gestion-empleados/calculo-nominas/utils/nominaTotales";
+import {
+  buildVoucherDocumentHtml,
+  buildVoucherPageHtml,
+} from "./voucherNominaHtml";
 
 const renderPeriodosSelectItems = (
   grupos: Array<{
@@ -160,6 +165,7 @@ const NominasManagement: React.FC = () => {
   const [downloadingPlantilla, setDownloadingPlantilla] = useState(false);
   const [downloadingTablaDetalles, setDownloadingTablaDetalles] =
     useState(false);
+  const [downloadingVouchersPdf, setDownloadingVouchersPdf] = useState(false);
   const [payingPlanilla, setPayingPlanilla] = useState(false);
   const [confirmPagarPlanilla, setConfirmPagarPlanilla] = useState(false);
 
@@ -394,9 +400,21 @@ const NominasManagement: React.FC = () => {
         const sueldoQuincenal = (nomina.sueldoMensual ?? 0) / 2;
         acc.sueldoQuincenal += sueldoQuincenal;
         acc.subtotal += nomina.subtotalQuincena ?? 0;
+        acc.extra25 += nomina.montoHoras25 ?? 0;
+        acc.extra50 += nomina.montoHoras50 ?? 0;
+        acc.extra75 += nomina.montoHoras75 ?? 0;
+        acc.extra100 += nomina.montoHoras100 ?? 0;
         acc.totalBruto += calcularTotalBrutoNomina(nomina);
         acc.horasExtra += calcularTotalHorasExtraNomina(nomina);
         acc.ajustes += nomina.ajuste ?? 0;
+        acc.deduccionIHSS += nomina.deduccionIHSS ?? 0;
+        acc.deduccionISR += nomina.deduccionISR ?? 0;
+        acc.deduccionRAP += nomina.deduccionRAP ?? 0;
+        acc.deduccionAlimentacion += nomina.deduccionAlimentacion ?? 0;
+        acc.deduccionAlojamiento += nomina.deduccionAlojamiento ?? 0;
+        acc.cobroPrestamo += nomina.cobroPrestamo ?? 0;
+        acc.impuestoVecinal += nomina.impuestoVecinal ?? 0;
+        acc.otros += nomina.otros ?? 0;
         acc.totalDeducciones += calcularTotalDeduccionesNomina(nomina);
         acc.totalAPagar += calcularTotalAPagarNomina(nomina);
         return acc;
@@ -404,9 +422,21 @@ const NominasManagement: React.FC = () => {
       {
         sueldoQuincenal: 0,
         subtotal: 0,
+        extra25: 0,
+        extra50: 0,
+        extra75: 0,
+        extra100: 0,
         totalBruto: 0,
         horasExtra: 0,
         ajustes: 0,
+        deduccionIHSS: 0,
+        deduccionISR: 0,
+        deduccionRAP: 0,
+        deduccionAlimentacion: 0,
+        deduccionAlojamiento: 0,
+        cobroPrestamo: 0,
+        impuestoVecinal: 0,
+        otros: 0,
         totalDeducciones: 0,
         totalAPagar: 0,
       }
@@ -599,26 +629,9 @@ const NominasManagement: React.FC = () => {
     setPrintingNominaId(nomina.id);
     try {
       const n = await NominaService.getById(nomina.id);
-      const estadoPagado = n.pagado === true;
-      const estadoLabel = estadoPagado ? "Pagado" : "Pendiente de Pago";
-      const estadoBadgeClass = estadoPagado ? "badge-pagado" : "badge-pendiente";
       const colaborador = getEmpleadoNombre(n.empleadoId);
       const empresaNombre =
         empresas.find((e) => e.id === n.empresaId)?.nombre ?? "";
-      const esc = (s: string) =>
-        s
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;");
-      const fc = (amount: number | null | undefined) => formatCurrency(amount);
-      const fd = (d: string) => formatDate(d);
-      const dias = (v: number | null | undefined) =>
-        v === null || v === undefined ? "-" : String(v);
-      const codigoNominaStr =
-        n.codigoNomina && String(n.codigoNomina).trim() !== ""
-          ? String(n.codigoNomina)
-          : "—";
 
       const printWindow = window.open("", "_blank");
       if (!printWindow) {
@@ -626,186 +639,13 @@ const NominasManagement: React.FC = () => {
         return;
       }
 
-      const rows = (items: [string, string][]) =>
-        items
-          .map(
-            ([label, val]) =>
-              `<tr><td class="l">${esc(label)}</td><td class="r">${val}</td></tr>`
-          )
-          .join("");
-
-      const card = (title: string, innerTable: string) =>
-        `<section class="card"><h2>${esc(title)}</h2><table class="data">${innerTable}</table></section>`;
-
-      const html = `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8"/>
-  <title>Voucher ${esc(colaborador)} ${esc(n.nombrePeriodoNomina || "")}</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; font-size: 9.5px; margin: 10px; color: #222; line-height: 1.25; }
-    h1 { font-size: 14px; text-align: center; margin: 0 0 2px; }
-    .sub { text-align: center; color: #555; font-size: 9px; margin-bottom: 4px; }
-    .badge {
-      display: inline-block;
-      color: #fff;
-      padding: 2px 8px;
-      border-radius: 3px;
-      font-size: 9px;
-      font-weight: bold;
-    }
-    .badge-pagado { background: #2e7d32; }
-    .badge-pendiente { background: #c62828; }
-    .badge-perc { background: #2e7d32; }
-    .badge-ded { background: #c62828; }
-    .badge-neto { background: #1565c0; }
-    .hdr-badge { text-align: center; margin-bottom: 8px; }
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      align-items: start;
-      margin-bottom: 8px;
-    }
-    .card {
-      border: 1px solid #bdbdbd;
-      border-radius: 4px;
-      padding: 6px 8px;
-      background: #fafafa;
-      page-break-inside: avoid;
-    }
-    .card h2 {
-      font-size: 10px;
-      margin: 0 0 5px;
-      padding-bottom: 3px;
-      border-bottom: 1px solid #ccc;
-      color: #333;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
-    }
-    table.data { width: 100%; border-collapse: collapse; margin: 0; }
-    table.data td { padding: 2px 4px; vertical-align: top; border-bottom: 1px solid #eee; font-size: 9.5px; }
-    table.data tr:last-child td { border-bottom: none; }
-    table.data td.l { font-weight: 600; width: 52%; color: #444; }
-    table.data td.r { text-align: right; }
-    .total-footer { text-align: right; margin-top: 6px; page-break-inside: avoid; }
-    .card-comment .comment-body {
-      margin: 0;
-      white-space: pre-wrap;
-      font-size: 9.5px;
-    }
-    .muted { color: #666; font-size: 8.5px; margin-top: 6px; text-align: center; }
-    @media print {
-      body { margin: 0; font-size: 9px; }
-      @page { margin: 8mm; size: letter; }
-      .grid-2 { gap: 6px; margin-bottom: 6px; }
-      .card { padding: 5px 6px; background: #fff; }
-      .card h2 { font-size: 9px; }
-      table.data td { font-size: 9px; padding: 1px 3px; }
-      .badge-pagado, .badge-pendiente, .badge-perc, .badge-ded, .badge-neto { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-    }
-  </style>
-</head>
-<body>
-  <h1>Voucher ${esc(colaborador)}</h1>
-  <div class="sub">${esc(empresaNombre)}${
-        empresaNombre ? " · " : ""
-      }${esc(n.nombrePeriodoNomina || "—")}</div>
-  <div class="hdr-badge"><span class="badge ${estadoBadgeClass}">${esc(estadoLabel)}</span></div>
-
-  <div class="grid-2">
-    ${card(
-      "Información general",
-      rows([
-        ["ID nómina", esc(String(n.id))],
-        ["Código nómina", esc(codigoNominaStr)],
-        ["Colaborador", esc(colaborador)],
-        ["Empresa", esc(empresaNombre || "—")],
-        ["Período", esc(n.nombrePeriodoNomina || "—")],
-        ["Fecha inicio", esc(fd(n.fechaInicio))],
-        ["Fecha fin", esc(fd(n.fechaFin))],
-        ["Estado", esc(estadoLabel)],
-      ])
-    )}
-    ${card(
-      "Datos base",
-      rows([
-        ["Sueldo mensual", esc(fc(n.sueldoMensual))],
-        ["Días laborados", esc(dias(n.diasLaborados))],
-        ["Días vacaciones", esc(dias(n.diasVacaciones))],
-        ["Días incap. empresa", esc(dias(n.diasIncapacidadEmpresa))],
-        ["Días incap. IHSS", esc(dias(n.diasIncapacidadIHSS))],
-        ["Horas compensatorias", esc(dias(n.horasCompensatorias))],
-      ])
-    )}
-  </div>
-
-  <div class="grid-2">
-    ${card(
-      "Percepciones",
-      rows([
-        ["Subtotal quincena", esc(fc(n.subtotalQuincena))],
-        ["Monto vacaciones", esc(fc(n.montoVacaciones))],
-        ["Monto días laborados", esc(fc(n.montoDiasLaborados))],
-        ["Monto excedente IHSS", esc(fc(n.montoExcedenteIHSS))],
-        [
-          "Monto incap. cubre empresa",
-          esc(fc(n.montoIncapacidadCubreEmpresa)),
-        ],
-        ["Monto permisos justificados", esc(fc(n.montoPermisosJustificados))],
-        [
-          "Total bruto",
-          `<span class="badge badge-perc">${esc(fc(calcularTotalBrutoNomina(n)))}</span>`,
-        ],
-      ])
-    )}
-    ${card(
-      "Horas extra",
-      rows([
-        ["OT 25%", esc(fc(n.montoHoras25))],
-        ["OT 50%", esc(fc(n.montoHoras50))],
-        ["OT 75%", esc(fc(n.montoHoras75))],
-        ["OT 100%", esc(fc(n.montoHoras100))],
-      ])
-    )}
-  </div>
-
-  <div class="grid-2">
-    ${card(
-      "Deducciones",
-      rows([
-        ["IHSS", esc(fc(n.deduccionIHSS))],
-        ["ISR", esc(fc(n.deduccionISR))],
-        ["RAP", esc(fc(n.deduccionRAP))],
-        ["Alimentación", esc(fc(n.deduccionAlimentacion))],
-        ["Alojamiento", esc(fc(n.deduccionAlojamiento))],
-        ["Cobro préstamo", esc(fc(n.cobroPrestamo))],
-        ["Impuesto vecinal", esc(fc(n.impuestoVecinal))],
-        ["Otros", esc(fc(n.otros))],
-        ["Ajuste", esc(fc(n.ajuste))],
-        [
-          "Total deducciones",
-          `<span class="badge badge-ded">${esc(fc(n.totalDeducciones))}</span>`,
-        ],
-      ])
-    )}
-    <section class="card card-comment"><h2>Comentario</h2><p class="comment-body">${
-      n.comentario && String(n.comentario).trim() !== ""
-        ? esc(n.comentario)
-        : '<span class="muted">Sin comentario</span>'
-    }</p></section>
-  </div>
-
-  <div class="total-footer"><span class="badge badge-neto">Total a pagar: ${esc(fc(calcularTotalAPagarNomina(n)))}</span></div>
-  <p class="muted">Documento generado el ${esc(
-    new Date().toLocaleString("es-HN", {
-      dateStyle: "short",
-      timeStyle: "short",
-    })
-  )}</p>
-</body>
-</html>`;
+      const html = buildVoucherDocumentHtml({
+        title: `Voucher ${colaborador} ${n.nombrePeriodoNomina || ""}`,
+        bodyInnerHtml: buildVoucherPageHtml(n, colaborador, empresaNombre, {
+          formatCurrency,
+          formatDate,
+        }),
+      });
 
       printWindow.document.write(html);
       printWindow.document.close();
@@ -818,6 +658,71 @@ const NominasManagement: React.FC = () => {
       showSnackbar("Error al preparar la impresión", "error");
     } finally {
       setPrintingNominaId(null);
+    }
+  };
+
+  const handleDownloadVouchersPdf = () => {
+    if (!selectedEmpresaId || !codigoNominaFiltro || allNominas.length === 0) {
+      return;
+    }
+
+    setDownloadingVouchersPdf(true);
+    try {
+      const nominasPeriodo = [...allNominas].sort((a, b) =>
+        getEmpleadoNombre(a.empleadoId).localeCompare(
+          getEmpleadoNombre(b.empleadoId),
+          "es",
+          { sensitivity: "base" },
+        ),
+      );
+
+      const empresaNombre =
+        empresas.find((e) => e.id === selectedEmpresaId)?.nombre ?? "";
+      const periodoLabel =
+        nominasPeriodo[0]?.nombrePeriodoNomina || codigoNominaFiltro;
+
+      const pagesHtml = nominasPeriodo
+        .map((n) => {
+          const colaborador = getEmpleadoNombre(n.empleadoId);
+          const page = buildVoucherPageHtml(
+            n,
+            colaborador,
+            empresaNombre,
+            { formatCurrency, formatDate },
+          );
+          return `<div class="voucher-page">${page}</div>`;
+        })
+        .join("");
+
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        showSnackbar(
+          "Permita ventanas emergentes para descargar el PDF",
+          "error",
+        );
+        return;
+      }
+
+      const html = buildVoucherDocumentHtml({
+        title: `Vouchers ${periodoLabel}`,
+        bodyInnerHtml: pagesHtml,
+      });
+
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 300);
+      showSnackbar(
+        `PDF listo: ${nominasPeriodo.length} voucher(s). Elija "Guardar como PDF" en el diálogo de impresión.`,
+        "success",
+      );
+    } catch (err) {
+      console.error("Error al generar PDF de vouchers:", err);
+      showSnackbar("Error al preparar el PDF de vouchers", "error");
+    } finally {
+      setDownloadingVouchersPdf(false);
     }
   };
 
@@ -1223,7 +1128,40 @@ const NominasManagement: React.FC = () => {
                   )
                 }
               >
-                Descargar Excel
+                Planilla Excel
+              </Button>
+            </span>
+          </Tooltip>
+
+          <Tooltip
+            title={
+              !selectedEmpresaId || !codigoNominaFiltro
+                ? "Seleccionar filtros primero"
+                : allNominas.length === 0
+                ? "Sin nóminas listadas"
+                : "Descargar PDF con un voucher por colaborador del período"
+            }
+          >
+            <span>
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={handleDownloadVouchersPdf}
+                disabled={
+                  downloadingVouchersPdf ||
+                  !selectedEmpresaId ||
+                  !codigoNominaFiltro ||
+                  allNominas.length === 0
+                }
+                startIcon={
+                  downloadingVouchersPdf ? (
+                    <CircularProgress size={18} color="inherit" />
+                  ) : (
+                    <PictureAsPdfIcon />
+                  )
+                }
+              >
+                Descargar PDF
               </Button>
             </span>
           </Tooltip>
@@ -1844,20 +1782,37 @@ const NominasManagement: React.FC = () => {
         maxWidth="xl"
         fullWidth
       >
-        <DialogTitle>
-          Detalles Completos de Nóminas -{" "}
-          {nominas[0]?.nombrePeriodoNomina || "Sin nombre"}
+        <DialogTitle sx={{ pb: 1 }}>
+          <Typography
+            component="div"
+            variant="h5"
+            sx={{ fontWeight: 700, lineHeight: 1.2 }}
+          >
+            {empresas.find((e) => e.id === selectedEmpresaId)?.nombre ||
+              "Empresa"}
+          </Typography>
+          <Typography
+            component="div"
+            variant="subtitle1"
+            color="text.secondary"
+            sx={{ mt: 0.5 }}
+          >
+            {nominas[0]?.nombrePeriodoNomina || "Sin nombre"}
+          </Typography>
         </DialogTitle>
         <DialogContent>
           <TableContainer sx={{ mt: 2, maxHeight: "70vh" }}>
-            <Table stickyHeader sx={{ minWidth: 1600 }}>
+            <Table stickyHeader sx={{ minWidth: 1900 }}>
               <TableHead>
                 <TableRow>
                   <TableCell>Colaborador</TableCell>
                   <TableCell>Fecha de Corte</TableCell>
                   <TableCell align="right">Sueldo Quincenal</TableCell>
                   <TableCell align="right">Subtotal</TableCell>
-                  <TableCell align="right">Total Horas Extra</TableCell>
+                  <TableCell align="right">Extra 25%</TableCell>
+                  <TableCell align="right">Extra 50%</TableCell>
+                  <TableCell align="right">Extra 75%</TableCell>
+                  <TableCell align="right">Extra 100%</TableCell>
                   <TableCell align="right">Ajustes</TableCell>
                   <TableCell align="right">Total Bruto</TableCell>
                   <TableCell align="right">Deducción IHSS</TableCell>
@@ -1889,7 +1844,16 @@ const NominasManagement: React.FC = () => {
                       {formatCurrency(nomina.subtotalQuincena)}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(calcularTotalHorasExtraNomina(nomina))}
+                      {formatCurrency(nomina.montoHoras25)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.montoHoras50)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.montoHoras75)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.montoHoras100)}
                     </TableCell>
                     <TableCell align="right">
                       {formatCurrency(nomina.ajuste)}
@@ -1949,14 +1913,25 @@ const NominasManagement: React.FC = () => {
               </TableBody>
               <TableFooter>
                 <TableRow>
-                  <TableCell colSpan={3} sx={{ fontWeight: 600 }}>
-                    Totales
+                  <TableCell sx={{ fontWeight: 600 }}>Totales</TableCell>
+                  <TableCell />
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.sueldoQuincenal)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
                     {formatCurrency(aggregatedTotals.subtotal)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
-                    {formatCurrency(aggregatedTotals.horasExtra)}
+                    {formatCurrency(aggregatedTotals.extra25)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.extra50)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.extra75)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.extra100)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
                     {formatCurrency(aggregatedTotals.ajustes)}
@@ -1964,13 +1939,30 @@ const NominasManagement: React.FC = () => {
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
                     {formatCurrency(aggregatedTotals.totalBruto)}
                   </TableCell>
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.deduccionIHSS)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.deduccionISR)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.deduccionRAP)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.deduccionAlimentacion)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.deduccionAlojamiento)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.cobroPrestamo)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.impuestoVecinal)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.otros)}
+                  </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
                     {formatCurrency(aggregatedTotals.totalDeducciones)}
                   </TableCell>
@@ -1995,7 +1987,20 @@ const NominasManagement: React.FC = () => {
               )
             }
           >
-            Descargar Excel
+            Planilla Excel
+          </Button>
+          <Button
+            onClick={handleDownloadVouchersPdf}
+            disabled={downloadingVouchersPdf || allNominas.length === 0}
+            startIcon={
+              downloadingVouchersPdf ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <PictureAsPdfIcon />
+              )
+            }
+          >
+            Descargar PDF
           </Button>
           <Button onClick={() => setOpenDetailTableModal(false)}>Cerrar</Button>
         </DialogActions>
