@@ -24,7 +24,10 @@ import EmpleadoService from "../../services/empleadoService";
 import JobService, { type Job } from "../../services/jobService";
 import { toYmdLocal, getNombrePeriodoNomina } from "./gestion-empleados/calculo-nominas/utils/periodos";
 import { calcularDeduccionesAutomaticasPorCodigo } from "./gestion-empleados/calculo-nominas/utils/deduccionesQuincena";
-import { roundTo2Decimals } from "./gestion-empleados/calculo-nominas/utils/formatters";
+import {
+  montoPorDiasQuincena,
+  roundTo2Decimals,
+} from "./gestion-empleados/calculo-nominas/utils/formatters";
 import { useGlobalConfigNomina } from "./gestion-empleados/calculo-nominas/hooks/useGlobalConfigNomina";
 import { useAlimentacionPorCodigo } from "./gestion-empleados/calculo-nominas/hooks/useAlimentacionPorCodigo";
 import type { Empresa } from "../../types/auth";
@@ -612,16 +615,21 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     }
   }, [formSueldoMensual]);
 
-  // Al crear: monto días laborados = sueldo/2 (editable)
+  // Al crear: monto días laborados = (sueldo/2) / 15 * días laborados (editable)
   useEffect(() => {
     if (!open || !isCreating) return;
-    const monto = roundTo2Decimals((formSueldoMensual || 0) / 2);
+    const salarioQuincenal = (formSueldoMensual || 0) / 2;
+    const monto = montoPorDiasQuincena(
+      salarioQuincenal,
+      formDiasLaborados || 0,
+      15,
+    );
     setFormMontoDiasLaborados(monto);
     setNumericText((prev) => ({
       ...prev,
       montoDiasLaborados: monto > 0 ? String(monto) : "",
     }));
-  }, [open, isCreating, formSueldoMensual]);
+  }, [open, isCreating, formSueldoMensual, formDiasLaborados]);
 
   // Subtotal quincena = suma de montos editables (igual que el dashboard)
   useEffect(() => {
