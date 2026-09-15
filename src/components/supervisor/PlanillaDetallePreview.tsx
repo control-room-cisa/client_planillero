@@ -33,6 +33,8 @@ import {
 import {
   Edit as EditIcon,
   DarkMode as DarkModeIcon,
+  Print as PrintIcon,
+  PictureAsPdf as PictureAsPdfIcon,
 } from "@mui/icons-material";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -633,6 +635,646 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
     return Number.isFinite(v) ? v : null;
   };
 
+  const openRegistrosDocument = (autoPrint: boolean) => {
+    if (!startDate || !endDate) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const fechaInicio = ymdInTimeZone(startDate) || "";
+    const fechaFin = ymdInTimeZone(endDate) || "";
+    const nombreEmpleado = `${empleado.nombre ?? ""} ${empleado.apellido ?? ""}`.trim();
+    const registrosImprimir = registros.filter((r) => r.id);
+
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Registros Diarios - ${fechaInicio} a ${fechaFin}</title>
+          <style>
+            @media print {
+              @page {
+                margin: 0.3cm;
+                margin-top: 1.2cm;
+              }
+              @page:first {
+                margin-top: 0.3cm;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+              }
+              .dia-container:first-of-type {
+                margin-top: 0;
+              }
+              .no-print {
+                display: none !important;
+              }
+            }
+            body {
+              font-family: Arial, sans-serif;
+              font-size: 8pt;
+              margin: 10px;
+            }
+            .no-print {
+              position: sticky;
+              top: 0;
+              z-index: 10;
+              display: flex;
+              justify-content: flex-end;
+              gap: 8px;
+              padding: 8px 10px;
+              margin: -10px -10px 12px -10px;
+              background: #f5f5f5;
+              border-bottom: 1px solid #ddd;
+            }
+            .no-print button {
+              font-family: Arial, sans-serif;
+              font-size: 12px;
+              padding: 6px 12px;
+              cursor: pointer;
+              border: 1px solid #1976d2;
+              border-radius: 4px;
+              background: #1976d2;
+              color: #fff;
+            }
+            .no-print button.secondary {
+              background: #fff;
+              color: #1976d2;
+            }
+            h1 {
+              font-size: 14pt;
+              margin-bottom: 5px;
+              text-align: center;
+            }
+            .header-info {
+              text-align: center;
+              margin-bottom: 10px;
+              font-size: 8pt;
+              color: #666;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 8px;
+              page-break-inside: auto;
+            }
+            thead {
+              display: table-header-group;
+            }
+            tbody {
+              display: table-row-group;
+            }
+            tr {
+              page-break-inside: avoid;
+              page-break-after: auto;
+            }
+            th, td {
+              border: 1px solid #ddd;
+              padding: 3px 4px;
+              text-align: left;
+              font-size: 7pt;
+              line-height: 1.2;
+            }
+            th {
+              background-color: #f5f5f5;
+              font-weight: bold;
+            }
+            .fecha-header {
+              background-color: #e3f2fd;
+              font-weight: bold;
+              font-size: 9pt;
+              padding: 4px;
+            }
+            .dia-libre {
+              background-color: #fff3e0;
+            }
+            .actividad-normal {
+              background-color: #ffffff;
+            }
+            .actividad-extra {
+              background-color: #ffebee;
+            }
+            .libre-texto {
+              color: #f44336;
+              font-weight: bold;
+            }
+            .actividad-compensatoria {
+              background-color: #f3e5f5;
+            }
+            .job-especial {
+              color: #d32f2f;
+              font-weight: bold;
+            }
+            .chip {
+              display: inline-block;
+              padding: 1px 4px;
+              border-radius: 3px;
+              font-size: 7pt;
+              margin: 1px;
+            }
+            .chip-info {
+              background-color: #2196f3;
+              color: white;
+            }
+            .chip-warning {
+              background-color: #ff9800;
+              color: white;
+            }
+            .chip-error {
+              background-color: #f44336;
+              color: white;
+            }
+            .chip-success {
+              background-color: #4caf50;
+              color: white;
+            }
+            .chip-primary {
+              background-color: #616161;
+              color: white;
+            }
+            .resumen {
+              margin-top: 4px;
+              margin-bottom: 4px;
+              padding: 4px 6px;
+              background-color: #f5f5f5;
+              border-radius: 3px;
+              font-size: 7pt;
+            }
+            .errores {
+              margin-top: 4px;
+              margin-bottom: 4px;
+              padding: 4px 6px;
+              background-color: #ffebee;
+              border-left: 3px solid #f44336;
+              font-size: 7pt;
+            }
+            .no-actividades {
+              text-align: center;
+              padding: 8px;
+              color: #666;
+              font-style: italic;
+              font-size: 7pt;
+            }
+            .comentario {
+              margin-top: 4px;
+              margin-bottom: 4px;
+              padding: 4px 6px;
+              background-color: #e8f5e9;
+              border-radius: 3px;
+              font-size: 7pt;
+            }
+            .dia-container {
+              margin-bottom: 10px;
+              padding: 6px;
+              border: 1px solid #999;
+              border-radius: 3px;
+              background-color: #ffffff;
+              page-break-inside: avoid;
+            }
+            .label-hora-corrida {
+              color: #ff9800;
+              font-weight: bold;
+            }
+            .label-noche {
+              color: #2196f3;
+              font-weight: bold;
+            }
+            .label-libre-feriado {
+              color: #f44336;
+              font-weight: bold;
+            }
+            .check-verde {
+              color: #4caf50;
+            }
+            .texto-aprobado {
+              color: #000000;
+            }
+          </style>
+        </head>
+        <body>
+          ${
+            autoPrint
+              ? ""
+              : `<div class="no-print">
+                  <button type="button" class="secondary" onclick="window.close()">Cerrar</button>
+                  <button type="button" onclick="window.print()">Imprimir / Guardar PDF</button>
+                </div>`
+          }
+          <h1>${nombreEmpleado || "Registros Diarios del Período"}</h1>
+          <div class="header-info">
+            <p><strong>Período:</strong> ${formatDateSpanishFromYmd(
+              fechaInicio
+            )} - ${formatDateSpanishFromYmd(fechaFin)}</p>
+            <p><strong>Total de días:</strong> ${registrosImprimir.length}</p>
+          </div>
+    `;
+
+    registrosImprimir.forEach((registro) => {
+      const normales =
+        registro.actividades
+          ?.filter((a) => !a.esExtra)
+          .reduce((s, a) => s + a.duracionHoras, 0) ?? 0;
+      const extras =
+        registro.actividades
+          ?.filter((a) => a.esExtra && !a.esCompensatorio)
+          .reduce((s, a: any) => s + (getActividadHoras(a) ?? 0), 0) ?? 0;
+      const total = normales + extras;
+
+      const horasNormalesEsperadas = calcularHorasNormalesEsperadas(registro);
+      const validacionHorasExtra = validarHorasExtra(registro);
+      const validacionHorasNormales =
+        horasNormalesEsperadas === 0
+          ? normales === 0
+          : Math.abs(normales - horasNormalesEsperadas) < 0.1;
+      const validacionIncapacidad =
+        registro.esIncapacidad === true ? normales === 0 && extras === 0 : true;
+
+      const entradaHM = formatTimeCorrectly(registro.horaEntrada);
+      const salidaHM = formatTimeCorrectly(registro.horaSalida);
+      const [eh, em] = entradaHM.split(":").map(Number);
+      const [sh, sm] = salidaHM.split(":").map(Number);
+      const entradaMin = eh * 60 + em;
+      const salidaMin = sh * 60 + sm;
+      const esTurnoNocturno = salidaMin < entradaMin;
+
+      const toMinutes = (d?: string) => {
+        if (!d) return Number.POSITIVE_INFINITY;
+        const hm = formatTimeCorrectly(d);
+        const [h, m] = hm.split(":").map(Number);
+        if (!Number.isFinite(h) || !Number.isFinite(m))
+          return Number.POSITIVE_INFINITY;
+        return h * 60 + m;
+      };
+      const entradaMinLocal = toMinutes(registro.horaEntrada);
+      const salidaMinLocal = toMinutes(registro.horaSalida);
+      const entradaLin = entradaMinLocal;
+      const salidaLin =
+        salidaMinLocal < entradaMinLocal
+          ? salidaMinLocal + 1440
+          : salidaMinLocal;
+      const linearize = (min: number) =>
+        esTurnoNocturno && min < entradaMinLocal ? min + 1440 : min;
+      const activities = (registro.actividades ?? []).slice();
+      const extraBefore: any[] = [];
+      const middle: any[] = [];
+      const extraAfter: any[] = [];
+      for (const act of activities) {
+        const startMin = toMinutes(act.horaInicio);
+        const startLin = Number.isFinite(startMin)
+          ? linearize(startMin)
+          : Number.POSITIVE_INFINITY;
+        const item = { act, startLin, startMin } as any;
+        if (act.esExtra === true && startLin < entradaLin) {
+          extraBefore.push(item);
+        } else if (act.esExtra === true && startLin >= salidaLin) {
+          extraAfter.push(item);
+        } else {
+          middle.push(item);
+        }
+      }
+      const cmpAsc = (a: any, b: any) =>
+        (a.startMin ?? a.startLin) - (b.startMin ?? b.startLin);
+      extraBefore.sort(cmpAsc);
+      middle.sort(cmpAsc);
+      extraAfter.sort(cmpAsc);
+
+      const toEndLin = (act: any): number => {
+        if (!act?.horaFin) return Number.POSITIVE_INFINITY;
+        return linearize(toMinutes(act.horaFin));
+      };
+      const extraBeforeWithGaps: any[] = [...extraBefore];
+      if (extraBeforeWithGaps.length > 0) {
+        const last = extraBeforeWithGaps[extraBeforeWithGaps.length - 1];
+        const lastEnd = toEndLin(last.act);
+        if (lastEnd < entradaLin) {
+          extraBeforeWithGaps.push({
+            act: {
+              id: `gap-${lastEnd}-${entradaLin}-${registro.id}`,
+              descripcion: "Libre",
+              duracionHoras:
+                Math.round(((entradaLin - lastEnd) / 60) * 100) / 100,
+              _synthetic: "Libre",
+              esExtra: true,
+            },
+            startLin: lastEnd,
+          });
+        }
+      }
+      const extraAfterWithGaps: any[] = [...extraAfter];
+      if (extraAfterWithGaps.length > 0) {
+        const first = extraAfterWithGaps[0];
+        if (salidaLin < first.startLin) {
+          extraAfterWithGaps.unshift({
+            act: {
+              id: `gap-${salidaLin}-${first.startLin}-${registro.id}`,
+              descripcion: "Libre",
+              duracionHoras:
+                Math.round(((first.startLin - salidaLin) / 60) * 100) / 100,
+              _synthetic: "Libre",
+              esExtra: true,
+            },
+            startLin: salidaLin,
+          });
+        }
+      }
+
+      let actividadesOrdenadas: any[];
+      if (horasNormalesEsperadas === 0) {
+        const extrasAll: any[] = [...extraBefore, ...extraAfter]
+          .slice()
+          .sort((a, b) => a.startLin - b.startLin);
+        const withGaps: any[] = [];
+        for (let i = 0; i < extrasAll.length; i++) {
+          const curr = extrasAll[i];
+          if (i > 0) {
+            const prev = extrasAll[i - 1];
+            const prevEnd = toEndLin(prev.act);
+            const gapStart = prevEnd;
+            const gapEnd = curr.startLin;
+            if (gapEnd - gapStart > 1) {
+              withGaps.push({
+                act: {
+                  id: `gap-${gapStart}-${gapEnd}-${registro.id}`,
+                  descripcion: "Libre",
+                  duracionHoras:
+                    Math.round(((gapEnd - gapStart) / 60) * 100) / 100,
+                  _synthetic: "Libre",
+                  esExtra: true,
+                },
+                startLin: gapStart,
+              });
+            }
+          }
+          withGaps.push(curr);
+        }
+        actividadesOrdenadas = [...withGaps, ...middle].map((x) => x.act);
+      } else {
+        actividadesOrdenadas = [
+          ...extraBeforeWithGaps,
+          ...middle,
+          ...extraAfterWithGaps,
+        ].map((x) => x.act);
+      }
+
+      const esFeriado =
+        (registro.horasFeriado && registro.horasFeriado > 0) ||
+        (entradaHM === "07:00" &&
+          salidaHM === "07:00" &&
+          !registro.esDiaLibre &&
+          horasNormalesEsperadas === 0);
+
+      htmlContent += `
+        <div class="dia-container">
+          <table>
+            <thead>
+              <tr class="fecha-header ${
+                registro.esDiaLibre ? "dia-libre" : ""
+              }">
+                <th colspan="8">
+                  ${formatDateSpanishFromYmd(registro.fecha || "")}
+                  ${
+                    registro.esDiaLibre
+                      ? ` <span class="label-libre-feriado">- DÍA LIBRE</span>`
+                      : ""
+                  }
+                  ${
+                    esFeriado && !registro.esDiaLibre
+                      ? ` <span class="label-libre-feriado">- FERIADO</span>`
+                      : ""
+                  }
+                  ${
+                    !registro.esDiaLibre
+                      ? ` | Entrada: ${entradaHM} | Salida: ${salidaHM}`
+                      : ""
+                  }
+                  ${
+                    registro.esHoraCorrida
+                      ? ` | <span class="label-hora-corrida">Hora Corrida</span>`
+                      : ""
+                  }
+                  ${registro.esIncapacidad ? " | INCAPACIDAD" : ""}
+                  ${
+                    esTurnoNocturno || registro.jornada === "N"
+                      ? ` | <span class="label-noche">NOCHE</span>`
+                      : ""
+                  }
+                  ${
+                    registro.aprobacionSupervisor === true
+                      ? ` | <span class="check-verde">✓</span> <span class="texto-aprobado">Aprobado Supervisor</span>`
+                      : ""
+                  }
+                  ${
+                    registro.aprobacionSupervisor === false
+                      ? " | ✗ Rechazado Supervisor"
+                      : ""
+                  }
+                  ${
+                    registro.aprobacionRrhh === true
+                      ? " | ✓ Procesado RRHH"
+                      : ""
+                  }
+                  ${
+                    registro.aprobacionRrhh === false
+                      ? " | ✗ Rechazado RRHH"
+                      : ""
+                  }
+                </th>
+              </tr>
+              <tr>
+                <th>Descripción</th>
+                <th>Horas</th>
+                <th>Horario</th>
+                <th>Job</th>
+                <th>Código</th>
+                <th>Tipo</th>
+                <th>Clase</th>
+                <th>Observaciones</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+
+      if (actividadesOrdenadas.length === 0) {
+        htmlContent += `
+          <tr>
+            <td colspan="8" class="no-actividades">No hay actividades registradas para este día</td>
+          </tr>
+        `;
+      } else {
+        actividadesOrdenadas.forEach((act: any) => {
+          const isSynthetic = Boolean(act?._synthetic);
+          const isLibre = isSynthetic && act._synthetic === "Libre";
+
+          if (isLibre) {
+            htmlContent += `
+              <tr>
+                <td colspan="8" class="libre-texto" style="text-align: center;">
+                  ${act.descripcion || "Libre"}
+                </td>
+              </tr>
+            `;
+            return;
+          }
+
+          const isSpecial = (act?.job?.codigo || "").startsWith("E");
+          const rowClass = isSynthetic
+            ? "actividad-normal"
+            : act.esExtra
+              ? act.esCompensatorio
+                ? "actividad-compensatoria"
+                : "actividad-extra"
+              : "actividad-normal";
+
+          const horasAct = getActividadHoras(act);
+
+          htmlContent += `
+            <tr class="${rowClass}">
+              <td>${act.descripcion || "-"}</td>
+              <td>${
+                horasAct != null && Number.isFinite(horasAct)
+                  ? `${horasAct}h`
+                  : "-"
+              }</td>
+              <td>${
+                act.horaInicio && act.horaFin
+                  ? `${formatTimeCorrectly(
+                      act.horaInicio
+                    )} - ${formatTimeCorrectly(act.horaFin)}`
+                  : "-"
+              }</td>
+              <td class="${isSpecial ? "job-especial" : ""}">${
+                act.esCompensatorio === true && act.esExtra === false
+                  ? "-"
+                  : (act.job?.nombre ?? "-")
+              }</td>
+              <td class="${isSpecial ? "job-especial" : ""}">${
+                act.esCompensatorio === true && act.esExtra === false
+                  ? "-"
+                  : (act.job?.codigo ?? "-")
+              }</td>
+              <td>
+                ${
+                  isSynthetic
+                    ? `<span class="chip chip-warning">${act._synthetic}</span>`
+                    : `<span class="chip ${
+                        act.esCompensatorio === true
+                          ? act.esExtra === true
+                            ? "chip-success"
+                            : "chip-warning"
+                          : act.esExtra === true
+                            ? "chip-error"
+                            : "chip-primary"
+                      }">${
+                        act.esCompensatorio === true
+                          ? act.esExtra === true
+                            ? "Acumula compensatoria"
+                            : "Toma Compensatoria"
+                          : act.esExtra === true
+                            ? "Extra"
+                            : "Normal"
+                      }</span>`
+                }
+              </td>
+              <td>${act.className || "-"}</td>
+              <td>${isSpecial ? "Job Especial" : ""}</td>
+            </tr>
+          `;
+        });
+      }
+
+      htmlContent += `
+          </tbody>
+        </table>
+      `;
+
+      if (!registro.esDiaLibre) {
+        htmlContent += `
+          <div class="resumen">
+            <strong>Resumen:</strong> Normales: ${normales}h (esperadas: ${horasNormalesEsperadas.toFixed(
+              2
+            )}h)
+            ${extras > 0 ? `| Extras: ${extras}h` : ""}
+            | Total: ${total}h
+          </div>
+        `;
+      }
+
+      if (registro.comentarioEmpleado) {
+        htmlContent += `
+          <div class="comentario">
+            <strong>Comentario:</strong> ${registro.comentarioEmpleado}
+          </div>
+        `;
+      }
+
+      if (
+        registro.id &&
+        (!validacionHorasNormales ||
+          !validacionHorasExtra.valido ||
+          !validacionIncapacidad)
+      ) {
+        htmlContent += `
+          <div class="errores">
+            <strong>⚠️ Errores:</strong>
+        `;
+
+        if (!validacionIncapacidad) {
+          htmlContent += `
+            🏥 Incapacidad: ${normales > 0 ? `${normales}h normales` : ""} ${
+              normales > 0 && extras > 0 ? "y " : ""
+            } ${extras > 0 ? `${extras}h extras` : ""}. `;
+        }
+
+        if (!validacionHorasNormales && horasNormalesEsperadas > 0) {
+          htmlContent += `
+            📊 Normales: ${normales}h vs ${horasNormalesEsperadas.toFixed(
+              2
+            )}h esperadas. `;
+        }
+
+        if (
+          !validacionHorasNormales &&
+          horasNormalesEsperadas === 0 &&
+          normales > 0
+        ) {
+          htmlContent += `
+            📊 No debería haber horas normales (entrada = salida). `;
+        }
+
+        if (!validacionHorasExtra.valido) {
+          htmlContent += `
+            🕐 Horas extra: `;
+          validacionHorasExtra.errores.forEach((error, idx) => {
+            htmlContent += `${idx > 0 ? "; " : ""}${error}`;
+          });
+        }
+
+        htmlContent += `</div>`;
+      }
+
+      htmlContent += `</div>`;
+    });
+
+    htmlContent += `
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+    if (autoPrint) {
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    }
+  };
+
+  const handlePrint = () => openRegistrosDocument(true);
+  const handleViewPdf = () => openRegistrosDocument(false);
+
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
       <Box
@@ -643,14 +1285,38 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
           overflow: "hidden",
         }}
       >
-        {/* Header fijo sin scroll (solo progress, altura mínima) */}
-        <Box sx={{ p: 0, flexShrink: 0 }}>
-          <Box sx={{ height: 2, mb: 0 }}>
+        {/* Header fijo sin scroll */}
+        <Box sx={{ px: 2, py: 1, flexShrink: 0 }}>
+          <Box sx={{ height: 2, mb: 1 }}>
             {loading && (
               <LinearProgress
                 sx={{ transition: "opacity 0.5s", opacity: loading ? 1 : 0 }}
               />
             )}
+          </Box>
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+            <Button
+              startIcon={<PictureAsPdfIcon />}
+              variant="outlined"
+              size="small"
+              onClick={handleViewPdf}
+              disabled={
+                loading || !startDate || !endDate || !registros.some((r) => r.id)
+              }
+            >
+              Ver en PDF
+            </Button>
+            <Button
+              startIcon={<PrintIcon />}
+              variant="outlined"
+              size="small"
+              onClick={handlePrint}
+              disabled={
+                loading || !startDate || !endDate || !registros.some((r) => r.id)
+              }
+            >
+              Imprimir
+            </Button>
           </Box>
         </Box>
 
