@@ -3,8 +3,10 @@ import { API_CONFIG } from "../config/api";
 
 class EmpresaService {
   private getHeaders(): HeadersInit {
+    const token = localStorage.getItem("authToken");
     return {
       "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
     };
   }
 

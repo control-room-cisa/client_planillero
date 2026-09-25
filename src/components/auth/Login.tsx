@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Box,
   TextField,
@@ -21,23 +21,37 @@ import {
   Login as LoginIcon,
   Person,
 } from "@mui/icons-material";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { useAuth } from "../../hooks/useAuth";
 import type { LoginRequest } from "../../types/auth";
 import { useNavigate } from "react-router-dom";
 
 const EMPRESA_NOMBRE =
   (import.meta.env.VITE_EMPRESA_NOMBRE as string | undefined)?.trim() || "";
+const TURNSTILE_SITE_KEY =
+  (import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined)?.trim() || "";
+const LOGIN_ERROR_GENERICO = "Usuario o contraseña incorrecta";
 
 export default function Login() {
   const { login, loading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string>("");
-  const [formData, setFormData] = useState<LoginRequest>({
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
+  const suppressTurnstileErrorRef = useRef(false);
+  const [formData, setFormData] = useState<
+    Omit<LoginRequest, "turnstileToken">
+  >({
     identificador: "",
     contrasena: "",
   });
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const navigate = useNavigate();
+
+  const resetTurnstile = () => {
+    turnstileRef.current?.reset();
+    setTurnstileToken("");
+  };
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
@@ -58,12 +72,35 @@ export default function Login() {
       return;
     }
 
+    if (!TURNSTILE_SITE_KEY) {
+      setError("Verificación de seguridad no configurada");
+      return;
+    }
+
+    if (!turnstileToken) {
+      setError("Completa la verificación de seguridad");
+      return;
+    }
+
     try {
-      await login(formData);
+      await login({
+        ...formData,
+        turnstileToken,
+      });
       // Redirigir a "/" y dejar que Layout maneje la ruta según el rol
       navigate("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al iniciar sesión");
+      const message =
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : LOGIN_ERROR_GENERICO;
+      setError(message);
+      suppressTurnstileErrorRef.current = true;
+      resetTurnstile();
+      // Evita que onError del reset pise el mensaje de login
+      window.setTimeout(() => {
+        suppressTurnstileErrorRef.current = false;
+      }, 0);
     }
   };
 
@@ -185,11 +222,48 @@ export default function Login() {
               }}
             />
 
+            {TURNSTILE_SITE_KEY ? (
+              <Box
+                sx={{
+                  mt: 2,
+                  display: "flex",
+                  justifyContent: "center",
+                }}
+              >
+                <Turnstile
+                  ref={turnstileRef}
+                  siteKey={TURNSTILE_SITE_KEY}
+                  onSuccess={(token) => {
+                    setTurnstileToken(token);
+                  }}
+                  onExpire={() => {
+                    setTurnstileToken("");
+                  }}
+                  onError={() => {
+                    setTurnstileToken("");
+                    if (!suppressTurnstileErrorRef.current) {
+                      setError(
+                        "Error en la verificación de seguridad. Intente de nuevo."
+                      );
+                    }
+                  }}
+                  options={{
+                    theme: "light",
+                    size: "flexible",
+                  }}
+                />
+              </Box>
+            ) : (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                Falta configurar VITE_TURNSTILE_SITE_KEY
+              </Alert>
+            )}
+
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              disabled={loading}
+              disabled={loading || !turnstileToken}
               sx={{
                 mt: 3,
                 mb: 2,

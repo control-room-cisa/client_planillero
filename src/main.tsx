@@ -5,7 +5,6 @@ import App from './App.tsx'
 import { CssBaseline, ThemeProvider } from '@mui/material'
 import theme from './theme'
 import { AuthProvider } from './contexts/AuthContext'
-import './utils/testAuth' // Importar función de prueba
 import '@fontsource/roboto/300.css'
 import '@fontsource/roboto/400.css'
 import '@fontsource/roboto/500.css'

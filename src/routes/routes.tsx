@@ -9,7 +9,6 @@ import { Roles } from "../enums/roles";
 
 // Lazy pages (code-splitting)
 const Login = React.lazy(() => import("../components/auth/Login"));
-const Register = React.lazy(() => import("../components/auth/Register"));
 
 const DailyTimesheet = React.lazy(
   () => import("../components/registro-actividades/DailyTimesheet")
@@ -68,7 +67,7 @@ const AppRoutes: React.FC = () => {
     <Routes>
       {/* Públicas */}
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/register" element={<Navigate to="/login" replace />} />
 
       {/* Privadas (bajo Layout) */}
       <Route

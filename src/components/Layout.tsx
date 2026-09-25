@@ -49,10 +49,8 @@ import {
   hasAnyRole,
   normalizeRolIds,
 } from "../utils/roles";
-import ChangePassword from "./auth/ChangePassword";
-import { Snackbar, Alert } from "@mui/material";
-import LockResetIcon from "@mui/icons-material/LockReset";
 import LogoutIcon from "@mui/icons-material/Logout";
+
 
 type NavItem = {
   id: string;
@@ -144,12 +142,6 @@ export default function Layout() {
   const [empleadosIndex, _setEmpleadosIndex] = React.useState<
     EmpleadoIndexItem[]
   >([]);
-  const [changePasswordOpen, setChangePasswordOpen] = React.useState(false);
-  const [snackbar, setSnackbar] = React.useState<{
-    open: boolean;
-    message: string;
-    severity: "success" | "error";
-  }>({ open: false, message: "", severity: "success" });
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -360,33 +352,6 @@ export default function Layout() {
     handleCloseUserMenu();
     navigate("/login");
   };
-  const handleChangePassword = () => {
-    setChangePasswordOpen(true);
-    handleCloseUserMenu();
-  };
-  const handleChangePasswordSuccess = (message: string) => {
-    setSnackbar({
-      open: true,
-      message,
-      severity: "success",
-    });
-  };
-  const handleChangePasswordError = (message: string) => {
-    setSnackbar({
-      open: true,
-      message,
-      severity: "error",
-    });
-  };
-  const handleCloseSnackbar = () =>
-    setSnackbar((prev) => ({ ...prev, open: false }));
-
-
-  // Obtener el identificador del usuario (email o DNI)
-  const getUserIdentifier = (): string => {
-    if (!user) return "";
-    return user.correoElectronico || user.dni || "";
-  };
 
   const isItemSelected = (path: string) => location.pathname === path;
 
@@ -463,13 +428,6 @@ export default function Layout() {
                 </Typography>
               </MenuItem>
               <Divider />
-              {/* Cambiar contraseña */}
-              <MenuItem onClick={handleChangePassword}>
-                <ListItemIcon>
-                  <LockResetIcon fontSize="small" />
-                </ListItemIcon>
-                <Typography textAlign="center">Cambiar Contraseña</Typography>
-              </MenuItem>
               {/* Cerrar sesión */}
               <MenuItem onClick={handleLogout}>
                 <ListItemIcon>
@@ -578,31 +536,6 @@ export default function Layout() {
           />
         </Box>
       </Box>
-
-      {/* Dialog de cambio de contraseña */}
-      <ChangePassword
-        open={changePasswordOpen}
-        onClose={() => setChangePasswordOpen(false)}
-        onSuccess={handleChangePasswordSuccess}
-        onError={handleChangePasswordError}
-        userIdentifier={getUserIdentifier()}
-      />
-
-      {/* Snackbar para notificaciones */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          sx={{ width: "100%" }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 }
