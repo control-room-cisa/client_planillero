@@ -8,6 +8,7 @@ import type { Empleado } from "../../services/empleadoService";
 import type { Empresa } from "../../types/auth";
 import EmpleadosList from "./gestion-prorrateo/EmpleadosList";
 import EmpleadosFilters from "./gestion-prorrateo/EmpleadosFilters";
+import VerProrrateoGeneradoModal from "./gestion-prorrateo/VerProrrateoGeneradoModal";
 import type { LayoutOutletCtx } from "../Layout";
 import {
   persistProrrateoIndexSession,
@@ -26,6 +27,8 @@ const ProrrateoManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>("");
   const [showInactivos, setShowInactivos] = useState(false);
+  const [verProrrateoEmpleado, setVerProrrateoEmpleado] =
+    useState<Empleado | null>(null);
 
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -185,8 +188,15 @@ const ProrrateoManagement: React.FC = () => {
           empleados={filteredEmpleados}
           loading={loading}
           onProrrateoClick={handleProrrateoClick}
+          onVerProrrateoGeneradoClick={setVerProrrateoEmpleado}
         />
       </Box>
+
+      <VerProrrateoGeneradoModal
+        open={!!verProrrateoEmpleado}
+        onClose={() => setVerProrrateoEmpleado(null)}
+        empleado={verProrrateoEmpleado}
+      />
 
       <Snackbar
         open={snackbar.open}

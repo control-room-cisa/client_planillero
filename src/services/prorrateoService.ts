@@ -22,6 +22,35 @@ export type GuardarProrrateoPayload = {
   asignacionesCompensatoriasTomadas?: AsignacionCompensatoriaTomadaPayload[];
 };
 
+export type ProrrateoGuardadoResumen = {
+  nominaId: number;
+  nombrePeriodoNomina: string | null;
+  fechaInicio: string;
+  fechaFin: string;
+  codigoNomina: string | null;
+  cantidadFilas: number;
+};
+
+export type ProrrateoFilaDto = {
+  id: number;
+  jobId: number | null;
+  codigoJob: string | null;
+  codigoClass: string | null;
+  cantidadHoras: number;
+  monto: number;
+  tipo: string;
+};
+
+export type ProrrateoGuardadoDetalle = {
+  nominaId: number;
+  empleadoId: number;
+  nombrePeriodoNomina: string | null;
+  fechaInicio: string;
+  fechaFin: string;
+  codigoNomina: string | null;
+  filas: ProrrateoFilaDto[];
+};
+
 class ProrrateoService {
   static async guardar(
     payload: GuardarProrrateoPayload
@@ -36,6 +65,24 @@ class ProrrateoService {
   static async getEstado(nominaId: number): Promise<EstadoProrrateo> {
     const response = await api.get<ApiResponse<EstadoProrrateo>>(
       `/prorrateos/nomina/${nominaId}/estado`
+    );
+    return response.data.data;
+  }
+
+  static async listarGuardadosPorEmpleado(
+    empleadoId: number
+  ): Promise<ProrrateoGuardadoResumen[]> {
+    const response = await api.get<ApiResponse<ProrrateoGuardadoResumen[]>>(
+      `/prorrateos/empleado/${empleadoId}`
+    );
+    return response.data.data || [];
+  }
+
+  static async obtenerPorNomina(
+    nominaId: number
+  ): Promise<ProrrateoGuardadoDetalle> {
+    const response = await api.get<ApiResponse<ProrrateoGuardadoDetalle>>(
+      `/prorrateos/nomina/${nominaId}`
     );
     return response.data.data;
   }

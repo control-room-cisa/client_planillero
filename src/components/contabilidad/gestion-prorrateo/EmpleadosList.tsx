@@ -14,8 +14,12 @@ import {
   Box,
   Chip,
   Alert,
+  Tooltip,
 } from "@mui/material";
-import { AccountBalance as AccountBalanceIcon } from "@mui/icons-material";
+import {
+  AccountBalance as AccountBalanceIcon,
+  Visibility as VisibilityIcon,
+} from "@mui/icons-material";
 import type { Empleado } from "../../../services/empleadoService";
 import { getImageUrl } from "../../../utils/imageUtils";
 
@@ -23,12 +27,14 @@ interface EmpleadosListProps {
   empleados: Empleado[];
   loading: boolean;
   onProrrateoClick: (empleado: Empleado) => void;
+  onVerProrrateoGeneradoClick: (empleado: Empleado) => void;
 }
 
 const EmpleadosList: React.FC<EmpleadosListProps> = ({
   empleados,
   loading,
   onProrrateoClick,
+  onVerProrrateoGeneradoClick,
 }) => {
   const fullName = (e: Empleado) =>
     `${e.nombre ?? ""} ${e.apellido ?? ""}`.trim();
@@ -147,6 +153,16 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
                 >
                   <AccountBalanceIcon />
                 </IconButton>
+                <Tooltip title="Ver prorrateo generado">
+                  <IconButton
+                    color="primary"
+                    size="small"
+                    onClick={() => onVerProrrateoGeneradoClick(empleado)}
+                    aria-label="Ver prorrateo generado"
+                  >
+                    <VisibilityIcon />
+                  </IconButton>
+                </Tooltip>
               </TableCell>
             </TableRow>
           ))}
@@ -157,4 +173,3 @@ const EmpleadosList: React.FC<EmpleadosListProps> = ({
 };
 
 export default EmpleadosList;
-
