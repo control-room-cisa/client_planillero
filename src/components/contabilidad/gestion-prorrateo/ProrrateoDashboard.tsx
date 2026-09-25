@@ -74,6 +74,11 @@ import CompensatoriasTomadasAsignacion, {
   asignacionesValidasContraBanco,
   type AsignacionCompensatoriaTomada,
 } from "./CompensatoriasTomadasAsignacion";
+import ErrorValidacionPeriodo, {
+  buildValidationErrorsMessage,
+  hasPendingValidations,
+  type ValidationErrorsMap,
+} from "../../common/ErrorValidacionPeriodo";
 
 interface ProrrateoDashboardProps {
   empleado?: Empleado;
@@ -184,6 +189,8 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   const [asignacionesCompTomadas, setAsignacionesCompTomadas] = React.useState<
     AsignacionCompensatoriaTomada[]
   >([]);
+  const [guardarValidationErrors, setGuardarValidationErrors] =
+    React.useState<ValidationErrorsMap | null>(null);
   const [snackbar, setSnackbar] = React.useState<{
     open: boolean;
     message: string;
@@ -222,6 +229,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     setTab(0);
     setProrrateoYaGuardado(false);
     setAsignacionesCompTomadas([]);
+    setGuardarValidationErrors(null);
     lastFullEmployeeLoadedIdRef.current = null;
   }, []);
 
@@ -322,6 +330,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   React.useEffect(() => {
     setProrrateoYaGuardado(false);
     setAsignacionesCompTomadas([]);
+    setGuardarValidationErrors(null);
     const nominaId = nominaSeleccionada?.id;
     if (!nominaId) return;
 
@@ -352,6 +361,18 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     ) &&
       asignacionesValidasContraBanco(asignacionesCompTomadas));
 
+  const validacionesVisibles: ValidationErrorsMap | null =
+    guardarValidationErrors ??
+    (hasPendingValidations(
+      prorrateo?.validationErrors as ValidationErrorsMap | undefined,
+    )
+      ? (prorrateo?.validationErrors as ValidationErrorsMap)
+      : null);
+
+  const prorrateoValidacionesPendientes = hasPendingValidations(
+    prorrateo?.validationErrors as ValidationErrorsMap | undefined,
+  );
+
   const puedeGuardarProrrateo =
     !!nominaSeleccionada?.id &&
     !!nominaSeleccionada?.pagado &&
@@ -360,11 +381,13 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     !loading &&
     !guardandoProrrateo &&
     !prorrateoYaGuardado &&
+    !prorrateoValidacionesPendientes &&
     asignacionCompTomadasOk;
 
   const handleGuardarProrrateo = async () => {
     if (!nominaSeleccionada?.id || !puedeGuardarProrrateo) return;
     setGuardandoProrrateo(true);
+    setGuardarValidationErrors(null);
     try {
       const asignacionesPayload = asignacionesCompTomadas
         .filter((a) => Number(a.horas) > 0)
@@ -384,7 +407,14 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
         severity: "success",
       });
     } catch (e: any) {
+      const ve = (e?.response?.data?.validationErrors ??
+        null) as ValidationErrorsMap | null;
+      const detail = buildValidationErrorsMessage(ve);
+      if (hasPendingValidations(ve)) {
+        setGuardarValidationErrors(ve);
+      }
       const message =
+        detail ||
         e?.response?.data?.message ||
         e?.message ||
         "No se pudo guardar el prorrateo";
@@ -1241,103 +1271,11 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
             </Button>
           </Box>
 
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error.response?.data?.validationErrors ? (
-                <Box>
-                  <Typography variant="h6" gutterBottom>
-                    No se puede procesar el prorrateo
-                  </Typography>
-                  {error.response.data.validationErrors.fechasNoAprobadas
-                    ?.length > 0 && (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography
-                        variant="subtitle1"
-                        color="error"
-                        gutterBottom
-                      >
-                        📋 Fechas no aprobadas por supervisor:
-                      </Typography>
-                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                        {error.response.data.validationErrors.fechasNoAprobadas.map(
-                          (fecha: string) => (
-                            <Typography
-                              key={fecha}
-                              variant="body2"
-                              sx={{
-                                backgroundColor: "error.light",
-                                color: "error.contrastText",
-                                px: 1,
-                                py: 0.5,
-                                borderRadius: 1,
-                                fontSize: "0.875rem",
-                              }}
-                            >
-                              {new Date(fecha + "T00:00:00").toLocaleDateString(
-                                "es-HN",
-                                {
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "numeric",
-                                },
-                              )}
-                            </Typography>
-                          ),
-                        )}
-                      </Box>
-                    </Box>
-                  )}
-                  {error.response.data.validationErrors.fechasSinRegistro
-                    ?.length > 0 && (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography
-                        variant="subtitle1"
-                        color="error"
-                        gutterBottom
-                      >
-                        📝 Fechas sin registro diario:
-                      </Typography>
-                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                        {error.response.data.validationErrors.fechasSinRegistro.map(
-                          (fecha: string) => (
-                            <Typography
-                              key={fecha}
-                              variant="body2"
-                              sx={{
-                                backgroundColor: "warning.light",
-                                color: "warning.contrastText",
-                                px: 1,
-                                py: 0.5,
-                                borderRadius: 1,
-                                fontSize: "0.875rem",
-                              }}
-                            >
-                              {new Date(fecha + "T00:00:00").toLocaleDateString(
-                                "es-HN",
-                                {
-                                  day: "2-digit",
-                                  month: "2-digit",
-                                  year: "numeric",
-                                },
-                              )}
-                            </Typography>
-                          ),
-                        )}
-                      </Box>
-                    </Box>
-                  )}
-                </Box>
-              ) : (
-                error.response?.data?.message ||
-                (error.response?.status === 404
-                  ? "No se pudo conectar con el servidor"
-                  : "Error al cargar los datos")
-              )}
-              <Button size="small" onClick={refetch} sx={{ ml: 2 }}>
-                Reintentar
-              </Button>
-            </Alert>
-          )}
+          <ErrorValidacionPeriodo
+            error={error}
+            onRetry={refetch}
+            title="No se puede procesar el prorrateo"
+          />
 
           <Box sx={{ mt: 4 }}>
             <Box sx={{ mt: 2 }}>
@@ -1993,6 +1931,19 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                           poder guardar.
                         </Typography>
                       )}
+                    {hasPendingValidations(validacionesVisibles) && (
+                      <ErrorValidacionPeriodo
+                        validationErrors={validacionesVisibles}
+                        title="No se puede guardar el prorrateo"
+                        severity="warning"
+                        sx={{ mb: 0, alignSelf: "stretch" }}
+                        onClose={
+                          guardarValidationErrors
+                            ? () => setGuardarValidationErrors(null)
+                            : undefined
+                        }
+                      />
+                    )}
                     <Button
                       variant="contained"
                       color="primary"
@@ -2054,7 +2005,11 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={5000}
+        autoHideDuration={
+          snackbar.severity === "error" && snackbar.message.length > 80
+            ? 10000
+            : 5000
+        }
         onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >

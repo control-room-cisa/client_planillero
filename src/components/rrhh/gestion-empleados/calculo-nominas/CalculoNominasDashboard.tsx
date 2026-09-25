@@ -30,6 +30,10 @@ import NominaService, {
 import RegistroDiarioService from "../../../../services/registroDiarioService";
 import DetalleRegistrosDiariosModal from "../detalleRegistrosDiariosModal";
 import TiempoCompensatorioAcumulado from "../../../common/TiempoCompensatorioAcumulado";
+import ErrorValidacionPeriodo, {
+  hasPendingValidations,
+  type ValidationErrorsMap,
+} from "../../../common/ErrorValidacionPeriodo";
 
 // Utilidades puras del módulo de cálculo de nóminas
 import {
@@ -374,10 +378,15 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
   const handleToastClose = React.useCallback(() => setToastOpen(false), []);
 
   // ========= Crear nómina =========
-  // Bloqueo por errores de validación (no se puede procesar la nómina)
-  const bloqueaPorValidacion = Boolean(
-    (error as any)?.response?.data?.validationErrors,
-  );
+  // Bloqueo por errores de validación (respuesta de error o soft warnings del conteo)
+  const validacionesConteo = resumenHoras?.conteoHoras
+    ?.validationErrors as ValidationErrorsMap | undefined;
+  const bloqueaPorValidacion =
+    hasPendingValidations(
+      (error as any)?.response?.data?.validationErrors as
+        | ValidationErrorsMap
+        | undefined,
+    ) || hasPendingValidations(validacionesConteo);
 
   const crearNominaDisabled =
     !empleado ||
@@ -920,8 +929,15 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
             )}
           </Paper>
 
-          {/* Error */}
+          {/* Error / validaciones pendientes */}
           <ErrorValidacionNomina error={error} onRetry={refetch} />
+          {!error && hasPendingValidations(validacionesConteo) && (
+            <ErrorValidacionPeriodo
+              validationErrors={validacionesConteo}
+              title="No se puede procesar la nómina"
+              severity="warning"
+            />
+          )}
 
           {/* Tarjetas informativas */}
           <InfoColaboradorCards
