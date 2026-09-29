@@ -86,6 +86,17 @@ class ProrrateoService {
     );
     return response.data.data;
   }
+
+  static async downloadExcel(
+    empresaId: number,
+    codigoNomina: string
+  ): Promise<Blob> {
+    const response = await api.get("/prorrateos/excel", {
+      params: { empresaId, codigoNomina },
+      responseType: "blob",
+    });
+    return response.data;
+  }
 }
 
 export default ProrrateoService;

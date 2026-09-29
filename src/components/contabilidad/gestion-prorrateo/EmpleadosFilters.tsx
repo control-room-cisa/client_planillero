@@ -9,8 +9,12 @@ import {
   TextField,
   FormControlLabel,
   Checkbox,
+  Button,
 } from "@mui/material";
-import { Search as SearchIcon } from "@mui/icons-material";
+import {
+  Search as SearchIcon,
+  FileDownload as FileDownloadIcon,
+} from "@mui/icons-material";
 import type { Empresa } from "../../../types/auth";
 
 interface EmpleadosFiltersProps {
@@ -21,6 +25,7 @@ interface EmpleadosFiltersProps {
   onSearchChange: (value: string) => void;
   onEmpresaChange: (value: string) => void;
   onShowInactivosChange: (value: boolean) => void;
+  onOpenDownloadExcel: () => void;
 }
 
 const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
@@ -31,6 +36,7 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
   onSearchChange,
   onEmpresaChange,
   onShowInactivosChange,
+  onOpenDownloadExcel,
 }) => {
   /** Solo consorcio, orden alfabético por nombre. */
   const empresasEnSelector = [...empresas]
@@ -40,6 +46,7 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
         sensitivity: "base",
       })
     );
+
   return (
     <Paper sx={{ p: 2 }}>
       <Box
@@ -98,6 +105,7 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
             flex: "0 0 auto",
             display: "flex",
             alignItems: "center",
+            gap: 2,
             "@media (max-width: 900px)": { width: "100%" },
           }}
         >
@@ -111,6 +119,15 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
             }
             label="Mostrar inactivos"
           />
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<FileDownloadIcon />}
+            onClick={onOpenDownloadExcel}
+            disabled={!selectedEmpresaId}
+          >
+            Prorrateo Excel
+          </Button>
         </Box>
       </Box>
     </Paper>
@@ -118,4 +135,3 @@ const EmpleadosFilters: React.FC<EmpleadosFiltersProps> = ({
 };
 
 export default EmpleadosFilters;
-

@@ -1,19 +1,79 @@
 import * as React from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Box, Typography, Snackbar, Alert, Divider } from "@mui/material";
 import { useNavigate, useLocation, useOutletContext } from "react-router-dom";
 import EmpleadoService from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
+import ProrrateoService from "../../services/prorrateoService";
 import type { Empleado } from "../../services/empleadoService";
 import type { Empresa } from "../../types/auth";
 import EmpleadosList from "./gestion-prorrateo/EmpleadosList";
 import EmpleadosFilters from "./gestion-prorrateo/EmpleadosFilters";
 import VerProrrateoGeneradoModal from "./gestion-prorrateo/VerProrrateoGeneradoModal";
+import DescargarProrrateoExcelModal from "./gestion-prorrateo/DescargarProrrateoExcelModal";
 import type { LayoutOutletCtx } from "../Layout";
 import {
   persistProrrateoIndexSession,
   resolveEmpleadosIndexForNomina,
 } from "../../utils/nominasEmpleadosIndexSession";
+
+const MESES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
+function buildPeriodosDisponibles(
+  selectedYear: number,
+  currentYear: number,
+  currentMonth: number,
+  currentDay: number
+) {
+  const grupos: Array<{
+    mesLabel: string;
+    periodos: Array<{ value: string; label: string }>;
+  }> = [];
+  const maxMes = selectedYear === currentYear ? currentMonth : 12;
+
+  for (let mes = maxMes; mes >= 1; mes--) {
+    const mesStr = String(mes).padStart(2, "0");
+    const periodosMes: Array<{ value: string; label: string }> = [];
+    const esMesActual = selectedYear === currentYear && mes === currentMonth;
+
+    if (!esMesActual || currentDay > 15) {
+      periodosMes.push({
+        value: `${mesStr}B`,
+        label: "Segunda Quincena",
+      });
+    }
+    periodosMes.push({
+      value: `${mesStr}A`,
+      label: "Primera Quincena",
+    });
+
+    grupos.push({
+      mesLabel: MESES[mes - 1],
+      periodos: periodosMes,
+    });
+  }
+  return grupos;
+}
+
+/** Primer período de la lista = el más reciente disponible. */
+function primerPeriodoDisponible(
+  grupos: ReturnType<typeof buildPeriodosDisponibles>
+): string | null {
+  return grupos[0]?.periodos[0]?.value ?? null;
+}
 
 const ProrrateoManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -21,12 +81,21 @@ const ProrrateoManagement: React.FC = () => {
   const { setSelectedEmpleado, setEmpleadosIndex } =
     useOutletContext<LayoutOutletCtx>();
 
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const currentDay = now.getDate();
+
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEmpresaId, setSelectedEmpresaId] = useState<string>("");
   const [showInactivos, setShowInactivos] = useState(false);
+  const [openExcelModal, setOpenExcelModal] = useState(false);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [selectedPeriodo, setSelectedPeriodo] = useState<string | null>(null);
+  const [downloadingExcel, setDownloadingExcel] = useState(false);
   const [verProrrateoEmpleado, setVerProrrateoEmpleado] =
     useState<Empleado | null>(null);
 
@@ -46,6 +115,41 @@ const ProrrateoManagement: React.FC = () => {
     },
     []
   );
+
+  const añosDisponibles = useMemo(() => {
+    const años: number[] = [];
+    for (let i = currentYear; i >= currentYear - 19; i--) {
+      años.push(i);
+    }
+    return años;
+  }, [currentYear]);
+
+  const periodosDisponibles = useMemo(
+    () =>
+      buildPeriodosDisponibles(
+        selectedYear,
+        currentYear,
+        currentMonth,
+        currentDay
+      ),
+    [selectedYear, currentYear, currentMonth, currentDay]
+  );
+
+  useEffect(() => {
+    if (
+      selectedPeriodo &&
+      !periodosDisponibles.some((g) =>
+        g.periodos.some((p) => p.value === selectedPeriodo)
+      )
+    ) {
+      setSelectedPeriodo(primerPeriodoDisponible(periodosDisponibles));
+    }
+  }, [selectedPeriodo, periodosDisponibles]);
+
+  const codigoNominaFiltro = useMemo(() => {
+    if (!selectedYear || !selectedPeriodo) return null;
+    return `${selectedYear}${selectedPeriodo}`;
+  }, [selectedYear, selectedPeriodo]);
 
   const fetchEmpleados = useCallback(async () => {
     if (!selectedEmpresaId) {
@@ -146,6 +250,86 @@ const ProrrateoManagement: React.FC = () => {
     });
   };
 
+  const handleOpenExcelModal = () => {
+    if (!selectedEmpresaId) return;
+    const year = currentYear;
+    const periodos = buildPeriodosDisponibles(
+      year,
+      currentYear,
+      currentMonth,
+      currentDay
+    );
+    setSelectedYear(year);
+    setSelectedPeriodo(primerPeriodoDisponible(periodos));
+    setOpenExcelModal(true);
+  };
+
+  const handleCloseExcelModal = () => {
+    if (downloadingExcel) return;
+    setOpenExcelModal(false);
+  };
+
+  const handleYearChange = (year: number) => {
+    setSelectedYear(year);
+    const periodos = buildPeriodosDisponibles(
+      year,
+      currentYear,
+      currentMonth,
+      currentDay
+    );
+    setSelectedPeriodo(primerPeriodoDisponible(periodos));
+  };
+
+  const handleDownloadExcel = async () => {
+    if (!selectedEmpresaId || !codigoNominaFiltro) {
+      showSnackbar("Seleccione empresa y período", "error");
+      return;
+    }
+    setDownloadingExcel(true);
+    try {
+      const empresa = empresas.find(
+        (e) => e.id.toString() === selectedEmpresaId
+      );
+      const blob = await ProrrateoService.downloadExcel(
+        Number(selectedEmpresaId),
+        codigoNominaFiltro
+      );
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const nombreEmpresa = (empresa?.nombre ?? "Empresa")
+        .replace(/[\\/:*?"<>|]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      link.download = `Prorrateo ${codigoNominaFiltro} ${nombreEmpresa}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      showSnackbar("Prorrateo Excel descargado", "success");
+      setOpenExcelModal(false);
+    } catch (err: any) {
+      console.error("Error al descargar prorrateo Excel:", err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "No se pudo descargar el Excel de prorrateo";
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const parsed = JSON.parse(text);
+          showSnackbar(parsed?.message || msg, "error");
+        } catch {
+          showSnackbar(msg, "error");
+        }
+      } else {
+        showSnackbar(msg, "error");
+      }
+    } finally {
+      setDownloadingExcel(false);
+    }
+  };
+
   const handleCloseSnackbar = (): void => {
     setSnackbar((s) => ({ ...s, open: false }));
   };
@@ -180,6 +364,7 @@ const ProrrateoManagement: React.FC = () => {
           onSearchChange={setSearchTerm}
           onEmpresaChange={setSelectedEmpresaId}
           onShowInactivosChange={setShowInactivos}
+          onOpenDownloadExcel={handleOpenExcelModal}
         />
       </Box>
 
@@ -196,6 +381,19 @@ const ProrrateoManagement: React.FC = () => {
         open={!!verProrrateoEmpleado}
         onClose={() => setVerProrrateoEmpleado(null)}
         empleado={verProrrateoEmpleado}
+      />
+
+      <DescargarProrrateoExcelModal
+        open={openExcelModal}
+        downloading={downloadingExcel}
+        selectedYear={selectedYear}
+        selectedPeriodo={selectedPeriodo}
+        añosDisponibles={añosDisponibles}
+        periodosDisponibles={periodosDisponibles}
+        onClose={handleCloseExcelModal}
+        onYearChange={handleYearChange}
+        onPeriodoChange={setSelectedPeriodo}
+        onConfirm={handleDownloadExcel}
       />
 
       <Snackbar
