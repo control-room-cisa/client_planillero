@@ -1,10 +1,15 @@
 import api from "./api";
 
+type TipoFeriado = "TODO_EL_DIA" | "DESDE" | "HASTA";
+
 interface Feriado {
   id: number;
   fecha: string; // Formato "YYYY-MM-DD"
   nombre: string;
-  descripcion?: string;
+  descripcion?: string | null;
+  tipo: TipoFeriado;
+  horaDesde?: string | null; // Formato "HH:mm"
+  horaHasta?: string | null; // Formato "HH:mm"
   createdAt: string;
   updatedAt: string | null;
   deletedAt: string | null;
@@ -26,12 +31,18 @@ interface CreateFeriadoDto {
   fecha: string; // Formato "YYYY-MM-DD"
   nombre: string;
   descripcion?: string;
+  tipo: TipoFeriado;
+  horaDesde?: string | null;
+  horaHasta?: string | null;
 }
 
 interface UpdateFeriadoDto {
   fecha?: string;
   nombre?: string;
   descripcion?: string;
+  tipo?: TipoFeriado;
+  horaDesde?: string | null;
+  horaHasta?: string | null;
 }
 
 class FeriadoService {
@@ -98,4 +109,4 @@ class FeriadoService {
 }
 
 export default FeriadoService;
-export type { Feriado, CreateFeriadoDto, UpdateFeriadoDto };
+export type { Feriado, CreateFeriadoDto, UpdateFeriadoDto, TipoFeriado };

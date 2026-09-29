@@ -22,6 +22,11 @@ import {
   Alert,
   Chip,
   InputAdornment,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -33,7 +38,11 @@ import {
 import * as React from "react";
 
 import FeriadoService from "../../services/feriadoService";
-import type { Feriado, CreateFeriadoDto } from "../../services/feriadoService";
+import type {
+  Feriado,
+  CreateFeriadoDto,
+  TipoFeriado,
+} from "../../services/feriadoService";
 import ConfirmDialog from "../common/ConfirmDialog";
 
 /** Helper: interpreta "YYYY-MM-DD" como medianoche LOCAL (evita el -1 día por UTC) */
@@ -59,6 +68,31 @@ const isPastDate = (dateString: string) => {
 const getDateChipColor = (dateString: string) =>
   isPastDate(dateString) ? "default" : "primary";
 
+const TIPO_FERIADO_LABEL: Record<TipoFeriado, string> = {
+  TODO_EL_DIA: "Todo el día",
+  DESDE: "Desde",
+  HASTA: "Hasta",
+};
+
+const emptyFormData = (): CreateFeriadoDto => ({
+  fecha: "",
+  nombre: "",
+  descripcion: "",
+  tipo: "TODO_EL_DIA",
+  horaDesde: null,
+  horaHasta: null,
+});
+
+const formatAlcance = (feriado: Feriado) => {
+  if (feriado.tipo === "DESDE" && feriado.horaDesde) {
+    return `Desde ${feriado.horaDesde}`;
+  }
+  if (feriado.tipo === "HASTA" && feriado.horaHasta) {
+    return `Hasta ${feriado.horaHasta}`;
+  }
+  return TIPO_FERIADO_LABEL.TODO_EL_DIA;
+};
+
 const ROWS_PER_PAGE = 15;
 
 const compareFeriadoFechaDesc = (a: Feriado, b: Feriado) =>
@@ -72,11 +106,7 @@ const FeriadosManagement: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentFeriado, setCurrentFeriado] = useState<Feriado | null>(null);
-  const [formData, setFormData] = useState<CreateFeriadoDto>({
-    fecha: "",
-    nombre: "",
-    descripcion: "",
-  });
+  const [formData, setFormData] = useState<CreateFeriadoDto>(emptyFormData());
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -138,12 +168,18 @@ const FeriadosManagement: React.FC = () => {
     });
   };
 
-  const resetForm = () => {
+  const handleTipoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const tipo = e.target.value as TipoFeriado;
     setFormData({
-      fecha: "",
-      nombre: "",
-      descripcion: "",
+      ...formData,
+      tipo,
+      horaDesde: tipo === "DESDE" ? formData.horaDesde || "" : null,
+      horaHasta: tipo === "HASTA" ? formData.horaHasta || "" : null,
     });
+  };
+
+  const resetForm = () => {
+    setFormData(emptyFormData());
     setCurrentFeriado(null);
     setIsEditing(false);
   };
@@ -156,6 +192,9 @@ const FeriadosManagement: React.FC = () => {
         fecha: feriado.fecha, // mantiene "YYYY-MM-DD"
         nombre: feriado.nombre,
         descripcion: feriado.descripcion || "",
+        tipo: feriado.tipo || "TODO_EL_DIA",
+        horaDesde: feriado.horaDesde || null,
+        horaHasta: feriado.horaHasta || null,
       });
     } else {
       resetForm();
@@ -168,17 +207,27 @@ const FeriadosManagement: React.FC = () => {
     resetForm();
   };
 
+  const buildPayload = (): CreateFeriadoDto => {
+    if (formData.tipo === "TODO_EL_DIA") {
+      return { ...formData, horaDesde: null, horaHasta: null };
+    }
+    if (formData.tipo === "DESDE") {
+      return { ...formData, horaHasta: null };
+    }
+    return { ...formData, horaDesde: null };
+  };
+
   // Funciones CRUD
   const handleCreateFeriado = async () => {
     if (existeOtroFeriadoEnFecha(formData.fecha)) {
       showSnackbar(
         "Ya existe un feriado con esa fecha. No se permiten duplicados.",
-        "error",
+        "error"
       );
       return;
     }
     try {
-      await FeriadoService.create(formData);
+      await FeriadoService.create(buildPayload());
       showSnackbar("Feriado creado exitosamente", "success");
       handleCloseDialog();
       fetchFeriados();
@@ -194,12 +243,13 @@ const FeriadosManagement: React.FC = () => {
     if (existeOtroFeriadoEnFecha(formData.fecha, currentFeriado.id)) {
       showSnackbar(
         "Ya existe otro feriado con esa fecha. No se permiten duplicados.",
-        "error",
+        "error"
       );
       return;
     }
 
     try {
+      const payload = buildPayload();
       // Si la fecha cambió, necesitamos eliminar el registro viejo y crear uno nuevo
       const fechaCambio = currentFeriado.fecha !== formData.fecha;
 
@@ -207,14 +257,14 @@ const FeriadosManagement: React.FC = () => {
         // Primero eliminar el registro viejo
         await FeriadoService.delete(currentFeriado.id);
         // Luego crear uno nuevo con la nueva fecha
-        await FeriadoService.create(formData);
+        await FeriadoService.create(payload);
         showSnackbar(
           "Feriado actualizado exitosamente (fecha modificada)",
           "success"
         );
       } else {
         // Si la fecha no cambió, hacer upsert normal
-        await FeriadoService.upsert(currentFeriado.fecha, formData);
+        await FeriadoService.upsert(currentFeriado.fecha, payload);
         showSnackbar("Feriado actualizado exitosamente", "success");
       }
 
@@ -262,7 +312,7 @@ const FeriadosManagement: React.FC = () => {
   /** Siempre por fecha del festivo (más futura / reciente primero), no por creación. */
   const feriadosOrdenados = useMemo(
     () => [...feriados].sort(compareFeriadoFechaDesc),
-    [feriados],
+    [feriados]
   );
 
   const filteredFeriados = useMemo(() => {
@@ -272,7 +322,8 @@ const FeriadosManagement: React.FC = () => {
       return (
         feriado.nombre?.toLowerCase().includes(q) ||
         feriado.descripcion?.toLowerCase().includes(q) ||
-        feriado.fecha.includes(searchTerm.trim())
+        feriado.fecha.includes(searchTerm.trim()) ||
+        formatAlcance(feriado).toLowerCase().includes(q)
       );
     });
   }, [feriadosOrdenados, searchTerm]);
@@ -284,7 +335,7 @@ const FeriadosManagement: React.FC = () => {
   useEffect(() => {
     const maxPage = Math.max(
       0,
-      Math.ceil(filteredFeriados.length / ROWS_PER_PAGE) - 1,
+      Math.ceil(filteredFeriados.length / ROWS_PER_PAGE) - 1
     );
     if (page > maxPage) setPage(maxPage);
   }, [filteredFeriados.length, page]);
@@ -296,10 +347,10 @@ const FeriadosManagement: React.FC = () => {
 
   const existeOtroFeriadoEnFecha = (
     fecha: string,
-    excludeId?: number | null,
+    excludeId?: number | null
   ) =>
     feriados.some(
-      (f) => f.fecha === fecha && (excludeId == null || f.id !== excludeId),
+      (f) => f.fecha === fecha && (excludeId == null || f.id !== excludeId)
     );
 
   // Función para formatear fecha (usa fecha local)
@@ -312,6 +363,13 @@ const FeriadosManagement: React.FC = () => {
       day: "numeric",
     });
   };
+
+  const isFormValid =
+    !!formData.nombre &&
+    !!formData.fecha &&
+    (formData.tipo === "TODO_EL_DIA" ||
+      (formData.tipo === "DESDE" && !!formData.horaDesde) ||
+      (formData.tipo === "HASTA" && !!formData.horaHasta));
 
   return (
     <Box
@@ -362,6 +420,7 @@ const FeriadosManagement: React.FC = () => {
             <TableRow>
               <TableCell>Fecha</TableCell>
               <TableCell>Nombre</TableCell>
+              <TableCell>Alcance</TableCell>
               <TableCell>Descripción</TableCell>
               <TableCell>Estado</TableCell>
               <TableCell align="center">Acciones</TableCell>
@@ -370,13 +429,13 @@ const FeriadosManagement: React.FC = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             ) : filteredFeriados.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   No hay feriados registrados
                 </TableCell>
               </TableRow>
@@ -400,6 +459,18 @@ const FeriadosManagement: React.FC = () => {
                     <Typography variant="body1" fontWeight="medium">
                       {feriado.nombre}
                     </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={formatAlcance(feriado)}
+                      size="small"
+                      variant={
+                        feriado.tipo === "TODO_EL_DIA" ? "outlined" : "filled"
+                      }
+                      color={
+                        feriado.tipo === "TODO_EL_DIA" ? "default" : "secondary"
+                      }
+                    />
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" color="text.secondary">
@@ -479,6 +550,58 @@ const FeriadosManagement: React.FC = () => {
               required
               placeholder="Ej: Día de la Independencia"
             />
+            <FormControl>
+              <FormLabel id="tipo-feriado-label">Alcance del feriado</FormLabel>
+              <RadioGroup
+                row
+                aria-labelledby="tipo-feriado-label"
+                name="tipo"
+                value={formData.tipo}
+                onChange={handleTipoChange}
+              >
+                <FormControlLabel
+                  value="TODO_EL_DIA"
+                  control={<Radio />}
+                  label="Todo el día"
+                />
+                <FormControlLabel
+                  value="DESDE"
+                  control={<Radio />}
+                  label="Desde"
+                />
+                <FormControlLabel
+                  value="HASTA"
+                  control={<Radio />}
+                  label="Hasta"
+                />
+              </RadioGroup>
+            </FormControl>
+            {formData.tipo === "DESDE" && (
+              <TextField
+                label="Hora desde"
+                name="horaDesde"
+                type="time"
+                value={formData.horaDesde || ""}
+                onChange={handleInputChange}
+                fullWidth
+                required
+                InputLabelProps={{ shrink: true }}
+                helperText="El feriado aplica desde esta hora hasta el fin del día"
+              />
+            )}
+            {formData.tipo === "HASTA" && (
+              <TextField
+                label="Hora hasta"
+                name="horaHasta"
+                type="time"
+                value={formData.horaHasta || ""}
+                onChange={handleInputChange}
+                fullWidth
+                required
+                InputLabelProps={{ shrink: true }}
+                helperText="El feriado aplica desde el inicio del día hasta esta hora"
+              />
+            )}
             <TextField
               label="Descripción (opcional)"
               name="descripcion"
@@ -497,7 +620,7 @@ const FeriadosManagement: React.FC = () => {
             onClick={isEditing ? handleUpdateFeriado : handleCreateFeriado}
             variant="contained"
             color="primary"
-            disabled={!formData.nombre || !formData.fecha}
+            disabled={!isFormValid}
           >
             {isEditing ? "Actualizar" : "Crear"}
           </Button>
