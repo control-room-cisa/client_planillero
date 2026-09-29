@@ -4,6 +4,7 @@ import { H1EditableRules } from "./H1EditableRules";
 import { H1_5Rules } from "./H1_5Rules";
 import { H1_7Rules } from "./H1_7Rules";
 import { H1_9Rules } from "./H1_9Rules";
+import { H1_10Rules } from "./H1_10Rules";
 import { H2Rules } from "./H2Rules";
 import { H2_2Rules } from "./H2_2Rules";
 import type { FieldName, HorarioFormRulesConfig, HorarioRuleEngine } from "./interfaces";
@@ -25,6 +26,8 @@ const registry = new Map<string, HorarioRuleEngine>([
   [H1_7Rules.type, H1_7Rules],
   // H1_9: como H1_1 pero con entrada/salida editables
   [H1_9Rules.type, H1_9Rules],
+  // H1_10: sin plantilla; todo editable en UI (jornada, día libre, horas, hora corrida)
+  [H1_10Rules.type, H1_10Rules],
   // Canonical: H2_1
   [H2Rules.type, H2Rules],
   // Canonical: H2_2

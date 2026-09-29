@@ -20,6 +20,7 @@ import {
   Stack,
   Chip,
   CircularProgress,
+  Tooltip,
 } from "@mui/material";
 import {
   ChevronLeft,
@@ -28,10 +29,41 @@ import {
   Add,
   Settings,
   AccessTime,
+  HelpOutline,
 } from "@mui/icons-material";
 import { useDailyTimesheet } from "../hooks/useDailyTimesheet";
 import { ActivityList } from "./ActivityList";
 import { ActivityDrawer } from "./ActivityDrawer";
+
+const HELP_HORA_CORRIDA =
+  "Marcar cuando se trabaje en hora de almuerzo. La hora de salida se reduce en una hora, por lo que la última hora se deberá rellenar como extra.";
+
+const HELP_DIA_NO_LABORABLE =
+  "No corresponde laborar según horario.";
+
+const HELP_DIA_LIBRE =
+  "Día de descanso semanal por ley; normalmente es el día domingo.";
+
+const HELP_INCAPACIDAD =
+  "Marcar únicamente los días que cubre constancia médica; de lo contrario consultar con RRHH.";
+
+/** Etiqueta de checkbox con icono de ayuda (?) */
+const CheckboxLabelWithHelp: React.FC<{
+  text: string;
+  help: string;
+}> = ({ text, help }) => (
+  <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+    <span>{text}</span>
+    <Tooltip title={help} arrow placement="top" enterTouchDelay={0}>
+      <HelpOutline
+        fontSize="small"
+        color="action"
+        sx={{ cursor: "help", fontSize: 16 }}
+        aria-label={`Ayuda: ${text}`}
+      />
+    </Tooltip>
+  </Box>
+);
 
 // Tipo para las props del componente UI
 type DailyTimesheetUIProps = ReturnType<typeof useDailyTimesheet>;
@@ -244,7 +276,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
           />
           {(isHoliday || dayConfigData.esDiaLibre) && (
             <Chip
-              label="Día Libre"
+              label="Día libre (1 por semana)"
               size="small"
               color="warning"
               variant="outlined"
@@ -424,7 +456,12 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                       color="primary"
                     />
                   }
-                  label="Día Libre"
+                  label={
+                    <CheckboxLabelWithHelp
+                      text="Día libre (1 por semana)"
+                      help={HELP_DIA_LIBRE}
+                    />
+                  }
                 />
               </Box>
             )}
@@ -451,7 +488,12 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                       color="primary"
                     />
                   }
-                  label="Día no laborable"
+                  label={
+                    <CheckboxLabelWithHelp
+                      text="Día no laborable"
+                      help={HELP_DIA_NO_LABORABLE}
+                    />
+                  }
                 />
               </Box>
             )}
@@ -467,10 +509,14 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                     color="primary"
                   />
                 }
-                label="Incapacidad"
+                label={
+                  <CheckboxLabelWithHelp
+                    text="Incapacidad"
+                    help={HELP_INCAPACIDAD}
+                  />
+                }
               />
             </Box>
-            {/* Es Hora Corrida */}
             {horarioRules.utils.isFieldVisible("esHoraCorrida") && (
               <Box
                 sx={{ display: "flex", alignItems: "center", height: "40px" }}
@@ -494,7 +540,12 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
                       color="primary"
                     />
                   }
-                  label="Hora Corrida"
+                  label={
+                    <CheckboxLabelWithHelp
+                      text="Hora Corrida"
+                      help={HELP_HORA_CORRIDA}
+                    />
+                  }
                 />
               </Box>
             )}

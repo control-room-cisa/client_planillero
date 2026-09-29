@@ -12,8 +12,33 @@ import {
   Select,
   MenuItem,
   Chip,
+  Tooltip,
 } from "@mui/material";
+import { HelpOutline } from "@mui/icons-material";
 import type { DayConfigData, FormErrors, HorarioValidado } from "./types";
+
+const HELP_HORA_CORRIDA =
+  "Marcar cuando se trabaje en hora de almuerzo. La hora de salida se reduce en una hora, por lo que la última hora se deberá rellenar como extra.";
+
+const HELP_DIA_LIBRE =
+  "Día de descanso semanal por ley; normalmente es el día domingo.";
+
+const CheckboxLabelWithHelp: React.FC<{
+  text: string;
+  help: string;
+}> = ({ text, help }) => (
+  <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+    <span>{text}</span>
+    <Tooltip title={help} arrow placement="top" enterTouchDelay={0}>
+      <HelpOutline
+        fontSize="small"
+        color="action"
+        sx={{ cursor: "help", fontSize: 16 }}
+        aria-label={`Ayuda: ${text}`}
+      />
+    </Tooltip>
+  </Box>
+);
 
 type JornadaConfigProps = {
   value: DayConfigData;
@@ -72,7 +97,7 @@ export default function JornadaConfig({
             )}
           {value.esDiaLibre && (
             <Chip
-              label="Día Libre"
+              label="Día libre (1 por semana)"
               size="small"
               color="warning"
               variant="outlined"
@@ -171,7 +196,12 @@ export default function JornadaConfig({
                   color="primary"
                 />
               }
-              label="Día Libre"
+              label={
+                <CheckboxLabelWithHelp
+                  text="Día libre (1 por semana)"
+                  help={HELP_DIA_LIBRE}
+                />
+              }
             />
           </Box>
 
@@ -186,7 +216,12 @@ export default function JornadaConfig({
                   color="primary"
                 />
               }
-              label="Hora Corrida"
+              label={
+                <CheckboxLabelWithHelp
+                  text="Hora Corrida"
+                  help={HELP_HORA_CORRIDA}
+                />
+              }
             />
           </Box>
         </Box>

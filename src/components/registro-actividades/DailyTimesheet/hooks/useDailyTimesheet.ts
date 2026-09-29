@@ -185,8 +185,11 @@ export const useDailyTimesheet = () => {
   // - H1_3/H1_4/H1_6: no usan Día Libre (oculto), pero sí editan horas
   // - H1_5: Día Libre editable (default domingo/feriado desde backend); también tiene "Día no laborable"
   // - H1_7: horas no editables, Día Libre desde backend; el usuario puede marcar "Día no laborable"
+  // - H1_10: sin plantilla; Día Libre + Día no laborable + jornada editables
   const showDiaNoLaborable = Boolean(
-    ["H1_3", "H1_4", "H1_5", "H1_7"].includes(horarioValidado?.tipoHorario || "")
+    ["H1_3", "H1_4", "H1_5", "H1_7", "H1_10"].includes(
+      horarioValidado?.tipoHorario || ""
+    )
   );
 
   const horaCorridaForzadaPorVentanaAlmuerzo = React.useMemo(() => {
@@ -552,6 +555,22 @@ export const useDailyTimesheet = () => {
                   },
                   horarioData.esFestivo
                 );
+              } else if (horarioData.tipoHorario === "H1_10") {
+                return getHolidayDayConfigFlags(
+                  {
+                    ...base,
+                    // H1_10: todo desde el registro (sin plantilla backend)
+                    jornada: registro.jornada || base.jornada || "D",
+                    horaEntrada: formatTimeLocal(registro.horaEntrada),
+                    horaSalida: formatTimeLocal(registro.horaSalida),
+                    esDiaLibre: Boolean(registro.esDiaLibre),
+                    esDiaNoLaborable: false,
+                    esIncapacidad: registro.esIncapacidad || false,
+                    esHoraCorrida: Boolean(registro.esHoraCorrida),
+                    comentarioEmpleado: registro.comentarioEmpleado || "",
+                  },
+                  horarioData.esFestivo
+                );
               } else if (horarioData.tipoHorario === "H1_5") {
                 return getHolidayDayConfigFlags(
                   {
@@ -906,12 +925,14 @@ export const useDailyTimesheet = () => {
       // Client-only: Día no laborable (no se envía al backend)
       if (name === "esDiaNoLaborable") {
         const isH1_7 = horarioValidado?.tipoHorario === "H1_7";
+        const isH1_10 = horarioValidado?.tipoHorario === "H1_10";
         setDayConfigData((prev) => {
           if (Boolean(finalValue)) {
             return {
               ...prev,
               esDiaNoLaborable: true,
-              jornada: "D",
+              // H1_10: preservar jornada seleccionada; otros fuerzan "D"
+              jornada: isH1_10 ? prev.jornada || "D" : "D",
               horaEntrada: "07:00",
               horaSalida: "07:00",
               // H1_7: hora corrida siempre true, no desmarcar al activar día no laborable
@@ -929,6 +950,26 @@ export const useDailyTimesheet = () => {
               horaEntrada: defaults.horaEntrada,
               horaSalida: defaults.horaSalida,
               esHoraCorrida: true,
+            };
+          }
+
+          // H1_10: sin plantilla — restaurar registro o dejar vacío
+          if (isH1_10) {
+            if (registroDiario?.horaEntrada && registroDiario?.horaSalida) {
+              return {
+                ...prev,
+                esDiaNoLaborable: false,
+                jornada: registroDiario.jornada || prev.jornada || "D",
+                horaEntrada: formatTimeLocal(registroDiario.horaEntrada),
+                horaSalida: formatTimeLocal(registroDiario.horaSalida),
+                esHoraCorrida: Boolean(registroDiario.esHoraCorrida),
+              };
+            }
+            return {
+              ...prev,
+              esDiaNoLaborable: false,
+              horaEntrada: "",
+              horaSalida: "",
             };
           }
 
@@ -1086,6 +1127,44 @@ export const useDailyTimesheet = () => {
               jornada: "D",
               horaEntrada: defaults.horaEntrada,
               horaSalida: defaults.horaSalida,
+            };
+          }
+        } else if (
+          horarioValidado?.tipoHorario === "H1_10" &&
+          (name === "esDiaLibre" || name === "esIncapacidad")
+        ) {
+          // H1_10: sin plantilla. Colapsar a 0h; al desactivar restaurar registro o vacío.
+          if (Boolean(finalValue)) {
+            next = {
+              ...next,
+              horaEntrada: "07:00",
+              horaSalida: "07:00",
+              esDiaNoLaborable: false,
+            };
+            if (name === "esIncapacidad") {
+              next.esDiaLibre = false;
+              next.esHoraCorrida = false;
+            }
+          } else if (name === "esDiaLibre" && next.esIncapacidad) {
+            // Mantener horas colapsadas si sigue incapacidad
+          } else if (
+            registroDiario?.horaEntrada &&
+            registroDiario?.horaSalida &&
+            !(name === "esDiaLibre" && registroDiario.esDiaLibre)
+          ) {
+            next = {
+              ...next,
+              jornada: registroDiario.jornada || prev.jornada || "D",
+              horaEntrada: formatTimeLocal(registroDiario.horaEntrada),
+              horaSalida: formatTimeLocal(registroDiario.horaSalida),
+              esHoraCorrida: Boolean(registroDiario.esHoraCorrida),
+            };
+          } else {
+            next = {
+              ...next,
+              jornada: prev.jornada || "D",
+              horaEntrada: "",
+              horaSalida: "",
             };
           }
         } else if (horarioValidado?.tipoHorario === "H1_7" && name === "esIncapacidad") {

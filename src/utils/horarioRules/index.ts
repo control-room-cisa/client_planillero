@@ -5,6 +5,7 @@ export * from "./H1EditableRules";
 export * from "./H1_5Rules";
 export * from "./H1_7Rules";
 export * from "./H1_9Rules";
+export * from "./H1_10Rules";
 export * from "./H2Rules";
 export * from "./H2_2Rules";
 export * from "./DefaultRules";

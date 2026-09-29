@@ -8,6 +8,7 @@ export const TipoHorario = {
   H1_7: "H1_7",
   H1_8: "H1_8",
   H1_9: "H1_9",
+  H1_10: "H1_10",
   H2_1: "H2_1",
   H2_2: "H2_2",
 } as const;
@@ -24,6 +25,7 @@ export const TIPOS_HORARIO: readonly TipoHorario[] = [
   TipoHorario.H1_7,
   TipoHorario.H1_8,
   TipoHorario.H1_9,
+  TipoHorario.H1_10,
   TipoHorario.H2_1,
   TipoHorario.H2_2,
 ] as const;
@@ -38,6 +40,7 @@ export const TIPO_HORARIO_LABEL: Record<TipoHorario, string> = {
   [TipoHorario.H1_7]: "(H1.7) Turnos rotativos 14x14",
   [TipoHorario.H1_8]: "(H1.8) Lunes a viernes (Legal)",
   [TipoHorario.H1_9]: "(H1.9) Especial Lunes a Sábado",
+  [TipoHorario.H1_10]: "(H1.10) Horario libre UI",
   [TipoHorario.H2_1]: "(H2.1) Turnos 7x7 Copenergy",
   [TipoHorario.H2_2]: "(H2.2) Lunes a Viernes Copenergy",
 };

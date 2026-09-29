@@ -1542,7 +1542,11 @@ const PlanillaDetallePreviewSupervisor: React.FC<Props> = ({
                         flexWrap="wrap"
                       >
                         {registro.esDiaLibre && (
-                          <Chip label="Día libre" color="info" size="small" />
+                          <Chip
+                            label="Día libre (1 por semana)"
+                            color="info"
+                            size="small"
+                          />
                         )}
                         {(!registro.esDiaLibre ||
                           horariosByFecha[registro.fecha ?? ""] === "H1_7") &&
