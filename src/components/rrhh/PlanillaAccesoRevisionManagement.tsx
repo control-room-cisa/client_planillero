@@ -44,6 +44,7 @@ import EmpleadoService, { type Empleado } from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
 import type { Empresa } from "../../types/auth";
 import ConfirmDialog from "../common/ConfirmDialog";
+import ModuleTitle from "../common/ModuleTitle";
 import { Roles } from "../../enums/roles";
 import { hasAnyRole, normalizeRolIds } from "../../utils/roles";
 
@@ -521,9 +522,7 @@ const PlanillaAccesoRevisionManagement: React.FC = () => {
         overflow: "hidden",
       }}
     >
-      <Typography variant="h4" gutterBottom sx={{ flexShrink: 0 }}>
-        Accesos Especiales de Planilla
-      </Typography>
+      <ModuleTitle>Accesos Especiales de Planilla</ModuleTitle>
 
       {/* Búsqueda y acción */}
       <Box

@@ -30,6 +30,7 @@ import {
 import { empresaService } from "../../services/empresaService";
 import type { Empresa } from "../../types/auth";
 import ConfirmDialog from "../common/ConfirmDialog";
+import ModuleTitle from "../common/ModuleTitle";
 
 interface EmpresaFormData {
   nombre: string;
@@ -226,9 +227,7 @@ const EmpresasManagement: React.FC = () => {
           flexShrink: 0,
         }}
       >
-        <Typography variant="h5" component="h2">
-          Gestión de Empresas
-        </Typography>
+        <ModuleTitle gutter={false}>Gestión de Empresas</ModuleTitle>
         <Button
           variant="contained"
           startIcon={<AddIcon />}

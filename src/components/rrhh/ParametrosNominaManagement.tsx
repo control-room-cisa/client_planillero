@@ -41,6 +41,7 @@ import {
   type TechoIhssDto,
 } from "../../services/techoIhssService";
 import ConfirmDialog from "../common/ConfirmDialog";
+import ModuleTitle from "../common/ModuleTitle";
 import { registroFechaToYmdSafe, ymdInTimeZone } from "../../utils/dateTime";
 
 const ANO_MIN_ALIMENTACION = 2025;
@@ -483,9 +484,7 @@ const ParametrosNominaManagement: React.FC = () => {
         boxSizing: "border-box",
       }}
     >
-      <Typography variant="h4" gutterBottom sx={{ flexShrink: 0 }}>
-        Parámetros de Nómina
-      </Typography>
+      <ModuleTitle>Parámetros de Nómina</ModuleTitle>
 
       <Paper
         sx={{

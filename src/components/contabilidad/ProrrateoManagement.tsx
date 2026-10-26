@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Box, Typography, Snackbar, Alert, Divider } from "@mui/material";
+import { Box, Snackbar, Alert } from "@mui/material";
 import { useNavigate, useLocation, useOutletContext } from "react-router-dom";
 import EmpleadoService from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
@@ -12,6 +12,7 @@ import EmpleadosFilters from "./gestion-prorrateo/EmpleadosFilters";
 import VerProrrateoGeneradoModal from "./gestion-prorrateo/VerProrrateoGeneradoModal";
 import DescargarProrrateoExcelModal from "./gestion-prorrateo/DescargarProrrateoExcelModal";
 import type { LayoutOutletCtx } from "../Layout";
+import ModuleTitle from "../common/ModuleTitle";
 import {
   persistProrrateoIndexSession,
   resolveEmpleadosIndexForNomina,
@@ -345,15 +346,7 @@ const ProrrateoManagement: React.FC = () => {
         overflow: "hidden",
       }}
     >
-      <Typography
-        variant="h5"
-        component="h1"
-        sx={{ fontWeight: "bold", minWidth: 0 }}
-      >
-        Gestión de Prorrateo
-      </Typography>
-
-      <Divider sx={{ mb: 3 }} />
+      <ModuleTitle>Gestión de Prorrateo</ModuleTitle>
 
       <Box sx={{ mb: 3, flexShrink: 0 }}>
         <EmpleadosFilters

@@ -29,6 +29,7 @@ import PostAddIcon from "@mui/icons-material/PostAdd";
 import FindInPageIcon from "@mui/icons-material/FindInPage";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import EventIcon from "@mui/icons-material/Event";
+import EventAvailableIcon from "@mui/icons-material/EventAvailable";
 import PeopleIcon from "@mui/icons-material/People";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import GroupAddIcon from "@mui/icons-material/GroupAdd";
@@ -42,6 +43,7 @@ import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useNotificationCount } from "../hooks/useNotificationCount";
+import { useSolicitudesPendientesCount } from "../hooks/useSolicitudesPendientesCount";
 import type { Empleado } from "../services/empleadoService";
 import { Roles } from "../enums/roles";
 import {
@@ -131,6 +133,8 @@ export default function Layout() {
   const theme = useTheme();
   const { user, logout } = useAuth();
   const { count: notificationCount } = useNotificationCount();
+  const { supervisor: solicitudesSupervisor, rrhh: solicitudesRrhh } =
+    useSolicitudesPendientesCount();
   const [open, setOpen] = React.useState(false);
   const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(
     null
@@ -294,6 +298,16 @@ export default function Layout() {
           icon: <SettingsIcon />,
           path: "/rrhh/parametros-nomina",
         },
+        {
+          id: "solicitudes-rrhh",
+          text: "Solicitudes de permisos",
+          icon: (
+            <Badge badgeContent={solicitudesRrhh} color="error">
+              <EventAvailableIcon />
+            </Badge>
+          ),
+          path: "/rrhh/solicitudes",
+        },
       ]);
     }
 
@@ -304,6 +318,16 @@ export default function Layout() {
           text: "Revisión de Actividades Diarias",
           icon: <FindInPageIcon />,
           path: "/supervision/planillas",
+        },
+        {
+          id: "solicitudes-supervision",
+          text: "Solicitudes del equipo",
+          icon: (
+            <Badge badgeContent={solicitudesSupervisor} color="error">
+              <EventAvailableIcon />
+            </Badge>
+          ),
+          path: "/supervision/solicitudes",
         },
       ]);
     }
@@ -338,11 +362,17 @@ export default function Layout() {
           ),
           path: "/notificaciones",
         },
+        {
+          id: "mis-solicitudes",
+          text: "Mis solicitudes",
+          icon: <EventAvailableIcon />,
+          path: "/mis-solicitudes",
+        },
       ]);
     }
 
     return Array.from(byId.values());
-  }, [user?.rolIds, notificationCount, todayDateString]);
+  }, [user?.rolIds, notificationCount, solicitudesSupervisor, solicitudesRrhh, todayDateString]);
 
   const handleOpenUserMenu = (e: React.MouseEvent<HTMLElement>) =>
     setAnchorElUser(e.currentTarget);

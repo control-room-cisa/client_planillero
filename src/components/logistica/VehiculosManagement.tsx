@@ -2,7 +2,6 @@ import * as React from "react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
-  Typography,
   Paper,
   Table,
   TableBody,
@@ -33,6 +32,7 @@ import VehiculoService, {
   type UpdateVehiculoDto,
 } from "../../services/vehiculoService";
 import ConfirmDialog from "../common/ConfirmDialog";
+import ModuleTitle from "../common/ModuleTitle";
 
 const ROWS_PER_PAGE = 10;
 
@@ -272,9 +272,7 @@ const VehiculosManagement: React.FC = () => {
         overflowX: "hidden",
       }}
     >
-      <Typography variant="h4" gutterBottom>
-        Gestión de Vehículos
-      </Typography>
+      <ModuleTitle>Gestión de Vehículos</ModuleTitle>
 
       <Box sx={{ display: "flex", mb: 2, gap: 2 }}>
         <TextField

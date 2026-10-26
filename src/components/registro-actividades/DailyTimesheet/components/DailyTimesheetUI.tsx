@@ -1,4 +1,5 @@
 import * as React from "react";
+import ModuleTitle from "../../../common/ModuleTitle";
 import {
   Box,
   Typography,
@@ -168,13 +169,7 @@ export const DailyTimesheetUI: React.FC<DailyTimesheetUIProps> = (props) => {
           gap: 2,
         }}
       >
-        <Typography
-          variant={isMobile ? "h5" : "h5"}
-          component="h1"
-          sx={{ fontWeight: "bold", minWidth: 0 }}
-        >
-          Registro de Actividades
-        </Typography>
+        <ModuleTitle gutter={false}>Registro de Actividades</ModuleTitle>
         <Box
           sx={{
             display: "flex",

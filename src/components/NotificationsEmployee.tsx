@@ -15,6 +15,7 @@ import {
   ChevronRight as ChevronRightIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import ModuleTitle from "./common/ModuleTitle";
 import RegistroDiarioService from "../services/registroDiarioService";
 import ymdInTZ from "../utils/timeZone";
 import type { RegistroDiarioData } from "../dtos/RegistrosDiariosDataDto";
@@ -160,6 +161,7 @@ const NotificationsEmployee: React.FC<NotificationsEmployeeProps> = ({
   if (error) {
     return (
       <Box sx={{ p: 3 }}>
+        <ModuleTitle>Notificaciones</ModuleTitle>
         <Alert severity="error">{error}</Alert>
       </Box>
     );
@@ -168,36 +170,22 @@ const NotificationsEmployee: React.FC<NotificationsEmployeeProps> = ({
   return (
     <Box
       sx={{
-        maxWidth: 1200,
-        mx: "auto",
-        width: "100%",
+        p: 3,
         height: "100%",
-        minHeight: 0,
-        overflow: "hidden",
         display: "flex",
         flexDirection: "column",
+        minHeight: 0,
+        overflow: "hidden",
       }}
     >
+      <ModuleTitle>Notificaciones</ModuleTitle>
       <Box
         sx={{
-          pt: 3,
-          px: 3,
-          pb: 4,
           overflowY: "auto",
           flex: 1,
           minHeight: 0,
-          pr: 3.5,
         }}
       >
-        <Typography
-          variant="h5"
-          color="primary"
-          fontWeight="bold"
-          gutterBottom
-          sx={{ mb: 3 }}
-        >
-          Notificaciones
-        </Typography>
 
         {notifications.length === 0 ? (
           <Box

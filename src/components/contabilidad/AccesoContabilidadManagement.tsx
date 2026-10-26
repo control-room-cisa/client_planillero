@@ -36,6 +36,7 @@ import AccesoContabilidadService, {
   type CreateAccesoContabilidadDto,
 } from "../../services/accesoContabilidadService";
 import ConfirmDialog from "../common/ConfirmDialog";
+import ModuleTitle from "../common/ModuleTitle";
 
 const labelEmpleado = (e: AccesoContabilidadCatalogEmpleado) => {
   const nombre = [e.nombre, e.apellido].filter(Boolean).join(" ");
@@ -215,9 +216,7 @@ const AccesoContabilidadManagement: React.FC = () => {
           gap: 2,
         }}
       >
-        <Typography variant="h5" component="h1" fontWeight="bold">
-          Accesos asistentes de contabilidad
-        </Typography>
+        <ModuleTitle gutter={false}>Accesos asistentes de contabilidad</ModuleTitle>
         <Button
           variant="contained"
           startIcon={<AddIcon />}

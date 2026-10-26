@@ -27,6 +27,7 @@ import {
   ListSubheader,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material";
+import ModuleTitle from "../common/ModuleTitle";
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -618,9 +619,7 @@ const JobsManagement: React.FC = () => {
 
   return (
     <Box sx={{ p: 5 }}>
-      <Typography variant="h5" component="h2">
-        Gestión de Jobs
-      </Typography>
+      <ModuleTitle>Gestión de Jobs</ModuleTitle>
 
       {/* Leyenda de jerarquía */}
       <Box

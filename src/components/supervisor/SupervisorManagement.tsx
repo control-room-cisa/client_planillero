@@ -2,11 +2,9 @@ import * as React from "react";
 import { useState } from "react";
 import {
   Box,
-  Typography,
   TextField,
   InputAdornment,
   Paper,
-  Divider,
 } from "@mui/material";
 import { Search as SearchIcon } from "@mui/icons-material";
 import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
@@ -14,6 +12,7 @@ import type { Empleado } from "../../services/empleadoService";
 import ColaboradoresList from "./gestion-supervisor/ColaboradoresList";
 import type { LayoutOutletCtx } from "../Layout";
 import { useEmployees } from "../employeeByDepartament";
+import ModuleTitle from "../common/ModuleTitle";
 
 const SupervisorManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -82,18 +81,7 @@ const SupervisorManagement: React.FC = () => {
         overflow: "hidden",
       }}
     >
-      <Typography
-        variant="h5"
-        component="h1"
-        sx={{
-          fontWeight: "bold",
-          minWidth: 0,
-          fontSize: { xs: "1.25rem", sm: "1.5rem" },
-        }}
-      >
-        Revisión de Actividades Diarias
-      </Typography>
-      <Divider sx={{ mb: { xs: 2, sm: 3 } }} />
+      <ModuleTitle>Revisión de Actividades Diarias</ModuleTitle>
       {/* Barra de búsqueda fuera del scroll */}
       <Paper
         sx={{ p: { xs: 1.5, sm: 2 }, mb: { xs: 1.5, sm: 2 }, flexShrink: 0 }}

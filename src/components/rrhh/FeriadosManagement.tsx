@@ -38,6 +38,7 @@ import {
 import * as React from "react";
 
 import FeriadoService from "../../services/feriadoService";
+import ModuleTitle from "../common/ModuleTitle";
 import type {
   Feriado,
   CreateFeriadoDto,
@@ -382,9 +383,7 @@ const FeriadosManagement: React.FC = () => {
         overflow: "hidden",
       }}
     >
-      <Typography variant="h4" gutterBottom sx={{ flexShrink: 0 }}>
-        Gestión de Días Festivos
-      </Typography>
+      <ModuleTitle>Gestión de Días Festivos</ModuleTitle>
 
       {/* Barra de búsqueda y botón de agregar */}
       <Box sx={{ display: "flex", mb: 3, gap: 2 }}>

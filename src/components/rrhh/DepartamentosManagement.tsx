@@ -33,6 +33,7 @@ import departamentoService, {
 import { empresaService } from "../../services/empresaService";
 import type { Empresa } from "../../types/auth";
 import ConfirmDialog from "../common/ConfirmDialog";
+import ModuleTitle from "../common/ModuleTitle";
 
 const DepartamentosManagement: React.FC = () => {
   const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
@@ -266,9 +267,7 @@ const DepartamentosManagement: React.FC = () => {
         overflow: "hidden",
       }}
     >
-      <Typography variant="h4" gutterBottom sx={{ flexShrink: 0 }}>
-        Gestión de Departamentos
-      </Typography>
+      <ModuleTitle>Gestión de Departamentos</ModuleTitle>
 
       {/* Filtros */}
       <Paper sx={{ p: 2, mb: 3, flexShrink: 0 }}>

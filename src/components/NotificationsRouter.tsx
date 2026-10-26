@@ -2,6 +2,7 @@
 import { Box, Typography } from "@mui/material";
 import { useAuth } from "../hooks/useAuth";
 import NotificationsEmployee from "./NotificationsEmployee";
+import ModuleTitle from "./common/ModuleTitle";
 import { Roles } from "../enums/roles";
 import { hasAnyRole, normalizeRolIds } from "../utils/roles";
 
@@ -15,7 +16,7 @@ export default function NotificationsRouter() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5">Notificaciones</Typography>
+      <ModuleTitle>Notificaciones</ModuleTitle>
       <Typography>No hay notificaciones disponibles.</Typography>
     </Box>
   );

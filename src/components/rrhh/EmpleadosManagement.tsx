@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useEffect, useCallback } from "react";
-import { Box, Typography, Snackbar, Alert } from "@mui/material";
+import { Box, Snackbar, Alert } from "@mui/material";
 import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
 import EmpleadoService from "../../services/empleadoService";
 import { empresaService } from "../../services/empresaService";
@@ -12,6 +12,7 @@ import EmpleadoDetailModal from "./gestion-empleados/EmpleadoDetailModal";
 import EmpleadosFilters from "./gestion-empleados/EmpleadosFilters";
 import EmpleadoBulkEditModal from "./gestion-empleados/edicion-masiva/EmpleadoBulkEditModal";
 import type { LayoutOutletCtx } from "../Layout";
+import ModuleTitle from "../common/ModuleTitle";
 import {
   persistEmpleadosIndexSession,
   resolveEmpleadosIndexForNomina,
@@ -261,9 +262,7 @@ const EmpleadosManagement: React.FC = () => {
         overflow: "hidden",
       }}
     >
-      <Typography variant="h4" gutterBottom sx={{ flexShrink: 0 }}>
-        Gestión de Colaboradores
-      </Typography>
+      <ModuleTitle>Gestión de Colaboradores</ModuleTitle>
 
       {/* Filtros */}
       <Box sx={{ mb: 3, flexShrink: 0 }}>

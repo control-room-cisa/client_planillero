@@ -38,6 +38,7 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import NominaService, { type NominaDto } from "../../services/nominaService";
+import ModuleTitle from "../common/ModuleTitle";
 import RegistroDiarioService from "../../services/registroDiarioService";
 import { empresaService } from "../../services/empresaService";
 import EmpleadoService from "../../services/empleadoService";
@@ -958,9 +959,7 @@ const NominasManagement: React.FC = () => {
         overflow: "hidden",
       }}
     >
-      <Typography variant="h4" gutterBottom sx={{ flexShrink: 0 }}>
-        Gestión de Nóminas
-      </Typography>
+      <ModuleTitle>Gestión de Nóminas</ModuleTitle>
 
       {/* Filtros */}
       <Paper sx={{ p: 2, mb: 3, flexShrink: 0 }}>

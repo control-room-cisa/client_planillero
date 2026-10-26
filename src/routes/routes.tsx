@@ -61,6 +61,15 @@ const VehiculosManagement = React.lazy(
 const InformacionPersonalEmpleado = React.lazy(
   () => import("../components/empleado/InformacionPersonalEmpleado")
 );
+const MisSolicitudes = React.lazy(
+  () => import("../components/empleado/MisSolicitudes")
+);
+const SolicitudesSupervision = React.lazy(
+  () => import("../components/supervisor/SolicitudesSupervision")
+);
+const SolicitudesRrhh = React.lazy(
+  () => import("../components/rrhh/SolicitudesRrhh")
+);
 
 const AppRoutes: React.FC = () => {
   return (
@@ -107,6 +116,14 @@ const AppRoutes: React.FC = () => {
           element={
             <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR]}>
               <SupervisorRoute />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="supervision/solicitudes"
+          element={
+            <RoleProtectedRoute allowedRoles={[Roles.SUPERVISOR]}>
+              <SolicitudesSupervision />
             </RoleProtectedRoute>
           }
         />
@@ -167,6 +184,14 @@ const AppRoutes: React.FC = () => {
           element={
             <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
               <ParametrosNominaManagement />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="rrhh/solicitudes"
+          element={
+            <RoleProtectedRoute allowedRoles={[Roles.RRHH]}>
+              <SolicitudesRrhh />
             </RoleProtectedRoute>
           }
         />
@@ -261,6 +286,14 @@ const AppRoutes: React.FC = () => {
           element={
             <RoleProtectedRoute allowedRoles={[Roles.EMPLEADO]}>
               <NotificationsEmployee />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="mis-solicitudes"
+          element={
+            <RoleProtectedRoute allowedRoles={[Roles.EMPLEADO]}>
+              <MisSolicitudes />
             </RoleProtectedRoute>
           }
         />

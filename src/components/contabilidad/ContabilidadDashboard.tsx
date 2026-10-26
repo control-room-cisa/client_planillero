@@ -1,11 +1,9 @@
 import React, { useState } from "react";
 import {
   Box,
-  Typography,
   Tab,
   Tabs,
   Paper,
-  Divider,
   Container,
 } from "@mui/material";
 import {
@@ -13,6 +11,7 @@ import {
   Business as BusinessIcon,
 } from "@mui/icons-material";
 import JobsManagement from "./JobsManagement";
+import ModuleTitle from "../common/ModuleTitle";
 import EmpresasManagement from "./EmpresasManagement";
 
 interface TabPanelProps {
@@ -87,14 +86,7 @@ const ContabilidadDashboard: React.FC = () => {
       }}
     >
       <Box sx={{ flexShrink: 0 }}>
-        <Typography
-          variant="h5"
-          component="h1"
-          sx={{ fontWeight: "bold", minWidth: 0 }}
-        >
-          Jobs y Empresas
-        </Typography>
-        <Divider sx={{ mb: 2, mt: 1 }} />
+        <ModuleTitle>Jobs y Empresas</ModuleTitle>
       </Box>
 
       <Paper
