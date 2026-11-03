@@ -385,6 +385,12 @@ const FeriadosManagement: React.FC = () => {
     >
       <ModuleTitle>Gestión de Días Festivos</ModuleTitle>
 
+      <Alert severity="warning" sx={{ mb: 2 }}>
+        Los días feriados deben crearse con varios días de anticipación. Si un
+        usuario llena su registro diario antes de que exista el feriado, los
+        cálculos de horas y nómina pueden generarse con errores.
+      </Alert>
+
       {/* Barra de búsqueda y botón de agregar */}
       <Box sx={{ display: "flex", mb: 3, gap: 2 }}>
         <TextField

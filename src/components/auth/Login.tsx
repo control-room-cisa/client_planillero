@@ -239,17 +239,24 @@ export default function Login() {
                   onExpire={() => {
                     setTurnstileToken("");
                   }}
-                  onError={() => {
+                  onError={(errorCode) => {
                     setTurnstileToken("");
                     if (!suppressTurnstileErrorRef.current) {
+                      // 110200 = dominio no autorizado en Cloudflare Turnstile
+                      const hint =
+                        errorCode === "110200"
+                          ? " Dominio no autorizado (agrega localhost en Cloudflare o usa claves de prueba)."
+                          : errorCode
+                            ? ` (código ${errorCode})`
+                            : "";
                       setError(
-                        "Error en la verificación de seguridad. Intente de nuevo."
+                        `Error en la verificación de seguridad. Intente de nuevo.${hint}`
                       );
                     }
                   }}
                   options={{
                     theme: "light",
-                    size: "flexible",
+                    size: "normal",
                   }}
                 />
               </Box>

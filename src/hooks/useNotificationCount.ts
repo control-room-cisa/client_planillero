@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import RegistroDiarioService from "../services/registroDiarioService";
+import { NotificacionLogService } from "../services/notificacionLogService";
 import ymdInTZ from "../utils/timeZone";
 
 export const useNotificationCount = () => {
@@ -19,20 +20,23 @@ export const useNotificationCount = () => {
         if (ymd) dates.push(ymd);
       }
 
-      const registros = await Promise.all(
-        dates.map((fecha) =>
-          RegistroDiarioService.getByDate(fecha).catch(() => null)
-        )
-      );
+      const [registros, logsPendientes] = await Promise.all([
+        Promise.all(
+          dates.map((fecha) =>
+            RegistroDiarioService.getByDate(fecha).catch(() => null)
+          )
+        ),
+        NotificacionLogService.countPendientes().catch(() => 0),
+      ]);
 
-      const notificationCount = registros.filter((registro) => {
+      const rechazoCount = registros.filter((registro) => {
         if (!registro) return false;
         const supervisorRechazado = registro.aprobacionSupervisor === false;
         const rrhhRechazado = registro.aprobacionRrhh === false;
         return supervisorRechazado || rrhhRechazado;
       }).length;
 
-      setCount(notificationCount);
+      setCount(rechazoCount + logsPendientes);
     } catch (err) {
       console.error("Error al cargar conteo de notificaciones:", err);
     } finally {
