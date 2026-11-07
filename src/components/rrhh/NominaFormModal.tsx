@@ -161,6 +161,10 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
   const [formMontoHoras50, setFormMontoHoras50] = useState<number>(0);
   const [formMontoHoras75, setFormMontoHoras75] = useState<number>(0);
   const [formMontoHoras100, setFormMontoHoras100] = useState<number>(0);
+  const [formCantidadHoras25, setFormCantidadHoras25] = useState<number>(0);
+  const [formCantidadHoras50, setFormCantidadHoras50] = useState<number>(0);
+  const [formCantidadHoras75, setFormCantidadHoras75] = useState<number>(0);
+  const [formCantidadHoras100, setFormCantidadHoras100] = useState<number>(0);
 
   // Deducciones
   const [formAjuste, setFormAjuste] = useState<number>(0);
@@ -420,6 +424,10 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       setFormMontoHoras50(nomina.montoHoras50 ?? 0);
       setFormMontoHoras75(nomina.montoHoras75 ?? 0);
       setFormMontoHoras100(nomina.montoHoras100 ?? 0);
+      setFormCantidadHoras25(nomina.cantidadHoras25 ?? 0);
+      setFormCantidadHoras50(nomina.cantidadHoras50 ?? 0);
+      setFormCantidadHoras75(nomina.cantidadHoras75 ?? 0);
+      setFormCantidadHoras100(nomina.cantidadHoras100 ?? 0);
       setFormAjuste(nomina.ajuste ?? 0);
       setFormDeduccionIHSS(nomina.deduccionIHSS ?? 0);
       setFormDeduccionISR(nomina.deduccionISR ?? 0);
@@ -483,6 +491,16 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
           nomina.montoHoras75 != null ? String(nomina.montoHoras75) : "",
         montoHoras100:
           nomina.montoHoras100 != null ? String(nomina.montoHoras100) : "",
+        cantidadHoras25:
+          nomina.cantidadHoras25 != null ? String(nomina.cantidadHoras25) : "",
+        cantidadHoras50:
+          nomina.cantidadHoras50 != null ? String(nomina.cantidadHoras50) : "",
+        cantidadHoras75:
+          nomina.cantidadHoras75 != null ? String(nomina.cantidadHoras75) : "",
+        cantidadHoras100:
+          nomina.cantidadHoras100 != null
+            ? String(nomina.cantidadHoras100)
+            : "",
         ajuste: nomina.ajuste != null ? String(nomina.ajuste) : "",
         deduccionIHSS:
           nomina.deduccionIHSS != null ? String(nomina.deduccionIHSS) : "",
@@ -551,6 +569,10 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       setFormMontoHoras50(0);
       setFormMontoHoras75(0);
       setFormMontoHoras100(0);
+      setFormCantidadHoras25(0);
+      setFormCantidadHoras50(0);
+      setFormCantidadHoras75(0);
+      setFormCantidadHoras100(0);
       setFormAjuste(0);
       setFormDeduccionIHSS(0);
       setFormDeduccionISR(0);
@@ -1066,6 +1088,26 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         label: "Monto Horas 100%",
       },
       {
+        key: "cantidadHoras25",
+        value: formCantidadHoras25,
+        label: "Cantidad Horas 25%",
+      },
+      {
+        key: "cantidadHoras50",
+        value: formCantidadHoras50,
+        label: "Cantidad Horas 50%",
+      },
+      {
+        key: "cantidadHoras75",
+        value: formCantidadHoras75,
+        label: "Cantidad Horas 75%",
+      },
+      {
+        key: "cantidadHoras100",
+        value: formCantidadHoras100,
+        label: "Cantidad Horas 100%",
+      },
+      {
         key: "deduccionIHSS",
         value: formDeduccionIHSS,
         label: "Deducción IHSS",
@@ -1167,6 +1209,10 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         montoHoras50: formMontoHoras50 ?? 0,
         montoHoras75: formMontoHoras75 ?? 0,
         montoHoras100: formMontoHoras100 ?? 0,
+        cantidadHoras25: formCantidadHoras25 ?? 0,
+        cantidadHoras50: formCantidadHoras50 ?? 0,
+        cantidadHoras75: formCantidadHoras75 ?? 0,
+        cantidadHoras100: formCantidadHoras100 ?? 0,
         ajuste: formAjuste ?? 0,
         totalPercepciones: formTotalPercepciones ?? 0,
         deduccionIHSS: formDeduccionIHSS ?? 0,
@@ -1919,10 +1965,31 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr 1fr" },
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
               gap: 2,
             }}
           >
+            <TextField
+              label="Cantidad Horas 25%"
+              type="text"
+              value={numericText.cantidadHoras25 ?? ""}
+              onChange={(e) =>
+                handleNumericChange(
+                  e,
+                  "cantidadHoras25",
+                  setFormCantidadHoras25,
+                  {
+                    allowNegative: false,
+                    allowDecimal: true,
+                    maxDecimals: 2,
+                  },
+                )
+              }
+              onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
+              fullWidth
+              error={!!formErrors.cantidadHoras25}
+              helperText={formErrors.cantidadHoras25}
+            />
             <TextField
               label="Monto Horas 25%"
               type="text"
@@ -1938,6 +2005,27 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               fullWidth
               error={!!formErrors.montoHoras25}
               helperText={formErrors.montoHoras25}
+            />
+            <TextField
+              label="Cantidad Horas 50%"
+              type="text"
+              value={numericText.cantidadHoras50 ?? ""}
+              onChange={(e) =>
+                handleNumericChange(
+                  e,
+                  "cantidadHoras50",
+                  setFormCantidadHoras50,
+                  {
+                    allowNegative: false,
+                    allowDecimal: true,
+                    maxDecimals: 2,
+                  },
+                )
+              }
+              onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
+              fullWidth
+              error={!!formErrors.cantidadHoras50}
+              helperText={formErrors.cantidadHoras50}
             />
             <TextField
               label="Monto Horas 50%"
@@ -1956,6 +2044,27 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               helperText={formErrors.montoHoras50}
             />
             <TextField
+              label="Cantidad Horas 75%"
+              type="text"
+              value={numericText.cantidadHoras75 ?? ""}
+              onChange={(e) =>
+                handleNumericChange(
+                  e,
+                  "cantidadHoras75",
+                  setFormCantidadHoras75,
+                  {
+                    allowNegative: false,
+                    allowDecimal: true,
+                    maxDecimals: 2,
+                  },
+                )
+              }
+              onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
+              fullWidth
+              error={!!formErrors.cantidadHoras75}
+              helperText={formErrors.cantidadHoras75}
+            />
+            <TextField
               label="Monto Horas 75%"
               type="text"
               value={numericText.montoHoras75 ?? ""}
@@ -1970,6 +2079,27 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               fullWidth
               error={!!formErrors.montoHoras75}
               helperText={formErrors.montoHoras75}
+            />
+            <TextField
+              label="Cantidad Horas 100%"
+              type="text"
+              value={numericText.cantidadHoras100 ?? ""}
+              onChange={(e) =>
+                handleNumericChange(
+                  e,
+                  "cantidadHoras100",
+                  setFormCantidadHoras100,
+                  {
+                    allowNegative: false,
+                    allowDecimal: true,
+                    maxDecimals: 2,
+                  },
+                )
+              }
+              onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
+              fullWidth
+              error={!!formErrors.cantidadHoras100}
+              helperText={formErrors.cantidadHoras100}
             />
             <TextField
               label="Monto Horas 100%"

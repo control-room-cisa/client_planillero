@@ -509,12 +509,16 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
         montoIncapacidadCubreEmpresa: montoIncapacidadCubreEmpresa || 0,
         montoPermisosJustificados: montoPermisosJustificados || 0,
 
-        // Horas extra (montos)
+        // Horas extra (montos + cantidades totales por %)
         // Normal no se guarda como campo separado en backend; se refleja en montos de días
         montoHoras25: montoHoras25 || 0,
         montoHoras50: montoHoras50 || 0,
         montoHoras75: montoHoras75 || 0,
         montoHoras100: montoHoras100 || 0,
+        cantidadHoras25: horas?.p25 || 0,
+        cantidadHoras50: horas?.p50 || 0,
+        cantidadHoras75: horas?.p75 || 0,
+        cantidadHoras100: horas?.p100 || 0,
 
         // Ajustes y totales (total bruto/neto alineados con prorrateo)
         ajuste: ajuste || 0,
@@ -562,6 +566,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     montoHoras50,
     montoHoras75,
     montoHoras100,
+    horas,
     showToast,
     bloqueaPorValidacion,
     ajuste,

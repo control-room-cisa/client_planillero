@@ -66,6 +66,7 @@ import {
 import {
   buildVoucherDocumentHtml,
   buildVoucherPageHtml,
+  resolveCantidadHorasOt,
 } from "./voucherNominaHtml";
 
 const renderPeriodosSelectItems = (
@@ -2324,59 +2325,68 @@ const NominasManagement: React.FC = () => {
                     </Typography>
                     <Box
                       sx={{
-                        display: "flex",
-                        flexDirection: "column",
+                        display: "grid",
+                        gridTemplateColumns: {
+                          xs: "1fr",
+                          sm: "1fr 1fr",
+                          md: "1fr 1fr 1fr 1fr",
+                        },
                         gap: 2,
                       }}
                     >
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          OT 25%
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.montoHoras25)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          OT 50%
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.montoHoras50)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          OT 75%
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.montoHoras75)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          OT 100%
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.montoHoras100)}
-                        </Typography>
-                      </Box>
+                      {(
+                        [
+                          {
+                            label: "OT 25%",
+                            cantidad: currentNomina.cantidadHoras25,
+                            monto: currentNomina.montoHoras25,
+                            pct: 25 as const,
+                          },
+                          {
+                            label: "OT 50%",
+                            cantidad: currentNomina.cantidadHoras50,
+                            monto: currentNomina.montoHoras50,
+                            pct: 50 as const,
+                          },
+                          {
+                            label: "OT 75%",
+                            cantidad: currentNomina.cantidadHoras75,
+                            monto: currentNomina.montoHoras75,
+                            pct: 75 as const,
+                          },
+                          {
+                            label: "OT 100%",
+                            cantidad: currentNomina.cantidadHoras100,
+                            monto: currentNomina.montoHoras100,
+                            pct: 100 as const,
+                          },
+                        ] as const
+                      ).map((ot) => {
+                        const horas = resolveCantidadHorasOt(
+                          ot.cantidad,
+                          ot.monto,
+                          currentNomina.sueldoMensual,
+                          ot.pct,
+                        );
+                        return (
+                          <Box key={ot.label}>
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              gutterBottom
+                            >
+                              {ot.label}
+                            </Typography>
+                            <Typography variant="body1">
+                              {horas != null && Number.isFinite(horas)
+                                ? `${horas.toFixed(2)} h`
+                                : "—"}
+                              {" · "}
+                              {formatCurrency(ot.monto)}
+                            </Typography>
+                          </Box>
+                        );
+                      })}
                     </Box>
                   </CardContent>
                 </Card>

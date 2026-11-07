@@ -12,6 +12,45 @@ export function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Factores de recargo OT: monto = horas × (sueldoMensual/240) × factor */
+const OT_FACTORS = {
+  25: 1.25,
+  50: 1.5,
+  75: 1.75,
+  100: 2.0,
+} as const;
+
+function round2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+/**
+ * Cantidad de horas OT guardada, o derivada del monto si la nómina es antigua.
+ * `horas = monto / ((sueldoMensual / 240) * factor)`
+ */
+export function resolveCantidadHorasOt(
+  cantidad: number | null | undefined,
+  monto: number | null | undefined,
+  sueldoMensual: number | null | undefined,
+  pct: keyof typeof OT_FACTORS,
+): number | null {
+  if (cantidad != null && Number.isFinite(cantidad)) {
+    return cantidad;
+  }
+  const m = monto ?? 0;
+  const sueldo = sueldoMensual ?? 0;
+  if (!m || !sueldo) return m === 0 ? 0 : null;
+  const salarioPorHora = sueldo / 240;
+  const denom = salarioPorHora * OT_FACTORS[pct];
+  if (!denom) return null;
+  return round2(m / denom);
+}
+
+function formatHorasOt(h: number | null): string {
+  if (h === null || h === undefined || !Number.isFinite(h)) return "—";
+  return `${h.toFixed(2)} h`;
+}
+
 export const VOUCHER_PRINT_STYLES = `
     * { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; font-size: 9.5px; margin: 10px; color: #222; line-height: 1.25; }
@@ -177,10 +216,30 @@ export function buildVoucherPageHtml(
     ${card(
       "Horas extra",
       rows([
-        ["OT 25%", esc(fc(n.montoHoras25))],
-        ["OT 50%", esc(fc(n.montoHoras50))],
-        ["OT 75%", esc(fc(n.montoHoras75))],
-        ["OT 100%", esc(fc(n.montoHoras100))],
+        [
+          "OT 25%",
+          esc(
+            `${formatHorasOt(resolveCantidadHorasOt(n.cantidadHoras25, n.montoHoras25, n.sueldoMensual, 25))} · ${fc(n.montoHoras25)}`,
+          ),
+        ],
+        [
+          "OT 50%",
+          esc(
+            `${formatHorasOt(resolveCantidadHorasOt(n.cantidadHoras50, n.montoHoras50, n.sueldoMensual, 50))} · ${fc(n.montoHoras50)}`,
+          ),
+        ],
+        [
+          "OT 75%",
+          esc(
+            `${formatHorasOt(resolveCantidadHorasOt(n.cantidadHoras75, n.montoHoras75, n.sueldoMensual, 75))} · ${fc(n.montoHoras75)}`,
+          ),
+        ],
+        [
+          "OT 100%",
+          esc(
+            `${formatHorasOt(resolveCantidadHorasOt(n.cantidadHoras100, n.montoHoras100, n.sueldoMensual, 100))} · ${fc(n.montoHoras100)}`,
+          ),
+        ],
       ]),
     )}
   </div>
