@@ -6,7 +6,7 @@ import {
   solicitudErrorMessage,
   type SolicitudPermiso,
 } from "../../services/solicitudPermisoService";
-import EmpleadoService from "../../services/empleadoService";
+import RegistroDiarioService from "../../services/registroDiarioService";
 import { useAuth } from "../../hooks/useAuth";
 import SolicitudesTable from "../solicitudes/SolicitudesTable";
 import SolicitudPermisoModal, {
@@ -63,11 +63,15 @@ export default function MisSolicitudes() {
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
-    EmpleadoService.getById(user.id)
-      .then((empleado) => {
+    RegistroDiarioService.getTiempoCompensatorio(user.id, {
+      seccion: "vacaciones",
+      page: 1,
+      limit: 1,
+    })
+      .then((data) => {
         if (cancelled) return;
-        setVacacionesHoras(empleado.tiempoVacacionesHoras ?? null);
-        setCompensatorioHoras(empleado.tiempoCompensatorioHoras ?? null);
+        setVacacionesHoras(data.tiempoVacacionesHoras ?? null);
+        setCompensatorioHoras(data.totales?.horasAcumuladasPorJob ?? null);
       })
       .catch(() => {
         if (!cancelled) {

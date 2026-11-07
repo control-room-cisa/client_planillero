@@ -599,9 +599,8 @@ export default function SolicitudPermisoModal({
                     <Typography variant="body2">
                       Vacaciones acumuladas: {formatHoras(saldos.tiempoVacacionesHoras)} h
                       {" · "}
-                      Horas compensatorias: {formatHoras(saldos.tiempoCompensatorioHoras)} h
-                      {" · "}
-                      Banco por job: {formatHoras(saldos.totales.horasAcumuladasPorJob)} h
+                      Horas compensatorias:{" "}
+                      {formatHoras(saldos.totales.horasAcumuladasPorJob)} h
                     </Typography>
                   )}
                   <Button size="small" onClick={() => setDetalleSaldos(true)} sx={{ mt: 0.5 }}>
