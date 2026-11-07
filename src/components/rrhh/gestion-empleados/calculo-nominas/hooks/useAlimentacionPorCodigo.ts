@@ -26,6 +26,12 @@ export interface UseAlimentacionPorCodigoReturn {
   >;
   detalleDeduccionAlimentacion: DeduccionAlimentacionDetalleDto[];
   totalDetalleAlimentacion: number;
+  deduccionAlojamiento: number;
+  setDeduccionAlojamiento: React.Dispatch<React.SetStateAction<number>>;
+  inputDeduccionAlojamiento: string;
+  setInputDeduccionAlojamiento: React.Dispatch<React.SetStateAction<string>>;
+  detalleDeduccionAlojamiento: DeduccionAlimentacionDetalleDto[];
+  totalDetalleAlojamiento: number;
   loadingAlimentacion: boolean;
   errorAlimentacion: ErrorAlimentacion | null;
   setErrorAlimentacion: React.Dispatch<
@@ -35,11 +41,15 @@ export interface UseAlimentacionPorCodigoReturn {
   setModalDetalleAlimentacionOpen: React.Dispatch<
     React.SetStateAction<boolean>
   >;
+  modalDetalleAlojamientoOpen: boolean;
+  setModalDetalleAlojamientoOpen: React.Dispatch<
+    React.SetStateAction<boolean>
+  >;
 }
 
 /**
- * Hook que carga las deducciones de alimentación del empleado para el código
- * de nómina indicado. Encapsula estado + modal de detalle + manejo de errores.
+ * Hook que carga las deducciones de alimentación y alojamiento del empleado
+ * para el código de nómina indicado (un solo llamado; se separan por Categoria).
  */
 export function useAlimentacionPorCodigo({
   empleado,
@@ -52,6 +62,10 @@ export function useAlimentacionPorCodigo({
     React.useState<number>(0);
   const [inputDeduccionAlimentacion, setInputDeduccionAlimentacion] =
     React.useState<string>("");
+  const [deduccionAlojamiento, setDeduccionAlojamiento] =
+    React.useState<number>(0);
+  const [inputDeduccionAlojamiento, setInputDeduccionAlojamiento] =
+    React.useState<string>("");
 
   const [errorAlimentacion, setErrorAlimentacion] =
     React.useState<ErrorAlimentacion | null>(null);
@@ -59,20 +73,32 @@ export function useAlimentacionPorCodigo({
     React.useState<boolean>(false);
   const [detalleDeduccionAlimentacion, setDetalleDeduccionAlimentacion] =
     React.useState<DeduccionAlimentacionDetalleDto[]>([]);
+  const [detalleDeduccionAlojamiento, setDetalleDeduccionAlojamiento] =
+    React.useState<DeduccionAlimentacionDetalleDto[]>([]);
   const [modalDetalleAlimentacionOpen, setModalDetalleAlimentacionOpen] =
     React.useState<boolean>(false);
+  const [modalDetalleAlojamientoOpen, setModalDetalleAlojamientoOpen] =
+    React.useState<boolean>(false);
 
-  // Cargar deducciones de alimentación directamente desde el endpoint externo
-  // Alimentación se aplica siempre (tanto en A como en B)
+  const resetValores = React.useCallback(() => {
+    setDeduccionAlimentacion(0);
+    setInputDeduccionAlimentacion("");
+    setDetalleDeduccionAlimentacion([]);
+    setDeduccionAlojamiento(0);
+    setInputDeduccionAlojamiento("");
+    setDetalleDeduccionAlojamiento([]);
+  }, []);
+
+  // Cargar deducciones de alimentación/alojamiento desde el mismo endpoint
+  // Se aplican siempre (tanto en A como en B)
   React.useEffect(() => {
     const cargarDeduccionAlimentacion = async () => {
       // Necesitamos el código del empleado, no el ID
       const codigoEmpleado = (empleado as any)?.codigo;
       if (!codigoEmpleado || !fechaInicio || !fechaFin || !rangoValido) {
-        setDetalleDeduccionAlimentacion([]);
+        resetValores();
         setModalDetalleAlimentacionOpen(false);
-        setDeduccionAlimentacion(0);
-        setInputDeduccionAlimentacion("");
+        setModalDetalleAlojamientoOpen(false);
         if (!codigoEmpleado && empleado?.id) {
           // Si no hay código pero hay empleado, mostrar error
           setErrorAlimentacion({
@@ -88,6 +114,7 @@ export function useAlimentacionPorCodigo({
       setLoadingAlimentacion(true);
       setErrorAlimentacion(null);
       setModalDetalleAlimentacionOpen(false);
+      setModalDetalleAlojamientoOpen(false);
       const codigoNomina = codigoNominaPeriodo;
       if (!codigoNomina) {
         setErrorAlimentacion({
@@ -99,7 +126,7 @@ export function useAlimentacionPorCodigo({
         return;
       }
 
-      console.log("[CalculoNominas] Cargando deducciones de alimentación:", {
+      console.log("[CalculoNominas] Cargando deducciones de alimentación/alojamiento:", {
         codigoEmpleado,
         codigoNomina,
         rangoValido,
@@ -115,9 +142,7 @@ export function useAlimentacionPorCodigo({
             tieneError: true,
             mensajeError: `No se ha registrado un rango de fechas de alimentación para el código de nómina ${codigoNomina}`,
           });
-          setDeduccionAlimentacion(0);
-          setInputDeduccionAlimentacion("");
-          setDetalleDeduccionAlimentacion([]);
+          resetValores();
           setLoadingAlimentacion(false);
           return;
         }
@@ -134,14 +159,12 @@ export function useAlimentacionPorCodigo({
             tieneError: true,
             mensajeError: `Formato de fecha inválido en parámetros de alimentación para el código ${codigoNomina}`,
           });
-          setDeduccionAlimentacion(0);
-          setInputDeduccionAlimentacion("");
-          setDetalleDeduccionAlimentacion([]);
+          resetValores();
           setLoadingAlimentacion(false);
           return;
         }
 
-        // Llamar al endpoint del backend que a su vez llama a la API externa
+        // Un solo llamado: la respuesta trae ALIMENTACION y ALOJAMIENTO
         const t0 = Date.now();
         const resultado = await CalculoHorasTrabajoService.getDeduccionesAlimentacion(
           codigoEmpleado,
@@ -157,22 +180,26 @@ export function useAlimentacionPorCodigo({
         // Solo manejar el error específico de alimentación que viene en el objeto
         if (resultado.errorAlimentacion?.tieneError) {
           setErrorAlimentacion(resultado.errorAlimentacion);
-          // Si hay error, establecer el campo en 0 y habilitar edición
-          setDeduccionAlimentacion(0);
-          setInputDeduccionAlimentacion("");
-          setDetalleDeduccionAlimentacion([]);
+          resetValores();
         } else {
-          // Si no hay error (success = true), usar el valor calculado (no editable)
-          const valorCalculado = resultado.deduccionesAlimentacion ?? 0;
-          setDeduccionAlimentacion(valorCalculado);
+          const valorAlimentacion = resultado.deduccionesAlimentacion ?? 0;
+          const valorAlojamiento = resultado.deduccionesAlojamiento ?? 0;
+          setDeduccionAlimentacion(valorAlimentacion);
           setInputDeduccionAlimentacion(
-            valorCalculado > 0 ? String(valorCalculado) : "",
+            valorAlimentacion > 0 ? String(valorAlimentacion) : "",
           );
+          setDetalleDeduccionAlimentacion(
+            resultado.detalleAlimentacion ?? [],
+          );
+          setDeduccionAlojamiento(valorAlojamiento);
+          setInputDeduccionAlojamiento(
+            valorAlojamiento > 0 ? String(valorAlojamiento) : "",
+          );
+          setDetalleDeduccionAlojamiento(resultado.detalleAlojamiento ?? []);
           setErrorAlimentacion(null);
-          setDetalleDeduccionAlimentacion(resultado.detalle ?? []);
         }
       } catch (err: any) {
-        // Error al obtener deducciones de alimentación
+        // Error al obtener deducciones de alimentación/alojamiento
         setErrorAlimentacion({
           tieneError: true,
           mensajeError:
@@ -180,9 +207,7 @@ export function useAlimentacionPorCodigo({
             err?.message ||
             "Error al obtener deducciones de alimentación",
         });
-        setDeduccionAlimentacion(0);
-        setInputDeduccionAlimentacion("");
-        setDetalleDeduccionAlimentacion([]);
+        resetValores();
         setLoadingAlimentacion(false);
       } finally {
         setLoadingAlimentacion(false);
@@ -197,6 +222,7 @@ export function useAlimentacionPorCodigo({
     fechaFin,
     rangoValido,
     codigoNominaPeriodo,
+    resetValores,
   ]);
 
   const totalDetalleAlimentacion = React.useMemo(
@@ -208,6 +234,15 @@ export function useAlimentacionPorCodigo({
     [detalleDeduccionAlimentacion],
   );
 
+  const totalDetalleAlojamiento = React.useMemo(
+    () =>
+      detalleDeduccionAlojamiento.reduce(
+        (acum, item) => acum + (item.precio || 0),
+        0,
+      ),
+    [detalleDeduccionAlojamiento],
+  );
+
   return {
     deduccionAlimentacion,
     setDeduccionAlimentacion,
@@ -215,10 +250,18 @@ export function useAlimentacionPorCodigo({
     setInputDeduccionAlimentacion,
     detalleDeduccionAlimentacion,
     totalDetalleAlimentacion,
+    deduccionAlojamiento,
+    setDeduccionAlojamiento,
+    inputDeduccionAlojamiento,
+    setInputDeduccionAlojamiento,
+    detalleDeduccionAlojamiento,
+    totalDetalleAlojamiento,
     loadingAlimentacion,
     errorAlimentacion,
     setErrorAlimentacion,
     modalDetalleAlimentacionOpen,
     setModalDetalleAlimentacionOpen,
+    modalDetalleAlojamientoOpen,
+    setModalDetalleAlojamientoOpen,
   };
 }

@@ -20,19 +20,23 @@ interface ModalDetalleAlimentacionProps {
   detalle: DeduccionAlimentacionDetalleDto[];
   totalDetalle: number;
   formatCurrency: (valor: number) => string;
+  titulo?: string;
+  mensajeVacio?: string;
 }
 
-/** Modal con la tabla de consumos de alimentación del período. */
+/** Modal con la tabla de consumos (alimentación o alojamiento) del período. */
 const ModalDetalleAlimentacion: React.FC<ModalDetalleAlimentacionProps> = ({
   open,
   onClose,
   detalle,
   totalDetalle,
   formatCurrency,
+  titulo = "Detalle de deducción de alimentación",
+  mensajeVacio = "No se registran consumos de alimentación para este período.",
 }) => {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Detalle de deducción de alimentación</DialogTitle>
+      <DialogTitle>{titulo}</DialogTitle>
       <DialogContent dividers>
         {detalle.length > 0 ? (
           <Table size="small">
@@ -75,7 +79,7 @@ const ModalDetalleAlimentacion: React.FC<ModalDetalleAlimentacionProps> = ({
           </Table>
         ) : (
           <Typography variant="body2" color="text.secondary">
-            No se registran consumos de alimentación para este período.
+            {mensajeVacio}
           </Typography>
         )}
       </DialogContent>

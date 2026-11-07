@@ -130,6 +130,8 @@ const NominasManagement: React.FC = () => {
   const [openDetailTableModal, setOpenDetailTableModal] = useState(false);
   const [openCreateEditModal, setOpenCreateEditModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  /** Fuerza remount del modal en cada apertura para evitar estado residual. */
+  const [formModalKey, setFormModalKey] = useState(0);
   const [currentNomina, setCurrentNomina] = useState<NominaDto | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<NominaDto>>({});
   const [errorAlimentacion, setErrorAlimentacion] = useState<{
@@ -446,6 +448,15 @@ const NominasManagement: React.FC = () => {
 
   // Abrir modal de crear/editar nómina
   const handleOpenCreateEditModal = async (nomina?: NominaDto) => {
+    // Cerrar y remount antes de abrir: evita modal/backdrop residual que deja
+    // bloqueada la opción de crear otra nómina sin refrescar la página.
+    setOpenCreateEditModal(false);
+    setCurrentNomina(null);
+    setIsCreating(false);
+    setFormModalKey((k) => k + 1);
+    // Salir del batch de React para que MUI desmonte el Dialog antes de reabrir
+    await new Promise((r) => setTimeout(r, 0));
+
     if (nomina) {
       setIsCreating(false);
       try {
@@ -453,7 +464,14 @@ const NominasManagement: React.FC = () => {
         setCurrentNomina(completa);
       } catch (err) {
         console.error("Error al cargar la nómina para editar:", err);
-        setCurrentNomina(nomina);
+        showSnackbar(
+          "No se pudo cargar la nómina (puede haber sido reemplazada por una edición reciente). Actualice el listado.",
+          "error",
+        );
+        setCurrentNomina(null);
+        setIsCreating(false);
+        await fetchNominas();
+        return;
       }
     } else {
       setIsCreating(true);
@@ -466,6 +484,7 @@ const NominasManagement: React.FC = () => {
   const handleCloseCreateEditModal = () => {
     setOpenCreateEditModal(false);
     setCurrentNomina(null);
+    setIsCreating(false);
   };
 
   // Función para refrescar nóminas después de guardar
@@ -752,7 +771,22 @@ const NominasManagement: React.FC = () => {
         empleadoId: _empleadoId,
         ...updatePayload
       } = editFormData;
-      await NominaService.update(currentNomina.id, updatePayload);
+
+      // Recalcular totales: ajuste suma a percepciones/bruto (no es deducción)
+      const nominaParaTotales: NominaDto = {
+        ...currentNomina,
+        ...updatePayload,
+      };
+      const totalPercepciones = calcularTotalBrutoNomina(nominaParaTotales);
+      const totalDeducciones = calcularTotalDeduccionesNomina(nominaParaTotales);
+      const totalNetoPagar = calcularTotalAPagarNomina(nominaParaTotales);
+
+      await NominaService.update(currentNomina.id, {
+        ...updatePayload,
+        totalPercepciones,
+        totalDeducciones,
+        totalNetoPagar,
+      });
       showSnackbar("Nómina actualizada exitosamente", "success");
       handleCloseEditModal();
       fetchNominas();
@@ -1505,7 +1539,7 @@ const NominasManagement: React.FC = () => {
             <Divider />
 
             <Typography variant="h6" sx={{ mt: 2 }}>
-              Ajustes
+              (+) Ajuste (se suma a percepciones)
             </Typography>
             <Box
               sx={{
@@ -1515,7 +1549,7 @@ const NominasManagement: React.FC = () => {
               }}
             >
               <TextField
-                label="Ajuste"
+                label="(+) Ajuste"
                 type="text"
                 value={editFormData.ajuste ?? ""}
                 onChange={(e) => {
@@ -1540,6 +1574,7 @@ const NominasManagement: React.FC = () => {
                 onKeyPress={(e) => handleNumericKeyPress(e, true)}
                 fullWidth
                 size="small"
+                helperText="Se suma al total bruto / percepciones"
               />
             </Box>
 
@@ -2246,6 +2281,18 @@ const NominasManagement: React.FC = () => {
                           {formatCurrency(currentNomina.montoDiasLaborados)}
                         </Typography>
                       </Box>
+                      <Box>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          gutterBottom
+                        >
+                          (+) Ajuste
+                        </Typography>
+                        <Typography variant="body1">
+                          {formatCurrency(currentNomina.ajuste)}
+                        </Typography>
+                      </Box>
                       <Divider sx={{ my: 1 }} />
                       <Box>
                         <Typography
@@ -2445,18 +2492,6 @@ const NominasManagement: React.FC = () => {
                           {formatCurrency(currentNomina.otros)}
                         </Typography>
                       </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Ajuste
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.ajuste)}
-                        </Typography>
-                      </Box>
                       <Divider sx={{ my: 1 }} />
                       <Box>
                         <Typography
@@ -2545,6 +2580,7 @@ const NominasManagement: React.FC = () => {
 
       {/* Modal de crear/editar nómina */}
       <NominaFormModal
+        key={formModalKey}
         open={openCreateEditModal}
         isCreating={isCreating}
         nomina={currentNomina}

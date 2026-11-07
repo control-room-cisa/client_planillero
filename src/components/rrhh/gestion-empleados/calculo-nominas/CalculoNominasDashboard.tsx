@@ -260,7 +260,6 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     cobroPrestamo,
     impuestoVecinal,
     otros,
-    deduccionAlojamiento,
     comentario,
   } = deducciones;
 
@@ -296,7 +295,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     horasCompensatoriasAcumuladas * salarioPorHora,
   );
 
-  // ========= Alimentación =========
+  // ========= Alimentación / Alojamiento (mismo query) =========
   const {
     deduccionAlimentacion,
     setDeduccionAlimentacion,
@@ -304,10 +303,18 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     setInputDeduccionAlimentacion,
     detalleDeduccionAlimentacion,
     totalDetalleAlimentacion,
+    deduccionAlojamiento,
+    setDeduccionAlojamiento,
+    inputDeduccionAlojamiento,
+    setInputDeduccionAlojamiento,
+    detalleDeduccionAlojamiento,
+    totalDetalleAlojamiento,
     loadingAlimentacion,
     errorAlimentacion,
     modalDetalleAlimentacionOpen,
     setModalDetalleAlimentacionOpen,
+    modalDetalleAlojamientoOpen,
+    setModalDetalleAlojamientoOpen,
   } = useAlimentacionPorCodigo({
     empleado,
     fechaInicio,
@@ -1055,10 +1062,16 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
             inputDeduccionAlimentacion={inputDeduccionAlimentacion}
             setInputDeduccionAlimentacion={setInputDeduccionAlimentacion}
             setDeduccionAlimentacion={setDeduccionAlimentacion}
+            inputDeduccionAlojamiento={inputDeduccionAlojamiento}
+            setInputDeduccionAlojamiento={setInputDeduccionAlojamiento}
+            setDeduccionAlojamiento={setDeduccionAlojamiento}
             errorAlimentacion={errorAlimentacion}
             loadingAlimentacion={loadingAlimentacion}
             onOpenDetalleAlimentacion={() =>
               setModalDetalleAlimentacionOpen(true)
+            }
+            onOpenDetalleAlojamiento={() =>
+              setModalDetalleAlojamientoOpen(true)
             }
             totalBruto={totalBruto}
             totalDeducciones={totalDeducciones}
@@ -1095,6 +1108,16 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
           detalle={detalleDeduccionAlimentacion}
           totalDetalle={totalDetalleAlimentacion}
           formatCurrency={formatCurrencyCb}
+        />
+
+        <ModalDetalleAlimentacion
+          open={modalDetalleAlojamientoOpen}
+          onClose={() => setModalDetalleAlojamientoOpen(false)}
+          detalle={detalleDeduccionAlojamiento}
+          totalDetalle={totalDetalleAlojamiento}
+          formatCurrency={formatCurrencyCb}
+          titulo="Detalle de deducción de alojamiento"
+          mensajeVacio="No se registran consumos de alojamiento para este período."
         />
       </Container>
     </Fade>

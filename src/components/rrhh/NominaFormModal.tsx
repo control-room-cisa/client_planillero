@@ -180,6 +180,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
   // Otros
   const [formComentario, setFormComentario] = useState<string>("");
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [compAcumuladas, setCompAcumuladas] = useState<CompAcumuladaRow[]>([
     newCompRow(),
@@ -191,6 +192,11 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
   const empleadoSeleccionado = React.useMemo(
     () => formEmpleados.find((e) => e.id === formEmpleadoId) ?? null,
     [formEmpleados, formEmpleadoId],
+  );
+  /** Misma tarifa del dashboard: sueldo / (30 días × 8 h). */
+  const salarioPorHora = React.useMemo(
+    () => roundTo2Decimals((formSueldoMensual || 0) / (30 * 8)),
+    [formSueldoMensual],
   );
   const alimentacion = useAlimentacionPorCodigo({
     empleado: open && isCreating ? empleadoSeleccionado : null,
@@ -615,21 +621,56 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     }
   }, [formSueldoMensual]);
 
-  // Al crear: monto días laborados = (sueldo/2) / 15 * días laborados (editable)
+  // Al crear: montos = días × 8 × salario/hora (equivalente a montoPorDiasQuincena
+  // del dashboard: (sueldo/2) / 15 * días). Permisos justificados = 0 (su pago
+  // va dentro de días laborados, igual que el dashboard).
   useEffect(() => {
     if (!open || !isCreating) return;
+
     const salarioQuincenal = (formSueldoMensual || 0) / 2;
-    const monto = montoPorDiasQuincena(
+    const diasLab = formDiasLaborados || 0;
+    const diasVac = formDiasVacaciones || 0;
+    const diasIncEmpresa = formDiasIncapacidadEmpresa || 0;
+    const diasIncIhss = formDiasIncapacidadIHSS || 0;
+
+    const montoDiasLab = montoPorDiasQuincena(salarioQuincenal, diasLab, 15);
+    const montoVac = montoPorDiasQuincena(salarioQuincenal, diasVac, 15);
+
+    // Misma regla del dashboard: total incapacidad (empresa + IHSS) − subsidio IHSS.
+    // En alta manual no hay subsidio del backend → monto IHSS = 0 y cubre empresa
+    // recibe el total de ambos días.
+    const montoIncapacidadTotal = montoPorDiasQuincena(
       salarioQuincenal,
-      formDiasLaborados || 0,
+      diasIncEmpresa + diasIncIhss,
       15,
     );
-    setFormMontoDiasLaborados(monto);
+    const montoIncEmpresa = roundTo2Decimals(
+      Math.max(0, montoIncapacidadTotal),
+    );
+    const montoPermisos = 0;
+
+    setFormMontoDiasLaborados(montoDiasLab);
+    setFormMontoVacaciones(montoVac);
+    setFormMontoIncapacidadCubreEmpresa(montoIncEmpresa);
+    setFormMontoPermisosJustificados(montoPermisos);
+
     setNumericText((prev) => ({
       ...prev,
-      montoDiasLaborados: monto > 0 ? String(monto) : "",
+      montoDiasLaborados: montoDiasLab > 0 ? String(montoDiasLab) : "",
+      montoVacaciones: montoVac > 0 ? String(montoVac) : "",
+      montoIncapacidadCubreEmpresa:
+        montoIncEmpresa > 0 ? String(montoIncEmpresa) : "",
+      montoPermisosJustificados: "",
     }));
-  }, [open, isCreating, formSueldoMensual, formDiasLaborados]);
+  }, [
+    open,
+    isCreating,
+    formSueldoMensual,
+    formDiasLaborados,
+    formDiasVacaciones,
+    formDiasIncapacidadEmpresa,
+    formDiasIncapacidadIHSS,
+  ]);
 
   // Subtotal quincena = suma de montos editables (igual que el dashboard)
   useEffect(() => {
@@ -710,16 +751,26 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     empleadoSeleccionado?.aporteVoluntarioRap,
   ]);
 
-  // Alimentación: mismo flujo que el dashboard (rango por código A/B)
+  // Alimentación / Alojamiento: mismo flujo que el dashboard (un solo query)
   useEffect(() => {
     if (!open || !isCreating) return;
-    const valor = alimentacion.deduccionAlimentacion || 0;
-    setFormDeduccionAlimentacion(valor);
+    const valorAlimentacion = alimentacion.deduccionAlimentacion || 0;
+    const valorAlojamiento = alimentacion.deduccionAlojamiento || 0;
+    setFormDeduccionAlimentacion(valorAlimentacion);
+    setFormDeduccionAlojamiento(valorAlojamiento);
     setNumericText((prev) => ({
       ...prev,
-      deduccionAlimentacion: valor > 0 ? String(valor) : "",
+      deduccionAlimentacion:
+        valorAlimentacion > 0 ? String(valorAlimentacion) : "",
+      deduccionAlojamiento:
+        valorAlojamiento > 0 ? String(valorAlojamiento) : "",
     }));
-  }, [open, isCreating, alimentacion.deduccionAlimentacion]);
+  }, [
+    open,
+    isCreating,
+    alimentacion.deduccionAlimentacion,
+    alimentacion.deduccionAlojamiento,
+  ]);
 
   // Total deducciones = suma de las 8 líneas editables
   useEffect(() => {
@@ -1075,12 +1126,15 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
 
   // Guardar nómina (crear o actualizar)
   const handleSave = async () => {
+    if (saving) return;
+
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
     }
 
+    setSaving(true);
     try {
       const bancoCompensatoriasAplicadas = buildBancoFromRows(compAcumuladas);
       const sumaAcumuladas = bancoCompensatoriasAplicadas.reduce(
@@ -1154,8 +1208,13 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         await NominaService.update(nomina.id, payload);
         showSnackbar("Nómina actualizada exitosamente", "success");
       }
+      // Cerrar primero para liberar el UI; luego refrescar el listado
       onClose();
-      await onSave();
+      try {
+        await onSave();
+      } catch (refreshErr) {
+        console.error("Error al refrescar nóminas tras guardar:", refreshErr);
+      }
     } catch (err: any) {
       console.error("Error al guardar nómina:", err);
       const errorMessage =
@@ -1172,6 +1231,8 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         );
         setFormErrors(backendErrors);
       }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1184,7 +1245,12 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog
+      open={open}
+      onClose={saving ? undefined : onClose}
+      maxWidth="md"
+      fullWidth
+    >
       <DialogTitle>{isCreating ? "Crear Nómina" : "Editar Nómina"}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
@@ -1434,7 +1500,12 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
             required
             fullWidth
             error={!!formErrors.sueldoMensual}
-            helperText={formErrors.sueldoMensual}
+            helperText={
+              formErrors.sueldoMensual ||
+              (formSueldoMensual > 0
+                ? `Salario/hora: L ${salarioPorHora.toFixed(2)} (sueldo ÷ 240)`
+                : undefined)
+            }
           />
 
           {/* Nombre Período */}
@@ -1479,7 +1550,12 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
               error={!!formErrors.diasLaborados}
-              helperText={formErrors.diasLaborados}
+              helperText={
+                formErrors.diasLaborados ||
+                (isCreating
+                  ? "1 día = 8 h; recalcula monto días laborados"
+                  : undefined)
+              }
             />
             <TextField
               label="Días Vacaciones"
@@ -1502,7 +1578,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               error={!!formErrors.diasVacaciones}
               helperText={
                 formErrors.diasVacaciones ||
-                "Se descuentan del saldo de vacaciones (días × 8 h)"
+                "Se descuentan del saldo (días × 8 h) y recalculan el monto"
               }
             />
             <TextField
@@ -1524,7 +1600,10 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
               error={!!formErrors.diasIncapacidadEmpresa}
-              helperText={formErrors.diasIncapacidadEmpresa}
+              helperText={
+                formErrors.diasIncapacidadEmpresa ||
+                (isCreating ? "1 día = 8 h; recalcula el monto" : undefined)
+              }
             />
             <TextField
               label="Días incapacidad IHSS"
@@ -1545,7 +1624,12 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
               error={!!formErrors.diasIncapacidadIHSS}
-              helperText={formErrors.diasIncapacidadIHSS}
+              helperText={
+                formErrors.diasIncapacidadIHSS ||
+                (isCreating
+                  ? "1 día = 8 h; suma al monto de incapacidad empresa"
+                  : undefined)
+              }
             />
           </Box>
 
@@ -1695,7 +1779,12 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
               error={!!formErrors.montoVacaciones}
-              helperText={formErrors.montoVacaciones}
+              helperText={
+                formErrors.montoVacaciones ||
+                (isCreating
+                  ? "Auto: días vacaciones × 8 × salario/hora"
+                  : undefined)
+              }
             />
             <TextField
               label="Monto Días Laborados"
@@ -1716,7 +1805,12 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
               error={!!formErrors.montoDiasLaborados}
-              helperText={formErrors.montoDiasLaborados}
+              helperText={
+                formErrors.montoDiasLaborados ||
+                (isCreating
+                  ? "Auto: días laborados × 8 × salario/hora"
+                  : undefined)
+              }
             />
             <TextField
               label="Monto Excedente IHSS"
@@ -1758,7 +1852,12 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
               error={!!formErrors.montoIncapacidadCubreEmpresa}
-              helperText={formErrors.montoIncapacidadCubreEmpresa}
+              helperText={
+                formErrors.montoIncapacidadCubreEmpresa ||
+                (isCreating
+                  ? "Auto: (días incap. empresa + IHSS) × 8 × salario/hora"
+                  : undefined)
+              }
             />
             <TextField
               label="Monto Permisos Justificados"
@@ -1779,7 +1878,27 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
               error={!!formErrors.montoPermisosJustificados}
-              helperText={formErrors.montoPermisosJustificados}
+              helperText={
+                formErrors.montoPermisosJustificados ||
+                (isCreating
+                  ? "0 por defecto: el pago va en días laborados (como el dashboard)"
+                  : undefined)
+              }
+            />
+            <TextField
+              label="(+) Ajuste"
+              type="text"
+              value={numericText.ajuste ?? ""}
+              onChange={(e) =>
+                handleNumericChange(e, "ajuste", setFormAjuste, {
+                  allowNegative: true,
+                  allowDecimal: true,
+                  maxDecimals: 2,
+                })
+              }
+              onKeyPress={(e) => handleNumericKeyPress(e, true, true)}
+              fullWidth
+              helperText="Se suma a las percepciones / total bruto"
             />
             <TextField
               label="Total Percepciones"
@@ -1879,8 +1998,8 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
           {isCreating && formPeriodo && (
             <Typography variant="body2" color="text.secondary">
               {esPrimeraQuincenaA
-                ? "Período A: IHSS, RAP e impuesto vecinal quedan en 0. Alimentación se carga del rango del código. ISR, préstamo, alojamiento y otros se pueden editar."
-                : "Período B: IHSS, RAP e ISR se calculan como en el dashboard. Alimentación se carga del rango del código."}
+                ? "Período A: IHSS, RAP e impuesto vecinal quedan en 0. Alimentación y alojamiento se cargan del rango del código. ISR, préstamo y otros se pueden editar."
+                : "Período B: IHSS, RAP e ISR se calculan como en el dashboard. Alimentación y alojamiento se cargan del rango del código."}
             </Typography>
           )}
           <Box
@@ -1890,21 +2009,6 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               gap: 2,
             }}
           >
-            <TextField
-              label="Ajuste"
-              type="text"
-              value={numericText.ajuste ?? ""}
-              onChange={(e) =>
-                handleNumericChange(e, "ajuste", setFormAjuste, {
-                  allowNegative: true,
-                  allowDecimal: true,
-                  maxDecimals: 2,
-                })
-              }
-              onKeyPress={(e) => handleNumericKeyPress(e, true, true)}
-              fullWidth
-              helperText="Puede ser positivo o negativo"
-            />
             <TextField
               label="Deducción IHSS"
               type="text"
@@ -2093,8 +2197,27 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               }
               onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
               fullWidth
-              error={!!formErrors.deduccionAlojamiento}
-              helperText={formErrors.deduccionAlojamiento}
+              disabled={isCreating && alimentacion.loadingAlimentacion}
+              InputProps={{
+                readOnly:
+                  isCreating &&
+                  alimentacion.errorAlimentacion?.tieneError !== true,
+              }}
+              error={
+                !!formErrors.deduccionAlojamiento ||
+                (isCreating &&
+                  alimentacion.errorAlimentacion?.tieneError === true)
+              }
+              helperText={
+                formErrors.deduccionAlojamiento ||
+                (isCreating && alimentacion.loadingAlimentacion
+                  ? "Cargando alojamiento..."
+                  : isCreating && alimentacion.errorAlimentacion?.tieneError
+                    ? alimentacion.errorAlimentacion.mensajeError
+                    : isCreating
+                      ? "Cargada según el rango del código de nómina"
+                      : undefined)
+              }
             />
             <TextField
               label="Total Deducciones"
@@ -2133,9 +2256,11 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button onClick={handleSave} variant="contained">
-          {isCreating ? "Crear" : "Guardar"}
+        <Button onClick={onClose} disabled={saving}>
+          Cancelar
+        </Button>
+        <Button onClick={handleSave} variant="contained" disabled={saving}>
+          {saving ? "Guardando..." : isCreating ? "Crear" : "Guardar"}
         </Button>
       </DialogActions>
     </Dialog>

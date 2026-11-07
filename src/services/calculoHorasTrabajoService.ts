@@ -115,27 +115,46 @@ class CalculoHorasTrabajoService {
     fechaFin: string
   ): Promise<{
     deduccionesAlimentacion: number;
+    deduccionesAlojamiento: number;
     detalle: Array<{
       producto: string;
       precio: number;
       fecha: string;
+      categoria: "ALIMENTACION" | "ALOJAMIENTO";
+    }>;
+    detalleAlimentacion: Array<{
+      producto: string;
+      precio: number;
+      fecha: string;
+      categoria: "ALIMENTACION" | "ALOJAMIENTO";
+    }>;
+    detalleAlojamiento: Array<{
+      producto: string;
+      precio: number;
+      fecha: string;
+      categoria: "ALIMENTACION" | "ALOJAMIENTO";
     }>;
     errorAlimentacion?: { tieneError: boolean; mensajeError: string };
   }> {
+    const emptyResult = (mensajeError: string) => ({
+      deduccionesAlimentacion: 0,
+      deduccionesAlojamiento: 0,
+      detalle: [],
+      detalleAlimentacion: [],
+      detalleAlojamiento: [],
+      errorAlimentacion: {
+        tieneError: true,
+        mensajeError,
+      },
+    });
+
     // Validar parámetros
     if (!codigoEmpleado || codigoEmpleado.trim() === "") {
       console.error(
         "[getDeduccionesAlimentacion] codigoEmpleado vacío o inválido:",
         codigoEmpleado
       );
-      return {
-        deduccionesAlimentacion: 0,
-        detalle: [],
-        errorAlimentacion: {
-          tieneError: true,
-          mensajeError: "El código del empleado es requerido",
-        },
-      };
+      return emptyResult("El código del empleado es requerido");
     }
 
     if (!this.validarFormatoFecha(fechaInicio)) {
@@ -143,14 +162,9 @@ class CalculoHorasTrabajoService {
         "[getDeduccionesAlimentacion] fechaInicio formato inválido:",
         fechaInicio
       );
-      return {
-        deduccionesAlimentacion: 0,
-        detalle: [],
-        errorAlimentacion: {
-          tieneError: true,
-          mensajeError: `Formato de fechaInicio inválido: ${fechaInicio}. Se espera YYYY-MM-DD`,
-        },
-      };
+      return emptyResult(
+        `Formato de fechaInicio inválido: ${fechaInicio}. Se espera YYYY-MM-DD`
+      );
     }
 
     if (!this.validarFormatoFecha(fechaFin)) {
@@ -158,14 +172,9 @@ class CalculoHorasTrabajoService {
         "[getDeduccionesAlimentacion] fechaFin formato inválido:",
         fechaFin
       );
-      return {
-        deduccionesAlimentacion: 0,
-        detalle: [],
-        errorAlimentacion: {
-          tieneError: true,
-          mensajeError: `Formato de fechaFin inválido: ${fechaFin}. Se espera YYYY-MM-DD`,
-        },
-      };
+      return emptyResult(
+        `Formato de fechaFin inválido: ${fechaFin}. Se espera YYYY-MM-DD`
+      );
     }
 
     if (!this.validarRangoFechas(fechaInicio, fechaFin)) {
@@ -173,14 +182,9 @@ class CalculoHorasTrabajoService {
         fechaInicio,
         fechaFin,
       });
-      return {
-        deduccionesAlimentacion: 0,
-        detalle: [],
-        errorAlimentacion: {
-          tieneError: true,
-          mensajeError: `La fecha de inicio (${fechaInicio}) debe ser menor o igual a la fecha de fin (${fechaFin})`,
-        },
-      };
+      return emptyResult(
+        `La fecha de inicio (${fechaInicio}) debe ser menor o igual a la fecha de fin (${fechaFin})`
+      );
     }
 
     console.log("[getDeduccionesAlimentacion] Parámetros validados:", {
@@ -202,16 +206,10 @@ class CalculoHorasTrabajoService {
       });
 
       if (!resp.success) {
-        return {
-          deduccionesAlimentacion: 0,
-          detalle: [],
-          errorAlimentacion: {
-            tieneError: true,
-            mensajeError:
-              resp.message ||
-              "Error al consultar gastos de alimentación (directo)",
-          },
-        };
+        return emptyResult(
+          resp.message ||
+            "Error al consultar gastos de alimentación (directo)"
+        );
       }
 
       const detalle =
@@ -219,29 +217,38 @@ class CalculoHorasTrabajoService {
           producto: it.producto,
           precio: Number(it.precio || 0),
           fecha: it.fecha,
+          categoria: it.categoria,
         })) || [];
-      const deduccionesAlimentacion = detalle.reduce(
+
+      const detalleAlimentacion = detalle.filter(
+        (it) => it.categoria === "ALIMENTACION"
+      );
+      const detalleAlojamiento = detalle.filter(
+        (it) => it.categoria === "ALOJAMIENTO"
+      );
+      const deduccionesAlimentacion = detalleAlimentacion.reduce(
+        (acc, it) => acc + (it.precio || 0),
+        0
+      );
+      const deduccionesAlojamiento = detalleAlojamiento.reduce(
         (acc, it) => acc + (it.precio || 0),
         0
       );
 
       return {
         deduccionesAlimentacion,
+        deduccionesAlojamiento,
         detalle,
+        detalleAlimentacion,
+        detalleAlojamiento,
         errorAlimentacion: undefined,
       };
     } catch (error: any) {
       console.error("Error al obtener deducciones de alimentación:", error);
 
-      return {
-        deduccionesAlimentacion: 0,
-        detalle: [],
-        errorAlimentacion: {
-          tieneError: true,
-          mensajeError:
-            error?.message || "Error al obtener deducciones de alimentación",
-        },
-      };
+      return emptyResult(
+        error?.message || "Error al obtener deducciones de alimentación"
+      );
     }
   }
 

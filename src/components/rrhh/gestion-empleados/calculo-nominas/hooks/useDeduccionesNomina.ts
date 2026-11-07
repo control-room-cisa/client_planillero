@@ -60,9 +60,6 @@ export interface UseDeduccionesNominaReturn {
   setImpuestoVecinal: React.Dispatch<React.SetStateAction<number>>;
   otros: number;
   setOtros: React.Dispatch<React.SetStateAction<number>>;
-  /** Deducción de alojamiento (editable en cualquier quincena, inicializa en 0) */
-  deduccionAlojamiento: number;
-  setDeduccionAlojamiento: React.Dispatch<React.SetStateAction<number>>;
   comentario: string;
   setComentario: React.Dispatch<React.SetStateAction<string>>;
 
@@ -87,8 +84,6 @@ export interface UseDeduccionesNominaReturn {
   setInputImpuestoVecinal: React.Dispatch<React.SetStateAction<string>>;
   inputOtros: string;
   setInputOtros: React.Dispatch<React.SetStateAction<string>>;
-  inputDeduccionAlojamiento: string;
-  setInputDeduccionAlojamiento: React.Dispatch<React.SetStateAction<string>>;
   inputMontoExcedenteIHSS: string;
   setInputMontoExcedenteIHSS: React.Dispatch<React.SetStateAction<string>>;
 
@@ -167,8 +162,6 @@ export function useDeduccionesNomina({
   const [cobroPrestamo, setCobroPrestamo] = React.useState<number>(0);
   const [impuestoVecinal, setImpuestoVecinal] = React.useState<number>(0);
   const [otros, setOtros] = React.useState<number>(0);
-  const [deduccionAlojamiento, setDeduccionAlojamiento] =
-    React.useState<number>(0);
   const [comentario, setComentario] = React.useState<string>("");
 
   // Estados string para UI (permiten estados intermedios como "0." o "15.")
@@ -186,8 +179,6 @@ export function useDeduccionesNomina({
   const [inputImpuestoVecinal, setInputImpuestoVecinal] =
     React.useState<string>("");
   const [inputOtros, setInputOtros] = React.useState<string>("");
-  const [inputDeduccionAlojamiento, setInputDeduccionAlojamiento] =
-    React.useState<string>("");
   const [inputMontoExcedenteIHSS, setInputMontoExcedenteIHSS] =
     React.useState<string>("");
 
@@ -322,8 +313,6 @@ export function useDeduccionesNomina({
     setImpuestoVecinal,
     otros,
     setOtros,
-    deduccionAlojamiento,
-    setDeduccionAlojamiento,
     comentario,
     setComentario,
 
@@ -345,8 +334,6 @@ export function useDeduccionesNomina({
     setInputImpuestoVecinal,
     inputOtros,
     setInputOtros,
-    inputDeduccionAlojamiento,
-    setInputDeduccionAlojamiento,
     inputMontoExcedenteIHSS,
     setInputMontoExcedenteIHSS,
 

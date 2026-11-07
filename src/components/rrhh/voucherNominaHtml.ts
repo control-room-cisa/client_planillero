@@ -167,6 +167,7 @@ export function buildVoucherPageHtml(
           esc(fc(n.montoIncapacidadCubreEmpresa)),
         ],
         ["Monto permisos justificados", esc(fc(n.montoPermisosJustificados))],
+        ["(+) Ajuste", esc(fc(n.ajuste))],
         [
           "Total bruto",
           `<span class="badge badge-perc">${esc(fc(calcularTotalBrutoNomina(n)))}</span>`,
@@ -196,7 +197,6 @@ export function buildVoucherPageHtml(
         ["Cobro préstamo", esc(fc(n.cobroPrestamo))],
         ["Impuesto vecinal", esc(fc(n.impuestoVecinal))],
         ["Otros", esc(fc(n.otros))],
-        ["Ajuste", esc(fc(n.ajuste))],
         [
           "Total deducciones",
           `<span class="badge badge-ded">${esc(fc(n.totalDeducciones))}</span>`,

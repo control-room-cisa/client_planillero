@@ -29,13 +29,17 @@ interface DeduccionesAjustesFormProps {
   // Estados y setters de deducciones/ajustes/comentario
   deducciones: UseDeduccionesNominaReturn;
 
-  // Alimentación
+  // Alimentación / Alojamiento (mismo query, separados por Categoria)
   inputDeduccionAlimentacion: string;
   setInputDeduccionAlimentacion: React.Dispatch<React.SetStateAction<string>>;
   setDeduccionAlimentacion: React.Dispatch<React.SetStateAction<number>>;
+  inputDeduccionAlojamiento: string;
+  setInputDeduccionAlojamiento: React.Dispatch<React.SetStateAction<string>>;
+  setDeduccionAlojamiento: React.Dispatch<React.SetStateAction<number>>;
   errorAlimentacion: ErrorAlimentacion | null;
   loadingAlimentacion: boolean;
   onOpenDetalleAlimentacion: () => void;
+  onOpenDetalleAlojamiento: () => void;
 
   // Totales (alineados con prorrateo)
   totalBruto: number;
@@ -68,9 +72,13 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
   inputDeduccionAlimentacion,
   setInputDeduccionAlimentacion,
   setDeduccionAlimentacion,
+  inputDeduccionAlojamiento,
+  setInputDeduccionAlojamiento,
+  setDeduccionAlojamiento,
   errorAlimentacion,
   loadingAlimentacion,
   onOpenDetalleAlimentacion,
+  onOpenDetalleAlojamiento,
   totalBruto,
   totalDeducciones,
   totalAPagar,
@@ -117,10 +125,6 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
     inputOtros,
     setInputOtros,
     setOtros,
-
-    inputDeduccionAlojamiento,
-    setInputDeduccionAlojamiento,
-    setDeduccionAlojamiento,
 
     comentario,
     setComentario,
@@ -224,6 +228,31 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
               setInputDeduccionAlojamiento(sanitized);
               setDeduccionAlojamiento(parseDecimalValue(sanitized));
             }}
+            InputProps={{
+              readOnly: errorAlimentacion?.tieneError !== true,
+              endAdornment:
+                !loadingAlimentacion &&
+                errorAlimentacion?.tieneError !== true ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      aria-label="Ver detalle de deducción de alojamiento"
+                      onClick={onOpenDetalleAlojamiento}
+                    >
+                      <VisibilityIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : undefined,
+            }}
+            disabled={loadingAlimentacion}
+            helperText={
+              loadingAlimentacion
+                ? "Cargando datos..."
+                : errorAlimentacion?.tieneError
+                  ? errorAlimentacion.mensajeError
+                  : undefined
+            }
+            error={errorAlimentacion?.tieneError === true}
           />
           <TextField
             label={`(-) Deducción RAP (1.5% excedente sobre ${formatCurrency(

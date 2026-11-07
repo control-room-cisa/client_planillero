@@ -33,6 +33,7 @@ export interface DeduccionAlimentacionDetalleDto {
   producto: string;
   precio: number;
   fecha: string;
+  categoria?: "ALIMENTACION" | "ALOJAMIENTO";
 }
 
 /**
