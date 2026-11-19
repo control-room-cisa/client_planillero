@@ -94,6 +94,8 @@ class ProrrateoService {
     const response = await api.get("/prorrateos/excel", {
       params: { empresaId, codigoNomina },
       responseType: "blob",
+      // Recálculo por colaborador al exportar; el timeout global (10s) no alcanza
+      timeout: 300000,
     });
     return response.data;
   }
