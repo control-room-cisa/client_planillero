@@ -694,9 +694,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   );
 
   const roundMonto2 = (n: number) => Math.round(n * 100) / 100;
-  const montoCompensatoriasTomadas = roundMonto2(
-    horasCompensatoriasTomadasProrrateo * salarioPorHora,
-  );
+  // Acumuladas: fuera del reparto 3 vías (solo ref. informativa)
   const montoCompensatoriasAcumuladasRef = roundMonto2(
     horasCompensatoriasAcumuladasTotal * salarioPorHora,
   );
@@ -716,24 +714,29 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   const horasJobsNormalesProrrateo = obtenerTotalHoras(
     prorrateo?.cantidadHoras?.normal ?? [],
   );
+  // Solo permiso JUSTIFICADO (no el no justificado)
   const horasPermisoJustificadoProrrateo = Number(
     prorrateo?.cantidadHoras?.permisoConSueldoHoras ?? 0,
   );
-  // En prorrateo, días laborados de nómina incluyen E03; aquí se restan (8h = 1d).
+  // Días del bucket "normal": restar permiso justificado y compensatorias TOMADAS
   const diasLaboradosProrrateo = Math.max(
     0,
     (nominaSeleccionada?.diasLaborados ?? 0) -
-      horasPermisoJustificadoProrrateo / 8,
+      horasPermisoJustificadoProrrateo / 8 -
+      horasCompensatoriasTomadasProrrateo / 8,
   );
   const horasNormalesProrrateo = diasLaboradosProrrateo * 8;
+  // precioHora = montoDiasLaborados / (normales + permiso justificado + tomadas)
   const {
     precioHora: precioHoraNormalProrrateada,
     montoJobsNormales: montoDiasLaboradosParaJobs,
     montoPermisoJustificado: montoPermisoJustificadoCalculado,
+    montoCompensatoriasTomadas,
   } = repartirMontoDiasLaboradosConPermisoJustificado(
     Number(nominaSeleccionada?.montoDiasLaborados ?? 0),
     horasJobsNormalesProrrateo,
     horasPermisoJustificadoProrrateo,
+    horasCompensatoriasTomadasProrrateo,
   );
 
   const desgloseIncidenciasProrrateo =

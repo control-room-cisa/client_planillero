@@ -17,39 +17,50 @@ export const montoPorDiasQuincena = (
   );
 
 /**
- * Separa montoDiasLaborados entre horas de jobs normales y permiso justificado
- * con la misma tarifa horaria. El permiso no se muestra en tablas por job.
+ * Reparto 3 vías (solo horas reales; si una categoría es 0, su monto es 0):
+ * precioHora = montoDiasLaborados / (hNormales + hPermisoJustificado + hCompTomadas)
+ * montos = horas × precioHora (suma = montoDiasLaborados).
+ * No incluye acumuladas ni permiso no justificado.
+ * Residuo de redondeo en montoJobsNormales.
  */
 export const repartirMontoDiasLaboradosConPermisoJustificado = (
   montoDiasLaborados: number,
   horasJobsNormales: number,
   horasPermisoJustificado: number,
+  horasCompensatoriasTomadas: number = 0,
 ): {
   precioHora: number;
   montoJobsNormales: number;
   montoPermisoJustificado: number;
+  montoCompensatoriasTomadas: number;
 } => {
   const monto = Number(montoDiasLaborados) || 0;
   const hJobs = Math.max(0, Number(horasJobsNormales) || 0);
   const hPermiso = Math.max(0, Number(horasPermisoJustificado) || 0);
-  const hTotal = hJobs + hPermiso;
+  const hComp = Math.max(0, Number(horasCompensatoriasTomadas) || 0);
+  const hTotal = hJobs + hPermiso + hComp;
 
   if (monto <= 0 || hTotal <= 0) {
     return {
       precioHora: 0,
       montoJobsNormales: 0,
       montoPermisoJustificado: 0,
+      montoCompensatoriasTomadas: 0,
     };
   }
 
   const precioHora = monto / hTotal;
   const montoPermisoJustificado = roundTo2Decimals(hPermiso * precioHora);
-  const montoJobsNormales = roundTo2Decimals(monto - montoPermisoJustificado);
+  const montoCompensatoriasTomadas = roundTo2Decimals(hComp * precioHora);
+  const montoJobsNormales = roundTo2Decimals(
+    monto - montoPermisoJustificado - montoCompensatoriasTomadas,
+  );
 
   return {
     precioHora,
     montoJobsNormales,
     montoPermisoJustificado,
+    montoCompensatoriasTomadas,
   };
 };
 
