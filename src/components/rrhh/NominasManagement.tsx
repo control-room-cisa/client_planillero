@@ -68,6 +68,7 @@ import {
   buildVoucherPageHtml,
   resolveCantidadHorasOt,
 } from "./voucherNominaHtml";
+import { loadVoucherConsumosDetalle } from "./voucherConsumosDetalle";
 
 const renderPeriodosSelectItems = (
   grupos: Array<{
@@ -340,6 +341,14 @@ const NominasManagement: React.FC = () => {
         : `ID: ${empleadoId}`;
     },
     [empleados]
+  );
+
+  const getEmpleadoCodigo = useCallback(
+    (empleadoId: number) => {
+      const empleado = empleados.find((e) => e.id === empleadoId);
+      return (empleado?.codigo || "").trim() || null;
+    },
+    [empleados],
   );
 
   // Filtrar y ordenar nóminas alfabéticamente por colaborador (A → Z)
@@ -654,6 +663,11 @@ const NominasManagement: React.FC = () => {
       const empresaNombre =
         empresas.find((e) => e.id === n.empresaId)?.nombre ?? "";
 
+      const consumosDetalle = await loadVoucherConsumosDetalle({
+        codigoEmpleado: getEmpleadoCodigo(n.empleadoId),
+        codigoNomina: n.codigoNomina,
+      });
+
       const printWindow = window.open("", "_blank");
       if (!printWindow) {
         showSnackbar("Permita ventanas emergentes para imprimir", "error");
@@ -662,10 +676,13 @@ const NominasManagement: React.FC = () => {
 
       const html = buildVoucherDocumentHtml({
         title: `Voucher ${colaborador} ${n.nombrePeriodoNomina || ""}`,
-        bodyInnerHtml: buildVoucherPageHtml(n, colaborador, empresaNombre, {
-          formatCurrency,
-          formatDate,
-        }),
+        bodyInnerHtml: buildVoucherPageHtml(
+          n,
+          colaborador,
+          empresaNombre,
+          { formatCurrency, formatDate },
+          { consumosDetalle },
+        ),
       });
 
       printWindow.document.write(html);
@@ -702,6 +719,7 @@ const NominasManagement: React.FC = () => {
       const periodoLabel =
         nominasPeriodo[0]?.nombrePeriodoNomina || codigoNominaFiltro;
 
+      // PDF masivo: sin desglose de consumos ni firmas
       const pagesHtml = nominasPeriodo
         .map((n) => {
           const colaborador = getEmpleadoNombre(n.empleadoId);
@@ -710,6 +728,7 @@ const NominasManagement: React.FC = () => {
             colaborador,
             empresaNombre,
             { formatCurrency, formatDate },
+            { includeFirmas: false },
           );
           return `<div class="voucher-page">${page}</div>`;
         })
