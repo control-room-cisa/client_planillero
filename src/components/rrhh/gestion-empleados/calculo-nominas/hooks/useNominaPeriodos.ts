@@ -1,10 +1,12 @@
 import * as React from "react";
 import {
   MIN_AÑO_NOMINA,
+  clasificarPeriodo,
   construirIntervalosParaAño,
   getNombrePeriodoNomina as buildNombrePeriodoNomina,
   type IntervaloNominaCalculo,
 } from "../utils/periodos";
+import { usePeriodosNominaConfig } from "../../../../../contexts/PeriodosNominaConfigContext";
 
 export interface UseNominaPeriodosReturn {
   añoNominas: number;
@@ -35,6 +37,7 @@ export interface UseNominaPeriodosReturn {
  *    codigoNominaPeriodo y nombrePeriodoNomina.
  */
 export function useNominaPeriodos(): UseNominaPeriodosReturn {
+  const { config } = usePeriodosNominaConfig();
   const [añoNominas, setAñoNominas] = React.useState<number>(() =>
     new Date().getFullYear(),
   );
@@ -47,8 +50,8 @@ export function useNominaPeriodos(): UseNominaPeriodosReturn {
   }, []);
 
   const intervalosDelAño = React.useMemo(
-    () => construirIntervalosParaAño(añoNominas, new Date()),
-    [añoNominas],
+    () => construirIntervalosParaAño(añoNominas, config, new Date()),
+    [añoNominas, config],
   );
 
   const [intervaloSeleccionado, setIntervaloSeleccionado] =
@@ -108,54 +111,27 @@ export function useNominaPeriodos(): UseNominaPeriodosReturn {
     }
   };
 
-  // Determinar si es primera quincena para reglas de deducciones
   const isPrimeraQuincena = React.useMemo(() => {
     if (!fechaInicio || !fechaFin) return false;
-    const toDate = (s: string) =>
-      new Date(s + (s.length === 10 ? "T00:00:00" : ""));
-    const ini = toDate(fechaInicio);
-    const fin = toDate(fechaFin);
-    const diaFin = fin.getDate();
-    const diaIni = ini.getDate();
-    if (diaFin === 11) return true;
-    if (diaFin === 26) return false;
-    if (diaIni === 27) return true;
-    if (diaIni === 12) return false;
-    return false;
-  }, [fechaInicio, fechaFin]);
+    return clasificarPeriodo(fechaInicio, fechaFin, config) === "A";
+  }, [fechaInicio, fechaFin, config]);
 
-  // Determinar si el código de nómina termina en "A" o "B"
-  // A = Primera quincena (días 27-11), B = Segunda quincena (días 12-26)
-  const codigoNominaTerminaEnA = React.useMemo(() => {
-    if (!fechaInicio || !fechaFin) return false;
-    const toDate = (s: string) =>
-      new Date(s + (s.length === 10 ? "T00:00:00" : ""));
-    const ini = toDate(fechaInicio);
-    const fin = toDate(fechaFin);
-    const diaFin = fin.getDate();
-    const diaIni = ini.getDate();
-    // Primera quincena (A): días 27-11
-    if (diaFin === 11 || diaIni === 27) return true;
-    // Segunda quincena (B): días 12-26
-    if (diaFin === 26 || diaIni === 12) return false;
-    // Fallback: si el día fin es <= 15, es primera quincena (A)
-    return diaFin <= 15;
-  }, [fechaInicio, fechaFin]);
+  const codigoNominaTerminaEnA = isPrimeraQuincena;
 
   const codigoNominaPeriodo = React.useMemo(() => {
-    if (!fechaFin) return "";
+    if (!fechaInicio || !fechaFin) return "";
     const fin = new Date(fechaFin + (fechaFin.length === 10 ? "T00:00:00" : ""));
     if (Number.isNaN(fin.getTime())) return "";
     const anio = fin.getFullYear();
     const mes = String(fin.getMonth() + 1).padStart(2, "0");
     const periodo = codigoNominaTerminaEnA ? "A" : "B";
     return `${anio}${mes}${periodo}`;
-  }, [fechaFin, codigoNominaTerminaEnA]);
+  }, [fechaInicio, fechaFin, codigoNominaTerminaEnA]);
 
   const getNombrePeriodoNomina = React.useCallback(
     (iniISO: string, finISO: string) =>
-      buildNombrePeriodoNomina(iniISO, finISO),
-    [],
+      buildNombrePeriodoNomina(iniISO, finISO, config),
+    [config],
   );
 
   const nombrePeriodoNomina = React.useMemo(

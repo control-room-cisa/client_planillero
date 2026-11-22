@@ -1,6 +1,7 @@
 import * as React from "react";
 import NominaService from "../../../../../services/nominaService";
 import { derivarCodigoNomina } from "../utils/periodos";
+import { usePeriodosNominaConfig } from "../../../../../contexts/PeriodosNominaConfigContext";
 
 export interface UseNominaExistenteParams {
   empleadoId: number | string | undefined | null;
@@ -25,6 +26,7 @@ export function useNominaExistente({
   fechaFin,
   rangoValido,
 }: UseNominaExistenteParams): UseNominaExistenteReturn {
+  const { config } = usePeriodosNominaConfig();
   const [nominaExiste, setNominaExiste] = React.useState<boolean>(false);
   const [loadingNominaCheck, setLoadingNominaCheck] =
     React.useState<boolean>(false);
@@ -42,7 +44,7 @@ export function useNominaExistente({
           empleadoId: Number(empleadoId),
         });
 
-        const codigoPeriodo = derivarCodigoNomina(fechaInicio, fechaFin);
+        const codigoPeriodo = derivarCodigoNomina(fechaInicio, fechaFin, config);
         const toDate = (s: string) =>
           new Date(s + (s.length === 10 ? "T00:00:00" : ""));
         const startNew = toDate(fechaInicio);
@@ -75,7 +77,7 @@ export function useNominaExistente({
     };
 
     verificarNominaExistente();
-  }, [empleadoId, fechaInicio, fechaFin, rangoValido]);
+  }, [empleadoId, fechaInicio, fechaFin, rangoValido, config]);
 
   return { nominaExiste, setNominaExiste, loadingNominaCheck };
 }

@@ -22,7 +22,11 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import NominaService, { type NominaDto } from "../../services/nominaService";
 import EmpleadoService from "../../services/empleadoService";
 import JobService, { type Job } from "../../services/jobService";
-import { toYmdLocal, getNombrePeriodoNomina } from "./gestion-empleados/calculo-nominas/utils/periodos";
+import {
+  toYmdLocal,
+  getNombrePeriodoNomina,
+  construirIntervalo,
+} from "./gestion-empleados/calculo-nominas/utils/periodos";
 import { calcularDeduccionesAutomaticasPorCodigo } from "./gestion-empleados/calculo-nominas/utils/deduccionesQuincena";
 import {
   montoPorDiasQuincena,
@@ -30,6 +34,7 @@ import {
 } from "./gestion-empleados/calculo-nominas/utils/formatters";
 import { useGlobalConfigNomina } from "./gestion-empleados/calculo-nominas/hooks/useGlobalConfigNomina";
 import { useAlimentacionPorCodigo } from "./gestion-empleados/calculo-nominas/hooks/useAlimentacionPorCodigo";
+import { usePeriodosNominaConfig } from "../../contexts/PeriodosNominaConfigContext";
 import type { Empresa } from "../../types/auth";
 import type { Empleado } from "../../services/empleadoService";
 
@@ -192,7 +197,9 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
   const [formHorasCompTomadas, setFormHorasCompTomadas] = useState<number>(0);
 
   const { cfgPisoIhss, cfgDeduccionIhssFija } = useGlobalConfigNomina();
+  const { config: periodosConfig } = usePeriodosNominaConfig();
   const esPrimeraQuincenaA = formPeriodo === "A";
+
   const empleadoSeleccionado = React.useMemo(
     () => formEmpleados.find((e) => e.id === formEmpleadoId) ?? null,
     [formEmpleados, formEmpleadoId],
@@ -248,7 +255,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     []
   );
 
-  // Calcular fechas y código basado en año, mes y período
+  // Calcular fechas y código basado en año, mes y período (cortes desde .env)
   const calcularFechasYCodigo = useCallback(
     (ano: number | null, mes: number | null, periodo: "A" | "B" | null) => {
       if (!ano || !mes || !periodo) {
@@ -262,25 +269,11 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       const codigo = `${ano}${mesStr}${periodo}`;
       setFormCodigoNomina(codigo);
 
-      let fechaInicio: Date;
-      let fechaFin: Date;
-
-      if (periodo === "A") {
-        // Primera quincena: 27 del mes anterior al 11 del mes actual
-        const mesAnterior = mes === 1 ? 12 : mes - 1;
-        const anoInicio = mes === 1 ? ano - 1 : ano;
-        fechaInicio = new Date(anoInicio, mesAnterior - 1, 27);
-        fechaFin = new Date(ano, mes - 1, 11);
-      } else {
-        // Segunda quincena: 12 al 26 del mes seleccionado
-        fechaInicio = new Date(ano, mes - 1, 12);
-        fechaFin = new Date(ano, mes - 1, 26);
-      }
-
-      setFormFechaInicio(toYmdLocal(fechaInicio));
-      setFormFechaFin(toYmdLocal(fechaFin));
+      const intervalo = construirIntervalo(ano, mes, periodo, periodosConfig);
+      setFormFechaInicio(intervalo.fechaInicio);
+      setFormFechaFin(intervalo.fechaFin);
     },
-    []
+    [periodosConfig],
   );
 
   // Efecto para calcular fechas cuando cambian año, mes o período
@@ -610,9 +603,9 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
   useEffect(() => {
     if (!open || !isCreating || !formFechaInicio || !formFechaFin) return;
     setFormNombrePeriodo(
-      getNombrePeriodoNomina(formFechaInicio, formFechaFin),
+      getNombrePeriodoNomina(formFechaInicio, formFechaFin, periodosConfig),
     );
-  }, [open, isCreating, formFechaInicio, formFechaFin]);
+  }, [open, isCreating, formFechaInicio, formFechaFin, periodosConfig]);
 
   // Sincronizar numericText.sueldoMensual con formSueldoMensual cuando cambia
   // (solo si el cambio viene de fuera del input, no del handleNumericChange)

@@ -69,6 +69,8 @@ import {
   resolveCantidadHorasOt,
 } from "./voucherNominaHtml";
 import { loadVoucherConsumosDetalle } from "./voucherConsumosDetalle";
+import { quincenaBYaEmpezo } from "./gestion-empleados/calculo-nominas/utils/periodos";
+import { usePeriodosNominaConfig } from "../../contexts/PeriodosNominaConfigContext";
 
 const renderPeriodosSelectItems = (
   grupos: Array<{
@@ -103,6 +105,7 @@ const renderPeriodosSelectItems = (
 
 const NominasManagement: React.FC = () => {
   const { user } = useAuth();
+  const { config: periodosConfig } = usePeriodosNominaConfig();
   const rolIds = normalizeRolIds(user);
   const isRrhh = hasAnyRole(rolIds, Roles.RRHH);
   const isSupervisorContabilidad = hasAnyRole(
@@ -253,8 +256,9 @@ const NominasManagement: React.FC = () => {
       const esMesActual = esAnoActual && mes === currentMonth;
       const periodosMes: Array<{ value: string; label: string }> = [];
 
-      // Segunda quincena: ocultar si aún no ha iniciado (día 1-15 del mes actual)
-      if (!esMesActual || currentDay > 15) {
+      // Segunda quincena: ocultar si aún no ha iniciado según cortes .env
+      const hoyRef = new Date(currentYear, currentMonth - 1, currentDay);
+      if (!esMesActual || quincenaBYaEmpezo(hoyRef, periodosConfig)) {
         periodosMes.push({
           value: `${mesStr}B`,
           label: "Segunda Quincena",
@@ -271,7 +275,7 @@ const NominasManagement: React.FC = () => {
       });
     }
     return grupos;
-  }, [selectedYear, currentYear, currentMonth, currentDay]);
+  }, [selectedYear, currentYear, currentMonth, currentDay, periodosConfig]);
 
   // Generar años disponibles (últimos 20 años, máximo hasta el año actual)
   const añosDisponibles = useMemo(() => {

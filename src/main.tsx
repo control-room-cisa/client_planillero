@@ -5,6 +5,7 @@ import App from './App.tsx'
 import { CssBaseline, ThemeProvider } from '@mui/material'
 import theme from './theme'
 import { AuthProvider } from './contexts/AuthContext'
+import { PeriodosNominaConfigProvider } from './contexts/PeriodosNominaConfigContext'
 import '@fontsource/roboto/300.css'
 import '@fontsource/roboto/400.css'
 import '@fontsource/roboto/500.css'
@@ -15,7 +16,9 @@ createRoot(document.getElementById('root')!).render(
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <App />
+        <PeriodosNominaConfigProvider>
+          <App />
+        </PeriodosNominaConfigProvider>
       </AuthProvider>
     </ThemeProvider>
   </StrictMode>,

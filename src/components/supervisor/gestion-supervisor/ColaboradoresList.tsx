@@ -26,6 +26,11 @@ import type { Empleado } from "../../../services/empleadoService";
 import { getImageUrl } from "../../../utils/imageUtils";
 import { ymdInTimeZone } from "../../../utils/dateTime";
 import TiempoCompensatorioAcumulado from "../../common/TiempoCompensatorioAcumulado";
+import {
+  parseYmdLocal,
+  periodoQueContiene,
+} from "../../rrhh/gestion-empleados/calculo-nominas/utils/periodos";
+import { usePeriodosNominaConfig } from "../../../contexts/PeriodosNominaConfigContext";
 
 interface ColaboradoresListProps {
   empleados: Empleado[];
@@ -44,13 +49,13 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
   onDetalleClick,
   showSearch = true,
 }) => {
+  const { config: periodosConfig } = usePeriodosNominaConfig();
   const [compensatorioModalEmpleado, setCompensatorioModalEmpleado] =
     React.useState<Empleado | null>(null);
 
   const fullName = (e: Empleado) =>
     `${e.nombre ?? ""} ${e.apellido ?? ""}`.trim();
 
-  // Determinar fecha de corte y filtrar rango relevante según reglas 12–26 y 27–11
   const computeStatus = (
     e: Empleado,
   ): {
@@ -64,32 +69,17 @@ const ColaboradoresList: React.FC<ColaboradoresListProps> = ({
     const arr = e.registrosUltimos20Dias ?? [];
 
     const today = new Date();
-    const day = today.getDate();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-
+    const periodo = periodoQueContiene(today, periodosConfig);
     let start: Date;
     let end: Date;
-
-    // Determinar el intervalo según la fecha actual
-    if (day >= 12 && day <= 26) {
-      // Intervalo: 12 del mes actual al 26 del mes actual
-      // Ejemplo: Si hoy es 14 de septiembre → intervalo 12-26 septiembre
-      start = new Date(year, month, 12);
-      end = new Date(year, month, 26);
-    } else if (day >= 27) {
-      // Intervalo: 27 del mes actual al 11 del mes siguiente
-      // Ejemplo: Si hoy es 3 de octubre → intervalo 27 septiembre - 11 octubre
-      start = new Date(year, month, 27);
-      end = new Date(year, month + 1, 11);
+    if (periodo) {
+      start = parseYmdLocal(periodo.fechaInicio);
+      end = parseYmdLocal(periodo.fechaFin);
     } else {
-      // day <= 11: Intervalo: 27 del mes anterior al 11 del mes actual
-      // Ejemplo: Si hoy es 3 de octubre → intervalo 27 septiembre - 11 octubre
-      start = new Date(year, month - 1, 27);
-      end = new Date(year, month, 11);
+      start = new Date(today);
+      end = new Date(today);
     }
 
-    // Normalizar fechas a medianoche en UTC para comparación
     start.setHours(0, 0, 0, 0);
     end.setHours(0, 0, 0, 0);
 

@@ -17,6 +17,11 @@ import {
   persistProrrateoIndexSession,
   resolveEmpleadosIndexForNomina,
 } from "../../utils/nominasEmpleadosIndexSession";
+import {
+  quincenaBYaEmpezo,
+  type PeriodosNominaConfig,
+} from "../rrhh/gestion-empleados/calculo-nominas/utils/periodos";
+import { usePeriodosNominaConfig } from "../../contexts/PeriodosNominaConfigContext";
 
 const MESES = [
   "Enero",
@@ -37,20 +42,22 @@ function buildPeriodosDisponibles(
   selectedYear: number,
   currentYear: number,
   currentMonth: number,
-  currentDay: number
+  currentDay: number,
+  periodosConfig: PeriodosNominaConfig,
 ) {
   const grupos: Array<{
     mesLabel: string;
     periodos: Array<{ value: string; label: string }>;
   }> = [];
   const maxMes = selectedYear === currentYear ? currentMonth : 12;
+  const hoyRef = new Date(currentYear, currentMonth - 1, currentDay);
 
   for (let mes = maxMes; mes >= 1; mes--) {
     const mesStr = String(mes).padStart(2, "0");
     const periodosMes: Array<{ value: string; label: string }> = [];
     const esMesActual = selectedYear === currentYear && mes === currentMonth;
 
-    if (!esMesActual || currentDay > 15) {
+    if (!esMesActual || quincenaBYaEmpezo(hoyRef, periodosConfig)) {
       periodosMes.push({
         value: `${mesStr}B`,
         label: "Segunda Quincena",
@@ -81,6 +88,7 @@ const ProrrateoManagement: React.FC = () => {
   const location = useLocation() as any;
   const { setSelectedEmpleado, setEmpleadosIndex } =
     useOutletContext<LayoutOutletCtx>();
+  const { config: periodosConfig } = usePeriodosNominaConfig();
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -131,9 +139,10 @@ const ProrrateoManagement: React.FC = () => {
         selectedYear,
         currentYear,
         currentMonth,
-        currentDay
+        currentDay,
+        periodosConfig,
       ),
-    [selectedYear, currentYear, currentMonth, currentDay]
+    [selectedYear, currentYear, currentMonth, currentDay, periodosConfig],
   );
 
   useEffect(() => {
@@ -258,7 +267,8 @@ const ProrrateoManagement: React.FC = () => {
       year,
       currentYear,
       currentMonth,
-      currentDay
+      currentDay,
+      periodosConfig,
     );
     setSelectedYear(year);
     setSelectedPeriodo(primerPeriodoDisponible(periodos));
@@ -276,7 +286,8 @@ const ProrrateoManagement: React.FC = () => {
       year,
       currentYear,
       currentMonth,
-      currentDay
+      currentDay,
+      periodosConfig,
     );
     setSelectedPeriodo(primerPeriodoDisponible(periodos));
   };

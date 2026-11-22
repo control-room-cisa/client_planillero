@@ -34,6 +34,13 @@ import { useNavigate, useOutletContext, useLocation } from "react-router-dom";
 import type { EmpleadoIndexItem, LayoutOutletCtx } from "../Layout";
 import EmpleadoService from "../../services/empleadoService";
 import { ymdInTimeZone } from "../../utils/dateTime";
+import {
+  diasInicioPermitidos,
+  esDiaFinPermitido,
+  parseYmdLocal,
+  periodoQueContiene,
+} from "../rrhh/gestion-empleados/calculo-nominas/utils/periodos";
+import { usePeriodosNominaConfig } from "../../contexts/PeriodosNominaConfigContext";
 
 interface TimesheetReviewSupervisorProps {
   empleado?: Empleado;
@@ -86,55 +93,42 @@ const TimesheetReviewSupervisor: React.FC<TimesheetReviewSupervisorProps> = ({
   );
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const { config: periodosConfig } = usePeriodosNominaConfig();
 
-  // Helpers de período (12-26) y (27-11)
   const clampToMidnight = (d: Date) => {
     const c = new Date(d);
     c.setHours(0, 0, 0, 0);
     return c;
   };
 
-  const makeDate = (year: number, month: number, day: number) =>
-    clampToMidnight(new Date(year, month, day));
-
   const getPeriodFromDate = (d: Date) => {
-    const year = d.getFullYear();
-    const month = d.getMonth();
-    const day = d.getDate();
-
-    if (day >= 12 && day <= 26) {
-      return {
-        start: makeDate(year, month, 12),
-        end: makeDate(year, month, 26),
-      };
+    const p = periodoQueContiene(d, periodosConfig);
+    if (!p) {
+      const c = clampToMidnight(d);
+      return { start: c, end: c };
     }
-    if (day >= 27) {
-      // 27 -> 11 del siguiente mes
-      const nextMonth = month + 1;
-      const nextYear = nextMonth > 11 ? year + 1 : year;
-      const nm = nextMonth % 12;
-      return {
-        start: makeDate(year, month, 27),
-        end: makeDate(nextYear, nm, 11),
-      };
-    }
-    // 1..11 -> 27 del mes anterior al 11 del actual
-    const prevMonth = month - 1;
-    const prevYear = prevMonth < 0 ? year - 1 : year;
-    const pm = (prevMonth + 12) % 12;
     return {
-      start: makeDate(prevYear, pm, 27),
-      end: makeDate(year, month, 11),
+      start: clampToMidnight(parseYmdLocal(p.fechaInicio)),
+      end: clampToMidnight(parseYmdLocal(p.fechaFin)),
     };
   };
 
   const today = useMemo(() => new Date(), []);
-  const initialPeriod = useMemo(() => getPeriodFromDate(today), [today]);
+  const initialPeriod = useMemo(
+    () => getPeriodFromDate(today),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar / cambio de config
+    [today, periodosConfig],
+  );
 
   const [startDate, setStartDate] = useState<Date | null>(initialPeriod.start);
   const [endDate, setEndDate] = useState<Date | null>(initialPeriod.end);
   const [statusFilter, setStatusFilter] = useState<PlanillaStatus>("Pendiente");
   const [openFilters, setOpenFilters] = useState(!isMobile);
+
+  useEffect(() => {
+    setStartDate(initialPeriod.start);
+    setEndDate(initialPeriod.end);
+  }, [initialPeriod.start, initialPeriod.end]);
 
   // Navegación entre empleados
   const currentIndex = empleadosIndex.findIndex(
@@ -299,31 +293,13 @@ const TimesheetReviewSupervisor: React.FC<TimesheetReviewSupervisorProps> = ({
               return;
             }
             const d = clampToMidnight(val as Date);
-            const day = d.getDate();
-            let newStart = d;
-            let newEnd = d;
-            if (day === 12) {
-              newStart = makeDate(d.getFullYear(), d.getMonth(), 12);
-              newEnd = makeDate(d.getFullYear(), d.getMonth(), 26);
-            } else if (day === 27) {
-              const nextMonth = (d.getMonth() + 1) % 12;
-              const nextYear =
-                d.getMonth() + 1 > 11 ? d.getFullYear() + 1 : d.getFullYear();
-              newStart = makeDate(d.getFullYear(), d.getMonth(), 27);
-              newEnd = makeDate(nextYear, nextMonth, 11);
-            } else {
-              // Snap al período correspondiente
-              const p = getPeriodFromDate(d);
-              newStart = p.start;
-              newEnd = p.end;
-            }
-            setStartDate(newStart);
-            setEndDate(newEnd);
+            const p = getPeriodFromDate(d);
+            setStartDate(p.start);
+            setEndDate(p.end);
           }}
           shouldDisableDate={(date) => {
-            // Solo permitir 12 y 27
             const day = (date as Date).getDate();
-            return !(day === 12 || day === 27);
+            return !diasInicioPermitidos(periodosConfig).includes(day);
           }}
           slotProps={{ textField: { size: "small", fullWidth: true } }}
         />
@@ -337,31 +313,11 @@ const TimesheetReviewSupervisor: React.FC<TimesheetReviewSupervisorProps> = ({
               return;
             }
             const d = clampToMidnight(val as Date);
-            const day = d.getDate();
-            let newStart = d;
-            let newEnd = d;
-            if (day === 26) {
-              newStart = makeDate(d.getFullYear(), d.getMonth(), 12);
-              newEnd = makeDate(d.getFullYear(), d.getMonth(), 26);
-            } else if (day === 11) {
-              const prevMonth = (d.getMonth() + 11) % 12;
-              const prevYear =
-                d.getMonth() === 0 ? d.getFullYear() - 1 : d.getFullYear();
-              newStart = makeDate(prevYear, prevMonth, 27);
-              newEnd = makeDate(d.getFullYear(), d.getMonth(), 11);
-            } else {
-              const p = getPeriodFromDate(d);
-              newStart = p.start;
-              newEnd = p.end;
-            }
-            setStartDate(newStart);
-            setEndDate(newEnd);
+            const p = getPeriodFromDate(d);
+            setStartDate(p.start);
+            setEndDate(p.end);
           }}
-          shouldDisableDate={(date) => {
-            // Solo permitir 11 y 26
-            const day = (date as Date).getDate();
-            return !(day === 11 || day === 26);
-          }}
+          shouldDisableDate={(date) => !esDiaFinPermitido(date as Date, periodosConfig)}
           slotProps={{ textField: { size: "small", fullWidth: true } }}
         />
       </LocalizationProvider>

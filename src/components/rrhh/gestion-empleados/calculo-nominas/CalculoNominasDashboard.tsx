@@ -42,6 +42,7 @@ import {
   montoPorDiasQuincena,
 } from "./utils/formatters";
 import { derivarCodigoNomina } from "./utils/periodos";
+import { usePeriodosNominaConfig } from "../../../../contexts/PeriodosNominaConfigContext";
 
 // Hooks de negocio del módulo de cálculo de nóminas
 import {
@@ -89,6 +90,8 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
   nominaPeriodos,
 }) => {
   const navigate = useNavigate();
+  const { config: periodosConfig, descripcionCortes } =
+    usePeriodosNominaConfig();
 
   // ========= Navegación entre empleados =========
   const {
@@ -430,7 +433,11 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
         new Date(s + (s.length === 10 ? "T00:00:00" : ""));
       const startNew = toDate(fechaInicio);
       const endNew = toDate(fechaFin);
-      const codigoPeriodo = derivarCodigoNomina(fechaInicio, fechaFin);
+      const codigoPeriodo = derivarCodigoNomina(
+        fechaInicio,
+        fechaFin,
+        periodosConfig,
+      );
       const duplicadaPorCodigo = existentes.some(
         (n) => n.codigoNomina && n.codigoNomina === codigoPeriodo
       );
@@ -583,6 +590,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     totalAPagar,
     comentario,
     getNombrePeriodoNomina,
+    periodosConfig,
     refetch,
     totalCompensatoriasQuincena,
     setNominaExiste,
@@ -932,10 +940,10 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
             {!intervaloSeleccionado && (
               <Box sx={{ mt: 2, textAlign: "center" }}>
                 <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                  💡 Elige el año y la quincena (12–26 o 27–11 según reglas de
-                  nómina). En el año en curso aparecen períodos cerrados y
-                  también el período en curso. Selecciona un período para ver la
-                  información.
+                  💡 Elige el año y la quincena ({descripcionCortes} según
+                  reglas de nómina). En el año en curso aparecen períodos
+                  cerrados y también el período en curso. Selecciona un período
+                  para ver la información.
                 </Typography>
               </Box>
             )}
