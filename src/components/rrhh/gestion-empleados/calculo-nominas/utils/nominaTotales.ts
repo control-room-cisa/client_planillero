@@ -1,12 +1,13 @@
 import type { NominaDto } from "../../../../../dtos/nominaDto";
 import { roundTo2Decimals } from "./formatters";
 
-/** Total bruto = subtotal quincena + horas extra + ajuste (alineado con NominaFormModal). */
+/** Total bruto = subtotal + horas extra + ajuste + anticipo (alineado con NominaFormModal). */
 export function calcularTotalBrutoNomina(nomina: NominaDto): number {
   return roundTo2Decimals(
     (nomina.subtotalQuincena ?? 0) +
       calcularTotalHorasExtraNomina(nomina) +
-      (nomina.ajuste ?? 0),
+      (nomina.ajuste ?? 0) +
+      (nomina.anticipoPago ?? 0),
   );
 }
 

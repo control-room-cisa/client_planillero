@@ -755,6 +755,10 @@ export function buildVoucherPageHtml(
             },
             { label: "(+) Ajuste", value: esc(fc(n.ajuste)) },
             {
+              label: "(+) Anticipo de pago",
+              value: esc(fc(n.anticipoPago)),
+            },
+            {
               label: "Total bruto",
               value: esc(fc(calcularTotalBrutoNomina(n))),
               total: true,

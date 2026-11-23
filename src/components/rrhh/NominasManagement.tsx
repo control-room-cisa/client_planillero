@@ -424,6 +424,7 @@ const NominasManagement: React.FC = () => {
         acc.totalBruto += calcularTotalBrutoNomina(nomina);
         acc.horasExtra += calcularTotalHorasExtraNomina(nomina);
         acc.ajustes += nomina.ajuste ?? 0;
+        acc.anticipoPago += nomina.anticipoPago ?? 0;
         acc.deduccionIHSS += nomina.deduccionIHSS ?? 0;
         acc.deduccionISR += nomina.deduccionISR ?? 0;
         acc.deduccionRAP += nomina.deduccionRAP ?? 0;
@@ -446,6 +447,7 @@ const NominasManagement: React.FC = () => {
         totalBruto: 0,
         horasExtra: 0,
         ajustes: 0,
+        anticipoPago: 0,
         deduccionIHSS: 0,
         deduccionISR: 0,
         deduccionRAP: 0,
@@ -596,6 +598,7 @@ const NominasManagement: React.FC = () => {
         // Si hay error, establecer el campo en 0 y habilitar edición
         setEditFormData({
           ajuste: nomina.ajuste,
+          anticipoPago: nomina.anticipoPago,
           deduccionIHSS: nomina.deduccionIHSS,
           deduccionISR: nomina.deduccionISR,
           deduccionRAP: nomina.deduccionRAP,
@@ -611,6 +614,7 @@ const NominasManagement: React.FC = () => {
         setErrorAlimentacion(null);
         setEditFormData({
           ajuste: nomina.ajuste,
+          anticipoPago: nomina.anticipoPago,
           deduccionIHSS: nomina.deduccionIHSS,
           deduccionISR: nomina.deduccionISR,
           deduccionRAP: nomina.deduccionRAP,
@@ -629,6 +633,7 @@ const NominasManagement: React.FC = () => {
       // Si hay error general, mantener el valor actual de la nómina
       setEditFormData({
         ajuste: nomina.ajuste,
+        anticipoPago: nomina.anticipoPago,
         deduccionIHSS: nomina.deduccionIHSS,
         deduccionISR: nomina.deduccionISR,
         deduccionRAP: nomina.deduccionRAP,
@@ -1563,7 +1568,7 @@ const NominasManagement: React.FC = () => {
             <Divider />
 
             <Typography variant="h6" sx={{ mt: 2 }}>
-              (+) Ajuste (se suma a percepciones)
+              (+) Ajuste / Anticipo (se suman a percepciones)
             </Typography>
             <Box
               sx={{
@@ -1599,6 +1604,30 @@ const NominasManagement: React.FC = () => {
                 fullWidth
                 size="small"
                 helperText="Se suma al total bruto / percepciones"
+              />
+              <TextField
+                label="(+) Anticipo de pago"
+                type="text"
+                value={editFormData.anticipoPago ?? ""}
+                onChange={(e) => {
+                  let value = e.target.value.replace(/[^0-9.]/g, "");
+                  const parts = value.split(".");
+                  value =
+                    parts.length > 2
+                      ? parts[0] + "." + parts.slice(1).join("")
+                      : value;
+                  setEditFormData({
+                    ...editFormData,
+                    anticipoPago:
+                      value === "" || value === "."
+                        ? null
+                        : parseFloat(value) || null,
+                  });
+                }}
+                onKeyPress={(e) => handleNumericKeyPress(e, false)}
+                fullWidth
+                size="small"
+                helperText="Suma al total a depositar (A y B)"
               />
             </Box>
 
@@ -1872,6 +1901,7 @@ const NominasManagement: React.FC = () => {
                   <TableCell align="right">Extra 75%</TableCell>
                   <TableCell align="right">Extra 100%</TableCell>
                   <TableCell align="right">Ajustes</TableCell>
+                  <TableCell align="right">Anticipo de pago</TableCell>
                   <TableCell align="right">Total Bruto</TableCell>
                   <TableCell align="right">Deducción IHSS</TableCell>
                   <TableCell align="right">Deducción ISR</TableCell>
@@ -1915,6 +1945,9 @@ const NominasManagement: React.FC = () => {
                     </TableCell>
                     <TableCell align="right">
                       {formatCurrency(nomina.ajuste)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {formatCurrency(nomina.anticipoPago)}
                     </TableCell>
                     <TableCell align="right">
                       {formatCurrency(calcularTotalBrutoNomina(nomina))}
@@ -1993,6 +2026,9 @@ const NominasManagement: React.FC = () => {
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
                     {formatCurrency(aggregatedTotals.ajustes)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                    {formatCurrency(aggregatedTotals.anticipoPago)}
                   </TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>
                     {formatCurrency(aggregatedTotals.totalBruto)}
@@ -2315,6 +2351,18 @@ const NominasManagement: React.FC = () => {
                         </Typography>
                         <Typography variant="body1">
                           {formatCurrency(currentNomina.ajuste)}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          gutterBottom
+                        >
+                          (+) Anticipo de pago
+                        </Typography>
+                        <Typography variant="body1">
+                          {formatCurrency(currentNomina.anticipoPago)}
                         </Typography>
                       </Box>
                       <Divider sx={{ my: 1 }} />

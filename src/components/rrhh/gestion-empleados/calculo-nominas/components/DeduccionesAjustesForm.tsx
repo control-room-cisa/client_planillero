@@ -106,6 +106,10 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
     setInputAjuste,
     setAjuste,
 
+    inputAnticipoPago,
+    setInputAnticipoPago,
+    setAnticipoPago,
+
     inputCobroPrestamo,
     setInputCobroPrestamo,
     setCobroPrestamo,
@@ -300,6 +304,20 @@ const DeduccionesAjustesForm: React.FC<DeduccionesAjustesFormProps> = ({
               setInputAjuste(sanitized);
               setAjuste(parseDecimalValue(sanitized));
             }}
+          />
+          <TextField
+            label="(+) Anticipo de pago"
+            type="text"
+            inputMode="decimal"
+            size="small"
+            placeholder="0"
+            value={inputAnticipoPago}
+            onChange={(e) => {
+              const sanitized = sanitizeDecimalInput(e.target.value);
+              setInputAnticipoPago(sanitized);
+              setAnticipoPago(parseDecimalValue(sanitized));
+            }}
+            helperText="Suma al total a depositar (A y B)"
           />
           <TextField
             label="(-) Otros"

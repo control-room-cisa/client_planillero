@@ -286,6 +286,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     montoIncapacidadCubreEmpresa,
     montoIncapacidadIHSS,
     ajuste,
+    anticipoPago,
     deduccionIHSS,
     deduccionRAP,
     deduccionISR,
@@ -377,9 +378,12 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
       (montoHoras100 || 0),
   );
 
-  // Total bruto = subtotal quincena + horas extra + ajuste (alineado con NominaFormModal)
+  // Total bruto = subtotal + horas extra + ajuste + anticipo (alineado con NominaFormModal)
   const totalBruto = roundTo2Decimals(
-    (subtotalQuincena || 0) + totalHorasExtra + (ajuste || 0),
+    (subtotalQuincena || 0) +
+      totalHorasExtra +
+      (ajuste || 0) +
+      (anticipoPago || 0),
   );
 
   const totalDeducciones = roundTo2Decimals(
@@ -558,6 +562,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
 
         // Ajustes y totales (total bruto/neto alineados con prorrateo)
         ajuste: ajuste || 0,
+        anticipoPago: anticipoPago || 0,
         totalPercepciones: totalBruto || 0,
         deduccionIHSS: deduccionIHSS || 0,
         deduccionISR: deduccionISR || 0,
@@ -606,6 +611,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     showToast,
     bloqueaPorValidacion,
     ajuste,
+    anticipoPago,
     totalBruto,
     deduccionIHSS,
     deduccionISR,

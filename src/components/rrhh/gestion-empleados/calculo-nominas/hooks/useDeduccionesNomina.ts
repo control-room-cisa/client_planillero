@@ -51,6 +51,8 @@ export interface UseDeduccionesNominaReturn {
   setMontoIncapacidadIHSS: React.Dispatch<React.SetStateAction<number>>;
   ajuste: number;
   setAjuste: React.Dispatch<React.SetStateAction<number>>;
+  anticipoPago: number;
+  setAnticipoPago: React.Dispatch<React.SetStateAction<number>>;
   montoExcedenteIHSS: number;
   setMontoExcedenteIHSS: React.Dispatch<React.SetStateAction<number>>;
   deduccionIHSS: number;
@@ -77,6 +79,8 @@ export interface UseDeduccionesNominaReturn {
   setInputMontoIncapacidadIHSS: React.Dispatch<React.SetStateAction<string>>;
   inputAjuste: string;
   setInputAjuste: React.Dispatch<React.SetStateAction<string>>;
+  inputAnticipoPago: string;
+  setInputAnticipoPago: React.Dispatch<React.SetStateAction<string>>;
   inputDeduccionIHSS: string;
   setInputDeduccionIHSS: React.Dispatch<React.SetStateAction<string>>;
   inputDeduccionISR: string;
@@ -161,6 +165,7 @@ export function useDeduccionesNomina({
 
   // Estados de deducciones/ajustes
   const [ajuste, setAjuste] = React.useState<number>(0);
+  const [anticipoPago, setAnticipoPago] = React.useState<number>(0);
   const [montoExcedenteIHSS, setMontoExcedenteIHSS] = React.useState<number>(0);
   const [deduccionIHSS, setDeduccionIHSS] = React.useState<number>(0);
   const [deduccionRAP, setDeduccionRAP] = React.useState<number>(0);
@@ -176,6 +181,7 @@ export function useDeduccionesNomina({
   const [inputMontoIncapacidadIHSS, setInputMontoIncapacidadIHSS] =
     React.useState<string>("");
   const [inputAjuste, setInputAjuste] = React.useState<string>("");
+  const [inputAnticipoPago, setInputAnticipoPago] = React.useState<string>("");
   const [inputDeduccionIHSS, setInputDeduccionIHSS] =
     React.useState<string>("");
   const [inputDeduccionISR, setInputDeduccionISR] = React.useState<string>("");
@@ -261,6 +267,9 @@ export function useDeduccionesNomina({
   // ISR / vecinal: solo se fuerzan a 0 si la política dice que no aplican en el período
   React.useEffect(() => {
     setAjuste(0);
+    setInputAjuste("");
+    setAnticipoPago(0);
+    setInputAnticipoPago("");
     setMontoExcedenteIHSS(0);
     setCobroPrestamo(0);
     setInputCobroPrestamo("");
@@ -280,7 +289,6 @@ export function useDeduccionesNomina({
     }
 
     setComentario("");
-    setInputAjuste("");
     setInputMontoExcedenteIHSS("");
   }, [fechaInicio, fechaFin, codigoNominaTerminaEnA, politicaDeducciones]);
 
@@ -300,6 +308,8 @@ export function useDeduccionesNomina({
     setMontoIncapacidadIHSS,
     ajuste,
     setAjuste,
+    anticipoPago,
+    setAnticipoPago,
     montoExcedenteIHSS,
     setMontoExcedenteIHSS,
     deduccionIHSS,
@@ -323,6 +333,8 @@ export function useDeduccionesNomina({
     setInputMontoIncapacidadIHSS,
     inputAjuste,
     setInputAjuste,
+    inputAnticipoPago,
+    setInputAnticipoPago,
     inputDeduccionIHSS,
     setInputDeduccionIHSS,
     inputDeduccionISR,

@@ -172,6 +172,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
 
   // Deducciones
   const [formAjuste, setFormAjuste] = useState<number>(0);
+  const [formAnticipoPago, setFormAnticipoPago] = useState<number>(0);
   const [formDeduccionIHSS, setFormDeduccionIHSS] = useState<number>(0);
   const [formDeduccionISR, setFormDeduccionISR] = useState<number>(0);
   const [formDeduccionRAP, setFormDeduccionRAP] = useState<number>(0);
@@ -422,6 +423,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       setFormCantidadHoras75(nomina.cantidadHoras75 ?? 0);
       setFormCantidadHoras100(nomina.cantidadHoras100 ?? 0);
       setFormAjuste(nomina.ajuste ?? 0);
+      setFormAnticipoPago(nomina.anticipoPago ?? 0);
       setFormDeduccionIHSS(nomina.deduccionIHSS ?? 0);
       setFormDeduccionISR(nomina.deduccionISR ?? 0);
       setFormDeduccionRAP(nomina.deduccionRAP ?? 0);
@@ -495,6 +497,8 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
             ? String(nomina.cantidadHoras100)
             : "",
         ajuste: nomina.ajuste != null ? String(nomina.ajuste) : "",
+        anticipoPago:
+          nomina.anticipoPago != null ? String(nomina.anticipoPago) : "",
         deduccionIHSS:
           nomina.deduccionIHSS != null ? String(nomina.deduccionIHSS) : "",
         deduccionISR:
@@ -567,6 +571,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       setFormCantidadHoras75(0);
       setFormCantidadHoras100(0);
       setFormAjuste(0);
+      setFormAnticipoPago(0);
       setFormDeduccionIHSS(0);
       setFormDeduccionISR(0);
       setFormDeduccionRAP(0);
@@ -730,7 +735,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     formMontoPermisosJustificados,
   ]);
 
-  // Total percepciones = subtotal + horas extra + ajuste
+  // Total percepciones = subtotal + horas extra + ajuste + anticipo
   // Nota: montoExcedenteIHSS NO se incluye
   useEffect(() => {
     setFormTotalPercepciones(
@@ -740,7 +745,8 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
           (formMontoHoras50 ?? 0) +
           (formMontoHoras75 ?? 0) +
           (formMontoHoras100 ?? 0) +
-          (formAjuste ?? 0),
+          (formAjuste ?? 0) +
+          (formAnticipoPago ?? 0),
       ),
     );
   }, [
@@ -750,6 +756,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     formMontoHoras75,
     formMontoHoras100,
     formAjuste,
+    formAnticipoPago,
   ]);
 
   // Defaults IHSS / RAP / ISR / vecinal (mismas reglas A/B del dashboard)
@@ -1232,6 +1239,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
         cantidadHoras75: formCantidadHoras75 ?? 0,
         cantidadHoras100: formCantidadHoras100 ?? 0,
         ajuste: formAjuste ?? 0,
+        anticipoPago: formAnticipoPago ?? 0,
         totalPercepciones: formTotalPercepciones ?? 0,
         deduccionIHSS: formDeduccionIHSS ?? 0,
         deduccionISR: formDeduccionISR ?? 0,
@@ -1965,12 +1973,27 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
               helperText="Se suma a las percepciones / total bruto"
             />
             <TextField
+              label="(+) Anticipo de pago"
+              type="text"
+              value={numericText.anticipoPago ?? ""}
+              onChange={(e) =>
+                handleNumericChange(e, "anticipoPago", setFormAnticipoPago, {
+                  allowNegative: false,
+                  allowDecimal: true,
+                  maxDecimals: 2,
+                })
+              }
+              onKeyPress={(e) => handleNumericKeyPress(e, false, true)}
+              fullWidth
+              helperText="Suma al total a depositar (ambas quincenas)"
+            />
+            <TextField
               label="Total Percepciones"
               type="text"
               value={String(formTotalPercepciones)}
               disabled
               fullWidth
-              helperText="Subtotal + horas extra + ajuste"
+              helperText="Subtotal + horas extra + ajuste + anticipo"
             />
           </Box>
 
