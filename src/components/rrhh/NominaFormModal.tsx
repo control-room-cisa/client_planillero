@@ -23,7 +23,6 @@ import NominaService, { type NominaDto } from "../../services/nominaService";
 import EmpleadoService from "../../services/empleadoService";
 import JobService, { type Job } from "../../services/jobService";
 import {
-  toYmdLocal,
   getNombrePeriodoNomina,
   construirIntervalo,
 } from "./gestion-empleados/calculo-nominas/utils/periodos";
