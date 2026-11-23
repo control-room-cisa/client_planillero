@@ -31,6 +31,7 @@ import type {
   CreateEmpleadoDto,
   UpdateEmpleadoDto,
   Empleado,
+  HistorialSalario,
 } from "../../../services/empleadoService";
 
 import type { Departamento, Empresa } from "../../../types/auth";
@@ -111,7 +112,23 @@ type EmpleadoFormData = Omit<
 > & {
   contrasena: string;
   empresaId: number;
+  fechaVigenciaSueldo?: string;
 };
+
+function todayYmdLocal(): string {
+  const n = new Date();
+  const y = n.getFullYear();
+  const m = String(n.getMonth() + 1).padStart(2, "0");
+  const day = String(n.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatYmdDisplay(ymd: string): string {
+  const s = String(ymd || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s || "—";
+  const [y, m, d] = s.split("-");
+  return `${d}/${m}/${y}`;
+}
 
 /** Vacío o inválido → 0 (deducciones predefinidas ISR / RAP voluntario). */
 function normalizeDeduccionDecimal(value: unknown): number {
@@ -166,6 +183,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     profesion: "",
     cargo: "",
     sueldoMensual: 0,
+    fechaVigenciaSueldo: todayYmdLocal(),
     aporteVoluntarioRap: 0,
     isr: 0,
     telefono: "",
@@ -193,6 +211,11 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     empresaId: 0,
     /** campos faltantes */
   });
+
+  const [historialSalarios, setHistorialSalarios] = React.useState<
+    HistorialSalario[]
+  >([]);
+  const originalSueldoRef = React.useRef<number>(0);
 
   const [selectedFiles, setSelectedFiles] = React.useState<{
     foto?: File;
@@ -283,6 +306,14 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       originalUsernameRef.current = nombreUsuarioLower;
       currentUsernameRef.current = nombreUsuarioLower;
 
+      originalSueldoRef.current = Number(empleadoCompleto.sueldoMensual || 0);
+      try {
+        const hist = await EmpleadoService.getHistorialSalarios(empleado.id);
+        setHistorialSalarios(hist);
+      } catch {
+        setHistorialSalarios([]);
+      }
+
       setFormData({
         nombre: empleadoCompleto.nombre,
         apellido: empleadoCompleto.apellido || "",
@@ -291,6 +322,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         profesion: empleadoCompleto.profesion || "",
         cargo: empleadoCompleto.cargo || "",
         sueldoMensual: empleadoCompleto.sueldoMensual || 0,
+        fechaVigenciaSueldo: todayYmdLocal(),
         aporteVoluntarioRap: empleadoCompleto.aporteVoluntarioRap ?? 0,
         isr: empleadoCompleto.isr ?? 0,
         telefono: empleadoCompleto.telefono || "",
@@ -338,6 +370,8 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
   const resetForm = () => {
     originalUsernameRef.current = undefined;
     currentUsernameRef.current = "";
+    originalSueldoRef.current = 0;
+    setHistorialSalarios([]);
     setFormData({
       nombre: "",
       apellido: "",
@@ -346,6 +380,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       profesion: "",
       cargo: "",
       sueldoMensual: 0,
+      fechaVigenciaSueldo: todayYmdLocal(),
       aporteVoluntarioRap: 0,
       isr: 0,
       telefono: "",
@@ -597,8 +632,25 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
 
       const fd = trimEmpleadoFormForSubmit(formData);
       fd.rolIds = normalizeSelectedRolIds(fd.rolIds ?? []);
+      const sueldoCambio =
+        Number(fd.sueldoMensual || 0) !== Number(originalSueldoRef.current || 0);
+      const vigencia =
+        fd.fechaVigenciaSueldo?.slice(0, 10) ||
+        (fd.fechaInicioIngreso
+          ? new Date(fd.fechaInicioIngreso).toISOString().slice(0, 10)
+          : todayYmdLocal());
 
       if (isEditing && empleado) {
+        if (sueldoCambio && !fd.fechaVigenciaSueldo) {
+          setFieldErrors((prev) => ({
+            ...prev,
+            fechaVigenciaSueldo:
+              "Indique la fecha de vigencia del nuevo sueldo",
+          }));
+          onError("Indique la fecha de vigencia del nuevo sueldo");
+          setLoading(false);
+          return;
+        }
         const { contrasena, empresaId, ...updateFields } = fd;
         const updateData: UpdateEmpleadoDto = {
           id: empleado.id,
@@ -609,6 +661,9 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
             ? { contrasena: formData.contrasena }
             : {}),
           ...(fd.editTime ? { editTime: fd.editTime } : {}),
+          ...(sueldoCambio
+            ? { fechaVigenciaSueldo: vigencia }
+            : { fechaVigenciaSueldo: undefined }),
         };
         await EmpleadoService.update(updateData, selectedFiles);
         onSuccess("Colaborador actualizado exitosamente");
@@ -616,6 +671,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         const createData: CreateEmpleadoDto = {
           ...fd,
           nombreUsuario: fd.nombreUsuario?.toLowerCase() || fd.nombreUsuario,
+          fechaVigenciaSueldo: vigencia,
           urlFotoPerfil: "",
           codigo: "",
           departamento: "",
@@ -905,6 +961,27 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                 helperText={fieldErrors.sueldoMensual}
               />
               <TextField
+                label="Vigencia del sueldo"
+                name="fechaVigenciaSueldo"
+                type="date"
+                value={formData.fechaVigenciaSueldo || ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    fechaVigenciaSueldo: e.target.value,
+                  })
+                }
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                error={!!fieldErrors.fechaVigenciaSueldo}
+                helperText={
+                  fieldErrors.fechaVigenciaSueldo ||
+                  (isEditing
+                    ? "Requerida si cambia el sueldo. Puede ser futura."
+                    : "Desde cuándo aplica el sueldo inicial")
+                }
+              />
+              <TextField
                 label="Fecha de Ingreso"
                 name="fechaInicioIngreso"
                 type="date"
@@ -919,6 +996,37 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                 fullWidth
                 InputLabelProps={{ shrink: true }}
               />
+              {isEditing && historialSalarios.length > 0 && (
+                <Box sx={{ gridColumn: "1 / -1" }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Historial de salarios
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 0.5,
+                      maxHeight: 160,
+                      overflow: "auto",
+                      border: "1px solid",
+                      borderColor: "divider",
+                      borderRadius: 1,
+                      p: 1,
+                    }}
+                  >
+                    {historialSalarios.map((h) => (
+                      <Typography
+                        key={h.id}
+                        variant="body2"
+                        sx={{ fontFamily: "monospace" }}
+                      >
+                        {formatYmdDisplay(h.fechaVigencia)} — L{" "}
+                        {Number(h.sueldoMensual).toFixed(2)}
+                      </Typography>
+                    ))}
+                  </Box>
+                </Box>
+              )}
               <TextField
                 label="Aporte Voluntario RAP"
                 name="aporteVoluntarioRap"

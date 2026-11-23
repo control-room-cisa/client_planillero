@@ -20,6 +20,7 @@ import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { useNavigate } from "react-router-dom";
 import type { Empleado } from "../../../../services/empleadoService";
+import EmpleadoService from "../../../../services/empleadoService";
 import type { EmpleadoIndexItem } from "../../../Layout";
 import { getImageUrl } from "../../../../utils/imageUtils";
 import { useHorasTrabajo } from "../../../../hooks/useHorasTrabajo";
@@ -131,7 +132,8 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
   } = nominaPeriodos;
 
   // ========= Configuración global (PISO_IHSS / DEDUCCION_IHSS_FIJA) =========
-  const { cfgPisoIhss, cfgDeduccionIhssFija } = useGlobalConfigNomina();
+  const { cfgPisoIhss, cfgDeduccionIhssFija, politicaDeducciones } =
+    useGlobalConfigNomina();
   const PISO_IHSS = cfgPisoIhss;
   const DEDUCCION_IHSS_FIJA = cfgDeduccionIhssFija;
 
@@ -151,8 +153,34 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
   const totalCompensatoriasQuincena =
     horasCompensatoriasAcumuladas - horasCompensatoriasTomadas;
 
+  // Sueldo vigente al inicio del período (historial de salarios)
+  const [sueldoVigentePeriodo, setSueldoVigentePeriodo] = React.useState<
+    number | null
+  >(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    const empId = empleado?.id != null ? Number(empleado.id) : NaN;
+    if (!Number.isFinite(empId) || !fechaInicio) {
+      setSueldoVigentePeriodo(null);
+      return;
+    }
+    EmpleadoService.getSueldoVigente(empId, fechaInicio)
+      .then((r) => {
+        if (!cancelled) setSueldoVigentePeriodo(Number(r.sueldoMensual ?? 0));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSueldoVigentePeriodo(Number((empleado as any)?.sueldoMensual ?? 0));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [empleado?.id, (empleado as any)?.sueldoMensual, fechaInicio]);
+
   // Cálculos de salario y montos
-  const { sueldoMensual = 0 } = (empleado as any) || {};
+  const sueldoMensual =
+    sueldoVigentePeriodo ?? Number((empleado as any)?.sueldoMensual ?? 0);
   const conteoDias = resumenHoras?.conteoHoras?.conteoDias;
   const periodoNomina = conteoDias?.totalPeriodo ?? 15;
   const diasVacaciones = conteoDias?.vacaciones ?? 0;
@@ -231,7 +259,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
   //       diasIncapacidadCubreIHSS * 8
   //   ) || 0;
 
-  // Deducciones predefinidas del colaborador (quincena B)
+  // Deducciones predefinidas del colaborador (monto mensual; reparto según política)
   const empleadoIsr = Number((empleado as Empleado)?.isr) || 0;
   const empleadoAporteVoluntarioRap =
     Number((empleado as Empleado)?.aporteVoluntarioRap) || 0;
@@ -246,6 +274,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     salarioQuincenal,
     PISO_IHSS,
     DEDUCCION_IHSS_FIJA,
+    politicaDeducciones,
     diasIncapacidadCubreEmpresa,
     diasIncapacidadCubreIHSS,
     montoIncapacidadIHSSFromBackend:
@@ -500,7 +529,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
         nombrePeriodoNomina: getNombrePeriodoNomina(fechaInicio, fechaFin),
         fechaInicio,
         fechaFin,
-        sueldoMensual: Number(empleado.sueldoMensual || 0),
+        sueldoMensual: Number(sueldoMensual || 0),
 
         diasLaborados: diasLaborados || 0,
         diasVacaciones: diasVacaciones || 0,
@@ -555,7 +584,7 @@ const CalculoNominasView: React.FC<CalculoNominasViewProps> = ({
     }
   }, [
     empleado?.id,
-    empleado?.sueldoMensual,
+    sueldoMensual,
     rangoValido,
     fechaInicio,
     fechaFin,

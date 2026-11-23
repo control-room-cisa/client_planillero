@@ -6,6 +6,9 @@ import {
 import {
   calcularDeduccionesAutomaticasPorCodigo,
   calcularRapBase,
+  deduccionAplicaEnPeriodo,
+  type PoliticaDeduccionesQuincena,
+  DEFAULT_POLITICA_DEDUCCIONES,
 } from "../utils/deduccionesQuincena";
 
 export interface UseDeduccionesNominaParams {
@@ -20,6 +23,8 @@ export interface UseDeduccionesNominaParams {
   salarioQuincenal: number;
   PISO_IHSS: number;
   DEDUCCION_IHSS_FIJA: number;
+  /** Política de reparto A/B (global_config). Default SOLO_B. */
+  politicaDeducciones?: PoliticaDeduccionesQuincena;
 
   /**
    * Días incapacidad en base 15 (LRM) — cuadre planilla.
@@ -113,6 +118,7 @@ export function useDeduccionesNomina({
   salarioQuincenal,
   PISO_IHSS,
   DEDUCCION_IHSS_FIJA,
+  politicaDeducciones = DEFAULT_POLITICA_DEDUCCIONES,
   diasIncapacidadCubreEmpresa,
   diasIncapacidadCubreIHSS,
   montoIncapacidadIHSSFromBackend,
@@ -190,7 +196,7 @@ export function useDeduccionesNomina({
     [sueldoMensual, PISO_IHSS],
   );
 
-  // Defaults automáticos para IHSS, RAP e ISR según código A/B
+  // Defaults automáticos para IHSS, RAP e ISR según código A/B y política
   React.useEffect(() => {
     if (!fechaInicio || !fechaFin) return;
 
@@ -201,6 +207,7 @@ export function useDeduccionesNomina({
       deduccionIhssFija: DEDUCCION_IHSS_FIJA,
       empleadoIsr,
       empleadoAporteVoluntarioRap,
+      politica: politicaDeducciones,
     });
 
     setDeduccionIHSS(auto.deduccionIHSS);
@@ -220,6 +227,7 @@ export function useDeduccionesNomina({
     DEDUCCION_IHSS_FIJA,
     empleadoIsr,
     empleadoAporteVoluntarioRap,
+    politicaDeducciones,
   ]);
 
   // Sincronizar montoIncapacidadCubreEmpresa con su input string
@@ -250,47 +258,40 @@ export function useDeduccionesNomina({
   // Resetear inputs al cambiar período (excepto IHSS, RAP, Alimentación y Otros)
   // Alimentación: se carga siempre (A y B)
   // Otros: siempre editable, no se resetea automáticamente
+  // ISR / vecinal: solo se fuerzan a 0 si la política dice que no aplican en el período
   React.useEffect(() => {
     setAjuste(0);
     setMontoExcedenteIHSS(0);
+    setCobroPrestamo(0);
+    setInputCobroPrestamo("");
 
-    // Si es primera quincena (A), algunas deducciones deben ser 0
-    // Alimentación y Otros son excepciones: se aplican siempre (A y B)
-    if (codigoNominaTerminaEnA) {
+    const esA = codigoNominaTerminaEnA;
+    if (!deduccionAplicaEnPeriodo(politicaDeducciones.isr, esA)) {
       setDeduccionISR(0);
-      setCobroPrestamo(0);
-      setImpuestoVecinal(0);
-      // Otros NO se resetea - siempre editable
       setInputDeduccionISR("");
-      setInputCobroPrestamo("");
-      setInputImpuestoVecinal("");
-      // inputOtros NO se resetea - siempre editable
-    } else {
-      // Segunda quincena (B): ISR/RAP se recargan del colaborador en el efecto de defaults
-      setCobroPrestamo(0);
+    }
+    if (!deduccionAplicaEnPeriodo(politicaDeducciones.impuestoVecinal, esA)) {
       setImpuestoVecinal(0);
-      setInputCobroPrestamo("");
       setInputImpuestoVecinal("");
-      // inputOtros NO se resetea - siempre editable
+    } else {
+      // Sin monto automático; al cambiar período se inicia en 0
+      setImpuestoVecinal(0);
+      setInputImpuestoVecinal("");
     }
 
     setComentario("");
-    // Resetear también los inputs string (excepto IHSS, RAP, Alimentación y Otros)
     setInputAjuste("");
     setInputMontoExcedenteIHSS("");
-    // inputDeduccionAlimentacion NO se resetea aquí - se carga desde el servicio
-    // inputOtros NO se resetea - siempre editable
-    // Resetear error de alimentación al cambiar período
-    // (se gestiona en useAlimentacionPorCodigo).
-  }, [fechaInicio, fechaFin, codigoNominaTerminaEnA]);
+  }, [fechaInicio, fechaFin, codigoNominaTerminaEnA, politicaDeducciones]);
 
   React.useEffect(() => {
-    if (isPrimeraQuincena) {
-      // En primera quincena se mantiene Alimentación y ahora ISR/Préstamo son editables.
-      // Mantener Impuesto Vecinal en 0 por defecto.
+    if (
+      isPrimeraQuincena &&
+      !deduccionAplicaEnPeriodo(politicaDeducciones.impuestoVecinal, true)
+    ) {
       setImpuestoVecinal(0);
     }
-  }, [isPrimeraQuincena]);
+  }, [isPrimeraQuincena, politicaDeducciones.impuestoVecinal]);
 
   return {
     montoIncapacidadCubreEmpresa,

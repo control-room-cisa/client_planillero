@@ -196,7 +196,8 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
   ]);
   const [formHorasCompTomadas, setFormHorasCompTomadas] = useState<number>(0);
 
-  const { cfgPisoIhss, cfgDeduccionIhssFija } = useGlobalConfigNomina();
+  const { cfgPisoIhss, cfgDeduccionIhssFija, politicaDeducciones } =
+    useGlobalConfigNomina();
   const { config: periodosConfig } = usePeriodosNominaConfig();
   const esPrimeraQuincenaA = formPeriodo === "A";
 
@@ -607,6 +608,28 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     );
   }, [open, isCreating, formFechaInicio, formFechaFin, periodosConfig]);
 
+  // Al crear: sueldo vigente según historial a fechaInicio del período
+  useEffect(() => {
+    if (!open || !isCreating || !formEmpleadoId || !formFechaInicio) return;
+    let cancelled = false;
+    EmpleadoService.getSueldoVigente(formEmpleadoId, formFechaInicio)
+      .then((r) => {
+        if (cancelled) return;
+        const sueldo = Number(r.sueldoMensual || 0);
+        setFormSueldoMensual(sueldo);
+        setNumericText((prev) => ({
+          ...prev,
+          sueldoMensual: sueldo > 0 ? String(sueldo) : "",
+        }));
+      })
+      .catch(() => {
+        /* fallback: sueldo ya cargado al seleccionar colaborador */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isCreating, formEmpleadoId, formFechaInicio]);
+
   // Sincronizar numericText.sueldoMensual con formSueldoMensual cuando cambia
   // (solo si el cambio viene de fuera del input, no del handleNumericChange)
   useEffect(() => {
@@ -741,6 +764,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
       deduccionIhssFija: cfgDeduccionIhssFija,
       empleadoIsr: empleadoSeleccionado?.isr,
       empleadoAporteVoluntarioRap: empleadoSeleccionado?.aporteVoluntarioRap,
+      politica: politicaDeducciones,
     });
 
     setFormDeduccionIHSS(auto.deduccionIHSS);
@@ -749,7 +773,8 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     setFormImpuestoVecinal(auto.impuestoVecinal);
     setNumericText((prev) => ({
       ...prev,
-      deduccionIHSS: esPrimeraQuincenaA ? "" : String(auto.deduccionIHSS),
+      deduccionIHSS:
+        auto.deduccionIHSS > 0 ? String(auto.deduccionIHSS) : "",
       deduccionRAP: auto.deduccionRAP > 0 ? String(auto.deduccionRAP) : "",
       deduccionISR: auto.deduccionISR > 0 ? String(auto.deduccionISR) : "",
       impuestoVecinal: "",
@@ -762,6 +787,7 @@ const NominaFormModal: React.FC<NominaFormModalProps> = ({
     formSueldoMensual,
     cfgPisoIhss,
     cfgDeduccionIhssFija,
+    politicaDeducciones,
     empleadoSeleccionado?.isr,
     empleadoSeleccionado?.aporteVoluntarioRap,
   ]);

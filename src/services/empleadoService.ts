@@ -71,6 +71,15 @@ interface EmpleadoResponse {
   data: Empleado;
 }
 
+interface HistorialSalario {
+  id: number;
+  empleadoId: number;
+  sueldoMensual: number;
+  fechaVigencia: string;
+  createdAt?: string | null;
+  createdById?: number | null;
+}
+
 interface CreateEmpleadoDto {
   urlFotoPerfil: string | undefined;
   codigo: string;
@@ -83,6 +92,8 @@ interface CreateEmpleadoDto {
   profesion?: string;
   cargo?: string;
   sueldoMensual?: number;
+  /** YYYY-MM-DD vigencia del sueldo al crear */
+  fechaVigenciaSueldo?: string;
   aporteVoluntarioRap?: number;
   isr?: number;
   telefono?: string;
@@ -123,6 +134,8 @@ interface UpdateEmpleadoDto {
   profesion?: string;
   cargo?: string;
   sueldoMensual?: number;
+  /** YYYY-MM-DD requerida si cambia el sueldo */
+  fechaVigenciaSueldo?: string;
   aporteVoluntarioRap?: number;
   isr?: number;
   telefono?: string;
@@ -228,6 +241,29 @@ class EmpleadoService {
       console.error(`Error al obtener empleado por código ${codigo}:`, error);
       throw new Error("Error al cargar el colaborador");
     }
+  }
+
+  static async getHistorialSalarios(
+    empleadoId: number,
+  ): Promise<HistorialSalario[]> {
+    const response = await api.get<{
+      success: boolean;
+      data: HistorialSalario[];
+    }>(`/empleados/${empleadoId}/historial-salarios`);
+    return response.data.data ?? [];
+  }
+
+  static async getSueldoVigente(
+    empleadoId: number,
+    fecha: string,
+  ): Promise<{ empleadoId: number; fecha: string; sueldoMensual: number }> {
+    const response = await api.get<{
+      success: boolean;
+      data: { empleadoId: number; fecha: string; sueldoMensual: number };
+    }>(`/empleados/${empleadoId}/sueldo-vigente`, {
+      params: { fecha },
+    });
+    return response.data.data;
   }
 
   static async create(
@@ -384,4 +420,10 @@ class EmpleadoService {
 }
 
 export default EmpleadoService;
-export type { Empleado, CreateEmpleadoDto, UpdateEmpleadoDto, UpdateMiPerfilDto };
+export type {
+  Empleado,
+  CreateEmpleadoDto,
+  UpdateEmpleadoDto,
+  UpdateMiPerfilDto,
+  HistorialSalario,
+};

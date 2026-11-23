@@ -43,6 +43,14 @@ import {
 import ConfirmDialog from "../common/ConfirmDialog";
 import ModuleTitle from "../common/ModuleTitle";
 import { registroFechaToYmdSafe, ymdInTimeZone } from "../../utils/dateTime";
+import {
+  DEFAULT_MODO_DEDUCCION,
+  GLOBAL_CONFIG_KEYS_DEDUCCION_MODO,
+  LABELS_MODO_DEDUCCION,
+  MODOS_DEDUCCION_QUINCENA,
+  parseModoDeduccionQuincena,
+  type ModoDeduccionQuincena,
+} from "./gestion-empleados/calculo-nominas/utils/deduccionesQuincena";
 
 const ANO_MIN_ALIMENTACION = 2025;
 
@@ -115,7 +123,7 @@ const ParametrosNominaManagement: React.FC = () => {
   }>({ deduccionIhssFija: false });
 
   const [tabActiva, setTabActiva] = React.useState<
-    "alimentacion" | "ihss" | "techoIhss"
+    "alimentacion" | "ihss" | "techoIhss" | "deduccionesQuincena"
   >("alimentacion");
 
   const [anioAlim, setAnioAlim] = React.useState<number>(anioCalendario);
@@ -136,6 +144,16 @@ const ParametrosNominaManagement: React.FC = () => {
     React.useState<RangoFechasAlimentacionDto | null>(null);
 
   const [deduccionIhssFija, setDeduccionIhssFija] = React.useState<string>("");
+
+  const [modoIhss, setModoIhss] =
+    React.useState<ModoDeduccionQuincena>(DEFAULT_MODO_DEDUCCION);
+  const [modoRap, setModoRap] =
+    React.useState<ModoDeduccionQuincena>(DEFAULT_MODO_DEDUCCION);
+  const [modoIsr, setModoIsr] =
+    React.useState<ModoDeduccionQuincena>(DEFAULT_MODO_DEDUCCION);
+  const [modoImpuestoVecinal, setModoImpuestoVecinal] =
+    React.useState<ModoDeduccionQuincena>(DEFAULT_MODO_DEDUCCION);
+  const [modosLoaded, setModosLoaded] = React.useState(false);
 
   const [techosIhss, setTechosIhss] = React.useState<TechoIhssDto[]>([]);
   const [techosIhssPage, setTechosIhssPage] = React.useState(0);
@@ -194,6 +212,29 @@ const ParametrosNominaManagement: React.FC = () => {
       showToast(mensajeErrorApi(e, "Error cargando parámetros"), "error");
     } finally {
       setLoading(false);
+    }
+  }, [showToast]);
+
+  const cargarModosDeduccion = React.useCallback(async () => {
+    try {
+      const [ihss, rap, isr, vecinal] = await Promise.all([
+        GlobalConfigService.get(GLOBAL_CONFIG_KEYS_DEDUCCION_MODO.ihss),
+        GlobalConfigService.get(GLOBAL_CONFIG_KEYS_DEDUCCION_MODO.rap),
+        GlobalConfigService.get(GLOBAL_CONFIG_KEYS_DEDUCCION_MODO.isr),
+        GlobalConfigService.get(
+          GLOBAL_CONFIG_KEYS_DEDUCCION_MODO.impuestoVecinal,
+        ),
+      ]);
+      setModoIhss(parseModoDeduccionQuincena(ihss?.value));
+      setModoRap(parseModoDeduccionQuincena(rap?.value));
+      setModoIsr(parseModoDeduccionQuincena(isr?.value));
+      setModoImpuestoVecinal(parseModoDeduccionQuincena(vecinal?.value));
+      setModosLoaded(true);
+    } catch (e: unknown) {
+      showToast(
+        mensajeErrorApi(e, "Error cargando modos de deducción"),
+        "error",
+      );
     }
   }, [showToast]);
 
@@ -268,6 +309,11 @@ const ParametrosNominaManagement: React.FC = () => {
   React.useEffect(() => {
     void cargarIhss();
   }, [cargarIhss]);
+
+  React.useEffect(() => {
+    if (tabActiva !== "deduccionesQuincena") return;
+    void cargarModosDeduccion();
+  }, [tabActiva, cargarModosDeduccion]);
 
   React.useEffect(() => {
     if (tabActiva !== "alimentacion") return;
@@ -470,6 +516,47 @@ const ParametrosNominaManagement: React.FC = () => {
     }
   };
 
+  const handleSaveModosDeduccion = async () => {
+    setSaving(true);
+    try {
+      await Promise.all([
+        GlobalConfigService.upsert({
+          key: GLOBAL_CONFIG_KEYS_DEDUCCION_MODO.ihss,
+          value: modoIhss,
+          description:
+            "Modo de aplicación de deducción IHSS por quincena (SOLO_A | SOLO_B | AMBAS_MITAD)",
+        }),
+        GlobalConfigService.upsert({
+          key: GLOBAL_CONFIG_KEYS_DEDUCCION_MODO.rap,
+          value: modoRap,
+          description:
+            "Modo de aplicación de deducción RAP por quincena (SOLO_A | SOLO_B | AMBAS_MITAD)",
+        }),
+        GlobalConfigService.upsert({
+          key: GLOBAL_CONFIG_KEYS_DEDUCCION_MODO.isr,
+          value: modoIsr,
+          description:
+            "Modo de aplicación de deducción ISR por quincena (SOLO_A | SOLO_B | AMBAS_MITAD)",
+        }),
+        GlobalConfigService.upsert({
+          key: GLOBAL_CONFIG_KEYS_DEDUCCION_MODO.impuestoVecinal,
+          value: modoImpuestoVecinal,
+          description:
+            "Modo de aplicación de impuesto vecinal por quincena (SOLO_A | SOLO_B | AMBAS_MITAD)",
+        }),
+      ]);
+      setModosLoaded(true);
+      showToast("Modos de deducción guardados", "success");
+    } catch (e: unknown) {
+      showToast(
+        mensajeErrorApi(e, "Error guardando modos de deducción"),
+        "error",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -505,15 +592,24 @@ const ParametrosNominaManagement: React.FC = () => {
             </Typography>
             <Tabs
               value={tabActiva}
-              onChange={(_, value: "alimentacion" | "ihss" | "techoIhss") =>
-                setTabActiva(value)
-              }
+              onChange={(
+                _,
+                value:
+                  | "alimentacion"
+                  | "ihss"
+                  | "techoIhss"
+                  | "deduccionesQuincena",
+              ) => setTabActiva(value)}
               variant="scrollable"
               allowScrollButtonsMobile
             >
               <Tab label="Alimentación" value="alimentacion" />
               <Tab label="IHSS" value="ihss" />
               <Tab label="Techo IHSS" value="techoIhss" />
+              <Tab
+                label="Deducciones por quincena"
+                value="deduccionesQuincena"
+              />
             </Tabs>
 
             <Divider />
@@ -743,6 +839,71 @@ const ParametrosNominaManagement: React.FC = () => {
                   />
                 </Box>
               </Stack>
+            ) : tabActiva === "deduccionesQuincena" ? (
+              <Stack spacing={2}>
+                <Typography variant="caption" color="text.secondary">
+                  Define en qué quincena se aplican automáticamente IHSS, RAP,
+                  ISR e impuesto vecinal al generar nóminas. En “Dividido entre
+                  ambas” se usa la mitad del monto mensual en A y en B.
+                  Alimentación, alojamiento y otros no se modifican (siguen en
+                  ambas).
+                  {!modosLoaded
+                    ? " Si aún no existen en BD, se crearán al guardar (default: solo B)."
+                    : ""}
+                </Typography>
+                {(
+                  [
+                    {
+                      key: "ihss",
+                      label: "Deducción IHSS",
+                      value: modoIhss,
+                      set: setModoIhss,
+                    },
+                    {
+                      key: "rap",
+                      label: "Deducción RAP",
+                      value: modoRap,
+                      set: setModoRap,
+                    },
+                    {
+                      key: "isr",
+                      label: "Deducción ISR",
+                      value: modoIsr,
+                      set: setModoIsr,
+                    },
+                    {
+                      key: "vecinal",
+                      label: "Impuesto vecinal",
+                      value: modoImpuestoVecinal,
+                      set: setModoImpuestoVecinal,
+                    },
+                  ] as const
+                ).map((row) => (
+                  <FormControl
+                    key={row.key}
+                    sx={{ minWidth: 320, maxWidth: 480 }}
+                    size="small"
+                  >
+                    <InputLabel id={`modo-${row.key}-label`}>
+                      {row.label}
+                    </InputLabel>
+                    <Select
+                      labelId={`modo-${row.key}-label`}
+                      label={row.label}
+                      value={row.value}
+                      onChange={(e) =>
+                        row.set(e.target.value as ModoDeduccionQuincena)
+                      }
+                    >
+                      {MODOS_DEDUCCION_QUINCENA.map((m) => (
+                        <MenuItem key={m} value={m}>
+                          {LABELS_MODO_DEDUCCION[m]}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                ))}
+              </Stack>
             ) : (
               <Stack spacing={2}>
                 <Typography variant="caption" color="text.secondary">
@@ -889,6 +1050,21 @@ const ParametrosNominaManagement: React.FC = () => {
                 <Button
                   variant="contained"
                   onClick={handleSaveIhss}
+                  disabled={saving}
+                  sx={{ minWidth: 120 }}
+                  endIcon={
+                    saving ? (
+                      <CircularProgress size={16} color="inherit" />
+                    ) : null
+                  }
+                >
+                  Guardar
+                </Button>
+              )}
+              {tabActiva === "deduccionesQuincena" && (
+                <Button
+                  variant="contained"
+                  onClick={handleSaveModosDeduccion}
                   disabled={saving}
                   sx={{ minWidth: 120 }}
                   endIcon={
