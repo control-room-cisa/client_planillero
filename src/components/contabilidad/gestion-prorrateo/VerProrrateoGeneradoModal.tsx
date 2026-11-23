@@ -23,6 +23,7 @@ import {
 } from "@mui/material";
 import type { Empleado } from "../../../services/empleadoService";
 import ProrrateoService, {
+  type ProrrateoComentarioResumenDto,
   type ProrrateoFilaDto,
   type ProrrateoGuardadoDetalle,
   type ProrrateoGuardadoResumen,
@@ -158,6 +159,8 @@ const VerProrrateoGeneradoModal: React.FC<VerProrrateoGeneradoModalProps> = ({
     : "";
 
   const filas: ProrrateoFilaDto[] = detalle?.filas ?? [];
+  const resumenes: ProrrateoComentarioResumenDto[] =
+    detalle?.resumenesComentarios ?? [];
   const totalHoras = filas.reduce((s, f) => s + Number(f.cantidadHoras || 0), 0);
   const totalMonto = filas.reduce((s, f) => s + Number(f.monto || 0), 0);
 
@@ -248,6 +251,42 @@ const VerProrrateoGeneradoModal: React.FC<VerProrrateoGeneradoModalProps> = ({
                     </TableBody>
                   </Table>
                 </TableContainer>
+
+                {resumenes.length > 0 && (
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      Resumen de comentarios por job
+                    </Typography>
+                    <Box
+                      sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}
+                    >
+                      {resumenes.map((r, idx) => {
+                        const jobLabel =
+                          [r.codigoJob, r.nombreJob]
+                            .filter(Boolean)
+                            .join(" — ") || "Job";
+                        return (
+                          <Paper
+                            key={`${r.jobId ?? r.codigoJob ?? idx}`}
+                            variant="outlined"
+                            sx={{ p: 1.5 }}
+                          >
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ fontWeight: 600 }}
+                            >
+                              {jobLabel}
+                            </Typography>
+                            <Typography variant="body2" sx={{ mt: 0.5 }}>
+                              {r.resumen}
+                            </Typography>
+                          </Paper>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                )}
               </>
             ) : null}
           </Box>

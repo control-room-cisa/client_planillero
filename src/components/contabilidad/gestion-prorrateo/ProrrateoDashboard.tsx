@@ -174,6 +174,11 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   // Modal de comentarios por job
   const [modalOpen, setModalOpen] = React.useState(false);
   const [modalJobTitle, setModalJobTitle] = React.useState<string>("");
+  const [modalJobMeta, setModalJobMeta] = React.useState<{
+    jobId: number | null;
+    codigoJob: string | null;
+    nombreJob: string | null;
+  }>({ jobId: null, codigoJob: null, nombreJob: null });
   const [modalComments, setModalComments] = React.useState<
     Array<{
       texto: string;
@@ -181,6 +186,20 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       nombreClass?: string | null;
     }>
   >([]);
+  /** Fuente del resumen IA: siempre a nivel job (no filtrado por class). */
+  const [modalSummarySource, setModalSummarySource] = React.useState<
+    Array<{
+      texto: string;
+      class: number | null;
+      nombreClass?: string | null;
+    }>
+  >([]);
+  const [modalResumen, setModalResumen] = React.useState<string | null>(null);
+  const [modalResumenLoading, setModalResumenLoading] = React.useState(false);
+  const [modalResumenError, setModalResumenError] = React.useState<
+    string | null
+  >(null);
+  const resumenCacheRef = React.useRef<Map<string, string>>(new Map());
   const [modalRegistrosOpen, setModalRegistrosOpen] = React.useState(false);
   const [modalCompensatorioOpen, setModalCompensatorioOpen] =
     React.useState(false);
@@ -209,12 +228,109 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       class: number | null;
       nombreClass?: string | null;
     }>,
+    jobMeta?: {
+      jobId?: number | null;
+      codigoJob?: string | null;
+      nombreJob?: string | null;
+    },
+    /** Comentarios del job completo para el resumen IA (si difiere de la lista filtrada). */
+    commentsForSummary?: Array<{
+      texto: string;
+      class: number | null;
+      nombreClass?: string | null;
+    }>,
   ) => {
     setModalJobTitle(jobTitle || "Comentarios");
+    setModalJobMeta({
+      jobId: jobMeta?.jobId ?? null,
+      codigoJob: jobMeta?.codigoJob ?? null,
+      nombreJob: jobMeta?.nombreJob ?? null,
+    });
     setModalComments(comments || []);
+    setModalSummarySource(commentsForSummary ?? comments ?? []);
+    setModalResumen(null);
+    setModalResumenError(null);
     setModalOpen(true);
   };
-  const handleCloseComentarios = () => setModalOpen(false);
+  const handleCloseComentarios = () => {
+    setModalOpen(false);
+    setModalResumen(null);
+    setModalResumenError(null);
+    setModalResumenLoading(false);
+  };
+
+  React.useEffect(() => {
+    if (!modalOpen) return;
+
+    const textos = modalSummarySource
+      .map((c) => String(c.texto ?? "").trim())
+      .filter(Boolean);
+    if (textos.length === 0) {
+      setModalResumen(null);
+      setModalResumenLoading(false);
+      setModalResumenError(null);
+      return;
+    }
+
+    const cacheKey = [
+      modalJobMeta.jobId ?? "",
+      modalJobMeta.codigoJob ?? "",
+      textos.join("|").toLowerCase(),
+    ].join("::");
+
+    const cached = resumenCacheRef.current.get(cacheKey);
+    if (cached) {
+      setModalResumen(cached);
+      setModalResumenLoading(false);
+      setModalResumenError(null);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      setModalResumenLoading(true);
+      setModalResumenError(null);
+      try {
+        const jobId =
+          modalJobMeta.jobId != null && modalJobMeta.jobId > 0
+            ? modalJobMeta.jobId
+            : null;
+        const { resumen } = await ProrrateoService.resumirComentarios({
+          jobId,
+          codigoJob: modalJobMeta.codigoJob || null,
+          nombreJob: modalJobMeta.nombreJob || null,
+          comentarios: textos,
+        });
+        if (cancelled) return;
+        resumenCacheRef.current.set(cacheKey, resumen);
+        setModalResumen(resumen);
+      } catch (e: any) {
+        if (cancelled) return;
+        setModalResumen(null);
+        const validationErrors = e?.response?.data?.errors;
+        const detail =
+          Array.isArray(validationErrors) && validationErrors.length
+            ? validationErrors
+                .map((err: { field?: string; message?: string }) =>
+                  [err.field, err.message].filter(Boolean).join(": "),
+                )
+                .join("; ")
+            : null;
+        setModalResumenError(
+          detail ||
+            e?.response?.data?.message ||
+            e?.message ||
+            "No se pudo generar el resumen de comentarios",
+        );
+      } finally {
+        if (!cancelled) setModalResumenLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [modalOpen, modalSummarySource, modalJobMeta]);
 
   const resetContenidoColaborador = React.useCallback(() => {
     setIntervaloSeleccionado("");
@@ -832,6 +948,12 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
   const renderCeldaComentarios = (
     jobTitle: string,
     comentarios: ComentarioProrrateoJobDto[],
+    jobMeta?: {
+      jobId?: number | null;
+      codigoJob?: string | null;
+      nombreJob?: string | null;
+    },
+    comentariosParaResumen?: ComentarioProrrateoJobDto[],
   ) => {
     if (!comentarios.length) {
       return (
@@ -844,7 +966,14 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       <Button
         size="small"
         variant="outlined"
-        onClick={() => handleOpenComentarios(jobTitle, comentarios)}
+        onClick={() =>
+          handleOpenComentarios(
+            jobTitle,
+            comentarios,
+            jobMeta,
+            comentariosParaResumen ?? comentarios,
+          )
+        }
         sx={btnComentariosSx}
       >
         Ver comentarios ({comentarios.length})
@@ -942,7 +1071,16 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                       )}
                       <TableCell align="center" sx={celdaComentariosSx}>
                         {mostrarComentariosJob
-                          ? renderCeldaComentarios(j.nombreJob, comentariosJob)
+                          ? renderCeldaComentarios(
+                              j.nombreJob,
+                              comentariosJob,
+                              {
+                                jobId: j.jobId,
+                                codigoJob: j.codigoJob,
+                                nombreJob: j.nombreJob,
+                              },
+                              comentariosJob,
+                            )
                           : null}
                       </TableCell>
                     </TableRow>
@@ -979,6 +1117,12 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                               {renderCeldaComentarios(
                                 `${j.nombreJob} — ${classLabel}`,
                                 comentariosClass,
+                                {
+                                  jobId: j.jobId,
+                                  codigoJob: j.codigoJob,
+                                  nombreJob: j.nombreJob,
+                                },
+                                comentariosJob,
                               )}
                             </TableCell>
                           </TableRow>
@@ -2035,6 +2179,47 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       >
         <DialogTitle>{modalJobTitle}</DialogTitle>
         <DialogContent dividers>
+          {(modalResumenLoading ||
+            modalResumen ||
+            modalResumenError ||
+            modalSummarySource.length > 0) && (
+            <Box
+              sx={{
+                mb: 2,
+                p: 1.5,
+                borderRadius: 1,
+                bgcolor: "action.hover",
+                border: "1px solid",
+                borderColor: "divider",
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{ mb: 0.75, fontWeight: 600 }}
+              >
+                Resumen
+              </Typography>
+              {modalResumenLoading ? (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <CircularProgress size={16} />
+                  <Typography variant="body2" color="text.secondary">
+                    Generando resumen…
+                  </Typography>
+                </Box>
+              ) : modalResumenError ? (
+                <Alert severity="warning" sx={{ py: 0.5 }}>
+                  {modalResumenError}
+                </Alert>
+              ) : modalResumen ? (
+                <Typography variant="body2">{modalResumen}</Typography>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  Sin resumen disponible.
+                </Typography>
+              )}
+            </Box>
+          )}
+
           {modalComments.length ? (
             <List dense>
               {modalComments.map((c, idx) => {

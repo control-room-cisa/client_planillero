@@ -41,6 +41,13 @@ export type ProrrateoFilaDto = {
   tipo: string;
 };
 
+export type ProrrateoComentarioResumenDto = {
+  jobId: number | null;
+  codigoJob: string | null;
+  nombreJob: string | null;
+  resumen: string;
+};
+
 export type ProrrateoGuardadoDetalle = {
   nominaId: number;
   empleadoId: number;
@@ -49,6 +56,18 @@ export type ProrrateoGuardadoDetalle = {
   fechaFin: string;
   codigoNomina: string | null;
   filas: ProrrateoFilaDto[];
+  resumenesComentarios?: ProrrateoComentarioResumenDto[];
+};
+
+export type ResumirComentariosPayload = {
+  jobId?: number | null;
+  codigoJob?: string | null;
+  nombreJob?: string | null;
+  comentarios: string[];
+};
+
+export type ResumirComentariosResult = {
+  resumen: string;
 };
 
 class ProrrateoService {
@@ -98,6 +117,17 @@ class ProrrateoService {
       timeout: 300000,
     });
     return response.data;
+  }
+
+  static async resumirComentarios(
+    payload: ResumirComentariosPayload
+  ): Promise<ResumirComentariosResult> {
+    const response = await api.post<ApiResponse<ResumirComentariosResult>>(
+      "/prorrateos/resumen-comentarios",
+      payload,
+      { timeout: 60000 }
+    );
+    return response.data.data;
   }
 }
 
