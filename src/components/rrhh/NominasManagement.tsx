@@ -24,8 +24,6 @@ import {
   TextField,
   Autocomplete,
   Divider,
-  Card,
-  CardContent,
   Tooltip,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
@@ -34,8 +32,10 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import PrintIcon from "@mui/icons-material/Print";
+import CloseIcon from "@mui/icons-material/Close";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import GridOnIcon from "@mui/icons-material/GridOn";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import NominaService, { type NominaDto } from "../../services/nominaService";
 import ModuleTitle from "../common/ModuleTitle";
@@ -66,9 +66,12 @@ import {
 import {
   buildVoucherDocumentHtml,
   buildVoucherPageHtml,
-  resolveCantidadHorasOt,
 } from "./voucherNominaHtml";
-import { loadVoucherConsumosDetalle } from "./voucherConsumosDetalle";
+import {
+  loadVoucherConsumosDetalle,
+  type VoucherConsumosDetalle,
+} from "./voucherConsumosDetalle";
+import VoucherNominaView from "./VoucherNominaView";
 import { quincenaBYaEmpezo } from "./gestion-empleados/calculo-nominas/utils/periodos";
 import { usePeriodosNominaConfig } from "../../contexts/PeriodosNominaConfigContext";
 
@@ -167,6 +170,9 @@ const NominasManagement: React.FC = () => {
     warningNegativo: false,
   });
   const [printingNominaId, setPrintingNominaId] = useState<number | null>(null);
+  const [loadingDetailVoucher, setLoadingDetailVoucher] = useState(false);
+  const [detailConsumos, setDetailConsumos] =
+    useState<VoucherConsumosDetalle | null>(null);
   const [downloadingDetalleId, setDownloadingDetalleId] = useState<number | null>(
     null,
   );
@@ -651,31 +657,49 @@ const NominasManagement: React.FC = () => {
     setOpenEditModal(true);
   };
 
-  // Abrir modal de detalles
+  // Abrir modal de detalles (vista legible con la misma UI del voucher)
   const handleOpenDetailModal = async (nomina: NominaDto) => {
+    setOpenDetailModal(true);
+    setLoadingDetailVoucher(true);
+    setDetailConsumos(null);
     try {
-      // Cargar datos completos de la nómina
       const nominaCompleta = await NominaService.getById(nomina.id);
       setCurrentNomina(nominaCompleta);
-      setOpenDetailModal(true);
+      const consumosDetalle = await loadVoucherConsumosDetalle({
+        codigoEmpleado: getEmpleadoCodigo(nominaCompleta.empleadoId),
+        codigoNomina: nominaCompleta.codigoNomina,
+      });
+      setDetailConsumos(consumosDetalle);
     } catch (err) {
       console.error("Error al cargar detalles de la nómina:", err);
       showSnackbar("Error al cargar los detalles de la nómina", "error");
+      setOpenDetailModal(false);
+      setCurrentNomina(null);
+    } finally {
+      setLoadingDetailVoucher(false);
     }
   };
 
-  const handlePrintVoucher = async (nomina: NominaDto) => {
-    setPrintingNominaId(nomina.id);
+  const handlePrintVoucher = async (nomina?: NominaDto | null) => {
+    const base = nomina ?? currentNomina;
+    if (!base) return;
+    setPrintingNominaId(base.id);
     try {
-      const n = await NominaService.getById(nomina.id);
+      const n =
+        currentNomina?.id === base.id
+          ? currentNomina
+          : await NominaService.getById(base.id);
       const colaborador = getEmpleadoNombre(n.empleadoId);
       const empresaNombre =
         empresas.find((e) => e.id === n.empresaId)?.nombre ?? "";
 
-      const consumosDetalle = await loadVoucherConsumosDetalle({
-        codigoEmpleado: getEmpleadoCodigo(n.empleadoId),
-        codigoNomina: n.codigoNomina,
-      });
+      const consumosDetalle =
+        currentNomina?.id === n.id && detailConsumos
+          ? detailConsumos
+          : await loadVoucherConsumosDetalle({
+              codigoEmpleado: getEmpleadoCodigo(n.empleadoId),
+              codigoNomina: n.codigoNomina,
+            });
 
       const printWindow = window.open("", "_blank");
       if (!printWindow) {
@@ -787,6 +811,8 @@ const NominasManagement: React.FC = () => {
   const handleCloseDetailModal = () => {
     setOpenDetailModal(false);
     setCurrentNomina(null);
+    setDetailConsumos(null);
+    setLoadingDetailVoucher(false);
   };
 
   // Guardar edición
@@ -1174,7 +1200,7 @@ const NominasManagement: React.FC = () => {
           >
             <span>
               <Button
-                variant="outlined"
+                variant="contained"
                 onClick={handleDownloadTablaDetalles}
                 disabled={
                   downloadingTablaDetalles ||
@@ -1182,13 +1208,22 @@ const NominasManagement: React.FC = () => {
                   !codigoNominaFiltro ||
                   nominas.length === 0
                 }
-                startIcon={
+                endIcon={
                   downloadingTablaDetalles ? (
                     <CircularProgress size={18} color="inherit" />
                   ) : (
-                    <FileDownloadIcon />
+                    <GridOnIcon />
                   )
                 }
+                sx={{
+                  bgcolor: "#217346",
+                  color: "#fff",
+                  "&:hover": { bgcolor: "#1a5c38" },
+                  "&.Mui-disabled": {
+                    bgcolor: "rgba(33, 115, 70, 0.45)",
+                    color: "#fff",
+                  },
+                }}
               >
                 Planilla Excel
               </Button>
@@ -1215,7 +1250,7 @@ const NominasManagement: React.FC = () => {
                   !codigoNominaFiltro ||
                   allNominas.length === 0
                 }
-                startIcon={
+                endIcon={
                   downloadingVouchersPdf ? (
                     <CircularProgress size={18} color="inherit" />
                   ) : (
@@ -1223,7 +1258,7 @@ const NominasManagement: React.FC = () => {
                   )
                 }
               >
-                Descargar PDF
+                Vouchers en PDF
               </Button>
             </span>
           </Tooltip>
@@ -1444,29 +1479,6 @@ const NominasManagement: React.FC = () => {
                               <CircularProgress size={18} color="inherit" />
                             ) : (
                               <FileDownloadIcon />
-                            )}
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip
-                        title={
-                          nomina.pagado
-                            ? "Imprimir voucher pago"
-                            : "Imprimir voucher pendiente"
-                        }
-                      >
-                        <span>
-                          <IconButton
-                            size="small"
-                            onClick={() => handlePrintVoucher(nomina)}
-                            disabled={printingNominaId !== null}
-                            color="info"
-                            aria-label="Imprimir voucher de nómina"
-                          >
-                            {printingNominaId === nomina.id ? (
-                              <CircularProgress size={18} color="inherit" />
-                            ) : (
-                              <PrintIcon />
                             )}
                           </IconButton>
                         </span>
@@ -2071,22 +2083,32 @@ const NominasManagement: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button
+            variant="contained"
             onClick={handleDownloadTablaDetalles}
             disabled={downloadingTablaDetalles || nominas.length === 0}
-            startIcon={
+            endIcon={
               downloadingTablaDetalles ? (
                 <CircularProgress size={16} color="inherit" />
               ) : (
-                <FileDownloadIcon />
+                <GridOnIcon />
               )
             }
+            sx={{
+              bgcolor: "#217346",
+              color: "#fff",
+              "&:hover": { bgcolor: "#1a5c38" },
+              "&.Mui-disabled": {
+                bgcolor: "rgba(33, 115, 70, 0.45)",
+                color: "#fff",
+              },
+            }}
           >
             Planilla Excel
           </Button>
           <Button
             onClick={handleDownloadVouchersPdf}
             disabled={downloadingVouchersPdf || allNominas.length === 0}
-            startIcon={
+            endIcon={
               downloadingVouchersPdf ? (
                 <CircularProgress size={16} color="inherit" />
               ) : (
@@ -2094,548 +2116,76 @@ const NominasManagement: React.FC = () => {
               )
             }
           >
-            Descargar PDF
+            Vouchers en PDF
           </Button>
           <Button onClick={() => setOpenDetailTableModal(false)}>Cerrar</Button>
         </DialogActions>
       </Dialog>
 
-      {/* Modal de detalles */}
+      {/* Modal de detalles (vista legible del voucher) */}
       <Dialog
         open={openDetailModal}
         onClose={handleCloseDetailModal}
         maxWidth="lg"
         fullWidth
+        PaperProps={{
+          sx: {
+            maxHeight: "92vh",
+          },
+        }}
       >
-        <DialogTitle>
-          Detalles de Nómina -{" "}
-          {currentNomina?.nombrePeriodoNomina || "Sin nombre"}
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+            pr: 1,
+          }}
+        >
+          <Box component="span" sx={{ pr: 1 }}>
+            Voucher de nómina
+            {currentNomina?.nombrePeriodoNomina
+              ? ` — ${currentNomina.nombrePeriodoNomina}`
+              : ""}
+          </Box>
+          <IconButton
+            aria-label="Cerrar"
+            onClick={handleCloseDetailModal}
+            size="small"
+          >
+            <CloseIcon />
+          </IconButton>
         </DialogTitle>
-        <DialogContent>
-          {currentNomina && (
+        <DialogContent dividers sx={{ p: { xs: 1.5, sm: 2.5 }, bgcolor: "#eceff1" }}>
+          {loadingDetailVoucher ? (
             <Box
               sx={{
-                mt: 2,
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" },
-                gap: 3,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                minHeight: 320,
               }}
             >
-              {/* Información General */}
-              <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-                      Información General
-                    </Typography>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                      }}
-                    >
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Colaborador
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {getEmpleadoNombre(currentNomina.empleadoId)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Período
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {currentNomina.nombrePeriodoNomina || "Sin nombre"}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Estado
-                        </Typography>
-                        {currentNomina.pagado ? (
-                          <Chip
-                            icon={<CheckCircleIcon />}
-                            label="Pagado"
-                            color="success"
-                            size="small"
-                          />
-                        ) : (
-                          <Chip
-                            icon={<CancelIcon />}
-                            label="Pendiente"
-                            color="warning"
-                            size="small"
-                          />
-                        )}
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Fecha Inicio
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatDate(currentNomina.fechaInicio)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Fecha Fin
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatDate(currentNomina.fechaFin)}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Box>
-
-              {/* Datos Base */}
-              <Box>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-                      Datos Base
-                    </Typography>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                      }}
-                    >
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Sueldo Mensual
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {formatCurrency(currentNomina.sueldoMensual)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Días Laborados
-                        </Typography>
-                        <Typography variant="body1">
-                          {currentNomina.diasLaborados ?? "-"}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Días Vacaciones
-                        </Typography>
-                        <Typography variant="body1">
-                          {currentNomina.diasVacaciones ?? "-"}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Días incap. empresa
-                        </Typography>
-                        <Typography variant="body1">
-                          {currentNomina.diasIncapacidadEmpresa ?? "-"}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Días incap. IHSS
-                        </Typography>
-                        <Typography variant="body1">
-                          {currentNomina.diasIncapacidadIHSS ?? "-"}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Box>
-
-              {/* Percepciones */}
-              <Box>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-                      Percepciones
-                    </Typography>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                      }}
-                    >
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Subtotal Quincena
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.subtotalQuincena)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Monto Vacaciones
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.montoVacaciones)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Monto Días Laborados
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.montoDiasLaborados)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          (+) Ajuste
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.ajuste)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          (+) Anticipo de pago
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.anticipoPago)}
-                        </Typography>
-                      </Box>
-                      <Divider sx={{ my: 1 }} />
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Total Bruto
-                        </Typography>
-                        <Typography
-                          variant="body1"
-                          fontWeight="bold"
-                          color="primary"
-                        >
-                          {formatCurrency(calcularTotalBrutoNomina(currentNomina))}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Box>
-
-              {/* Horas Extra */}
-              <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-                      Horas Extra
-                    </Typography>
-                    <Box
-                      sx={{
-                        display: "grid",
-                        gridTemplateColumns: {
-                          xs: "1fr",
-                          sm: "1fr 1fr",
-                          md: "1fr 1fr 1fr 1fr",
-                        },
-                        gap: 2,
-                      }}
-                    >
-                      {(
-                        [
-                          {
-                            label: "OT 25%",
-                            cantidad: currentNomina.cantidadHoras25,
-                            monto: currentNomina.montoHoras25,
-                            pct: 25 as const,
-                          },
-                          {
-                            label: "OT 50%",
-                            cantidad: currentNomina.cantidadHoras50,
-                            monto: currentNomina.montoHoras50,
-                            pct: 50 as const,
-                          },
-                          {
-                            label: "OT 75%",
-                            cantidad: currentNomina.cantidadHoras75,
-                            monto: currentNomina.montoHoras75,
-                            pct: 75 as const,
-                          },
-                          {
-                            label: "OT 100%",
-                            cantidad: currentNomina.cantidadHoras100,
-                            monto: currentNomina.montoHoras100,
-                            pct: 100 as const,
-                          },
-                        ] as const
-                      ).map((ot) => {
-                        const horas = resolveCantidadHorasOt(
-                          ot.cantidad,
-                          ot.monto,
-                          currentNomina.sueldoMensual,
-                          ot.pct,
-                        );
-                        return (
-                          <Box key={ot.label}>
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              gutterBottom
-                            >
-                              {ot.label}
-                            </Typography>
-                            <Typography variant="body1">
-                              {horas != null && Number.isFinite(horas)
-                                ? `${horas.toFixed(2)} h`
-                                : "—"}
-                              {" · "}
-                              {formatCurrency(ot.monto)}
-                            </Typography>
-                          </Box>
-                        );
-                      })}
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Box>
-
-              {/* Deducciones */}
-              <Box sx={{ gridColumn: { xs: "1", md: "span 1" } }}>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-                      Deducciones
-                    </Typography>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                      }}
-                    >
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Deducción IHSS
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.deduccionIHSS)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Deducción ISR
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.deduccionISR)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Deducción RAP
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.deduccionRAP)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Deducción Alimentación
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.deduccionAlimentacion)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Deducción Alojamiento
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.deduccionAlojamiento)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Cobro Préstamo
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.cobroPrestamo)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Impuesto Vecinal
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.impuestoVecinal)}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Otros
-                        </Typography>
-                        <Typography variant="body1">
-                          {formatCurrency(currentNomina.otros)}
-                        </Typography>
-                      </Box>
-                      <Divider sx={{ my: 1 }} />
-                      <Box>
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          gutterBottom
-                        >
-                          Total Deducciones
-                        </Typography>
-                        <Typography
-                          variant="body1"
-                          fontWeight="bold"
-                          color="error"
-                        >
-                          {formatCurrency(
-                            calcularTotalDeduccionesNomina(currentNomina),
-                          )}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Box>
-
-              {/* Total a Pagar */}
-              <Box>
-                <Card
-                  variant="outlined"
-                  sx={{
-                    bgcolor: "primary.light",
-                    color: "primary.contrastText",
-                  }}
-                >
-                  <CardContent>
-                    <Typography
-                      variant="h6"
-                      gutterBottom
-                      sx={{ mb: 2, color: "inherit" }}
-                    >
-                      Total a Pagar
-                    </Typography>
-                    <Typography variant="h4" fontWeight="bold" color="inherit">
-                      {formatCurrency(calcularTotalAPagarNomina(currentNomina))}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Box>
-
-              {/* Comentario */}
-              {currentNomina.comentario && (
-                <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-                        Comentario
-                      </Typography>
-                      <Typography variant="body1">
-                        {currentNomina.comentario}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Box>
-              )}
+              <CircularProgress />
+            </Box>
+          ) : currentNomina ? (
+            <VoucherNominaView
+              nomina={currentNomina}
+              colaborador={getEmpleadoNombre(currentNomina.empleadoId)}
+              empresaNombre={
+                empresas.find((e) => e.id === currentNomina.empresaId)
+                  ?.nombre ?? ""
+              }
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+              consumosDetalle={detailConsumos}
+            />
+          ) : (
+            <Box sx={{ p: 3 }}>
+              <Typography color="text.secondary">
+                No se pudo cargar el voucher.
+              </Typography>
             </Box>
           )}
         </DialogContent>
@@ -2655,7 +2205,24 @@ const NominasManagement: React.FC = () => {
           >
             Descargar Excel
           </Button>
-          <Button onClick={handleCloseDetailModal}>Cerrar</Button>
+          <Button
+            variant="contained"
+            onClick={() => handlePrintVoucher(currentNomina)}
+            disabled={
+              !currentNomina ||
+              printingNominaId !== null ||
+              loadingDetailVoucher
+            }
+            startIcon={
+              printingNominaId === currentNomina?.id ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <PrintIcon />
+              )
+            }
+          >
+            Imprimir
+          </Button>
         </DialogActions>
       </Dialog>
 

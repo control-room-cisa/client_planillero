@@ -32,6 +32,7 @@ import EmpleadoService, {
   type Empleado,
   type UpdateMiPerfilDto,
 } from "../../services/empleadoService";
+import RegistroDiarioService from "../../services/registroDiarioService";
 import { getImageUrl } from "../../utils/imageUtils";
 import { getTipoHorarioLabel } from "../../enums/tipoHorario";
 
@@ -111,6 +112,12 @@ export default function InformacionPersonalEmpleado() {
 
   const [loading, setLoading] = React.useState(false);
   const [empleado, setEmpleado] = React.useState<Empleado | null>(null);
+  const [vacacionesHoras, setVacacionesHoras] = React.useState<number | null>(
+    null
+  );
+  const [compensatorioHoras, setCompensatorioHoras] = React.useState<
+    number | null
+  >(null);
   const [error, setError] = React.useState<string | null>(null);
   const [updatingPhoto, setUpdatingPhoto] = React.useState(false);
   const [photoDialogOpen, setPhotoDialogOpen] = React.useState(false);
@@ -134,6 +141,27 @@ export default function InformacionPersonalEmpleado() {
         setError(null);
         const emp = await EmpleadoService.getById(user.id);
         setEmpleado(emp);
+
+        // Vacaciones: empleados.tiempoVacacionesHoras
+        // Compensatorio: suma del banco (BancoCompensatoriasAcumuladas), no el campo deprecado
+        try {
+          const tiempo = await RegistroDiarioService.getTiempoCompensatorio(
+            user.id,
+            { seccion: "vacaciones", page: 1, limit: 1 }
+          );
+          setVacacionesHoras(
+            safeToNumber(
+              tiempo.tiempoVacacionesHoras ?? emp.tiempoVacacionesHoras
+            )
+          );
+          setCompensatorioHoras(
+            safeToNumber(tiempo.totales?.horasAcumuladasPorJob)
+          );
+        } catch (saldoErr) {
+          console.error(saldoErr);
+          setVacacionesHoras(safeToNumber(emp.tiempoVacacionesHoras));
+          setCompensatorioHoras(null);
+        }
       } catch (e: any) {
         console.error(e);
         setError(e?.message || "Error al cargar información personal");
@@ -144,11 +172,6 @@ export default function InformacionPersonalEmpleado() {
 
     void run();
   }, [user?.id]);
-
-  const vacacionesHoras = safeToNumber(empleado?.tiempoVacacionesHoras);
-  const compensatorioHoras = safeToNumber(
-    empleado?.tiempoCompensatorioHoras
-  );
 
   const vacacionesDias = toDias(vacacionesHoras);
   const fotoActual = getImageUrl(empleado?.urlFotoPerfil);
