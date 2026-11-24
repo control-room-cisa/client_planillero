@@ -28,6 +28,7 @@ import {
   ListItemIcon,
   ListItemText,
   Snackbar,
+  TextField,
 } from "@mui/material";
 import {
   NavigateBefore as NavigateBeforeIcon,
@@ -87,6 +88,123 @@ interface ProrrateoDashboardProps {
   onNext?: () => void;
   hasPrevious?: boolean;
   hasNext?: boolean;
+}
+
+type ResumenCacheEntry = {
+  jobId: number | null;
+  codigoJob: string | null;
+  nombreJob: string | null;
+  resumen: string;
+  status: "pending" | "ready" | "error";
+  error?: string | null;
+};
+
+const SIN_COMENTARIOS = "Sin comentarios";
+const RESUMEN_PREFETCH_CONCURRENCY = 3;
+
+function normalizeJobIdClient(jobId: number | null | undefined): number | null {
+  if (jobId == null || !Number.isFinite(jobId) || jobId <= 0) return null;
+  return Number(jobId);
+}
+
+function jobKeyFromClient(
+  jobId: number | null | undefined,
+  codigoJob: string | null | undefined,
+): string {
+  const id = normalizeJobIdClient(jobId);
+  if (id != null) return `id:${id}`;
+  const codigo = (codigoJob ?? "").trim();
+  return codigo ? `codigo:${codigo}` : "sin-job";
+}
+
+function textosUnicosComentarios(
+  comentarios: ComentarioProrrateoJobDto[] | undefined,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const c of comentarios ?? []) {
+    const texto = String(c?.texto ?? "").trim();
+    if (!texto) continue;
+    const key = texto.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(texto);
+  }
+  return out;
+}
+
+/** Jobs únicos del cálculo en vivo con comentarios agregados. */
+function aggregateJobsParaResumen(
+  prorrateo: {
+    cantidadHoras?: {
+      normal?: HorasPorJobDto[];
+      p25?: HorasPorJobDto[];
+      p50?: HorasPorJobDto[];
+      p75?: HorasPorJobDto[];
+      p100?: HorasPorJobDto[];
+      horasCompensatoriasTomadasPorJob?: HorasPorJobDto[];
+      horasCompensatoriasAcumuladasPorJob?: HorasPorJobDto[];
+    };
+  } | null,
+): Array<{
+  jobKey: string;
+  jobId: number | null;
+  codigoJob: string | null;
+  nombreJob: string | null;
+  textos: string[];
+}> {
+  const map = new Map<
+    string,
+    {
+      jobKey: string;
+      jobId: number | null;
+      codigoJob: string | null;
+      nombreJob: string | null;
+      textos: string[];
+      seen: Set<string>;
+    }
+  >();
+
+  const lists = [
+    prorrateo?.cantidadHoras?.normal,
+    prorrateo?.cantidadHoras?.p25,
+    prorrateo?.cantidadHoras?.p50,
+    prorrateo?.cantidadHoras?.p75,
+    prorrateo?.cantidadHoras?.p100,
+    prorrateo?.cantidadHoras?.horasCompensatoriasTomadasPorJob,
+    prorrateo?.cantidadHoras?.horasCompensatoriasAcumuladasPorJob,
+  ];
+
+  for (const list of lists) {
+    for (const j of list ?? []) {
+      const jobId = normalizeJobIdClient(j.jobId);
+      const codigoJob = (j.codigoJob ?? "").trim() || null;
+      const jobKey = jobKeyFromClient(jobId, codigoJob);
+      let entry = map.get(jobKey);
+      if (!entry) {
+        entry = {
+          jobKey,
+          jobId,
+          codigoJob,
+          nombreJob: (j.nombreJob ?? "").trim() || null,
+          textos: [],
+          seen: new Set(),
+        };
+        map.set(jobKey, entry);
+      } else if (!entry.nombreJob && j.nombreJob) {
+        entry.nombreJob = String(j.nombreJob).trim() || null;
+      }
+
+      for (const texto of textosUnicosComentarios(j.comentarios)) {
+        const tKey = texto.toLowerCase();
+        if (entry.seen.has(tKey)) continue;
+        entry.seen.add(tKey);
+        entry.textos.push(texto);
+      }
+    }
+  }
+
+  return [...map.values()].map(({ seen: _seen, ...rest }) => rest);
 }
 
 const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
@@ -186,25 +304,24 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       nombreClass?: string | null;
     }>
   >([]);
-  /** Fuente del resumen IA: siempre a nivel job (no filtrado por class). */
-  const [modalSummarySource, setModalSummarySource] = React.useState<
-    Array<{
-      texto: string;
-      class: number | null;
-      nombreClass?: string | null;
-    }>
-  >([]);
-  const [modalResumen, setModalResumen] = React.useState<string | null>(null);
+  const [modalResumen, setModalResumen] = React.useState<string>("");
   const [modalResumenLoading, setModalResumenLoading] = React.useState(false);
   const [modalResumenError, setModalResumenError] = React.useState<
     string | null
   >(null);
-  const resumenCacheRef = React.useRef<Map<string, string>>(new Map());
+  const resumenCacheRef = React.useRef<Map<string, ResumenCacheEntry>>(
+    new Map(),
+  );
+  const [resumenCacheVersion, setResumenCacheVersion] = React.useState(0);
+  const bumpResumenCache = React.useCallback(() => {
+    setResumenCacheVersion((v) => v + 1);
+  }, []);
   const [modalRegistrosOpen, setModalRegistrosOpen] = React.useState(false);
   const [modalCompensatorioOpen, setModalCompensatorioOpen] =
     React.useState(false);
   const [guardandoProrrateo, setGuardandoProrrateo] = React.useState(false);
   const [prorrateoYaGuardado, setProrrateoYaGuardado] = React.useState(false);
+  const [estadoProrrateoListo, setEstadoProrrateoListo] = React.useState(false);
   const [asignacionesCompTomadas, setAsignacionesCompTomadas] = React.useState<
     AsignacionCompensatoriaTomada[]
   >([]);
@@ -233,104 +350,73 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       codigoJob?: string | null;
       nombreJob?: string | null;
     },
-    /** Comentarios del job completo para el resumen IA (si difiere de la lista filtrada). */
-    commentsForSummary?: Array<{
-      texto: string;
-      class: number | null;
-      nombreClass?: string | null;
-    }>,
   ) => {
+    const jobId = normalizeJobIdClient(jobMeta?.jobId);
+    const codigoJob = (jobMeta?.codigoJob ?? "").trim() || null;
+    const nombreJob = (jobMeta?.nombreJob ?? "").trim() || null;
+    const jobKey = jobKeyFromClient(jobId, codigoJob);
+    const cached = resumenCacheRef.current.get(jobKey);
+
     setModalJobTitle(jobTitle || "Comentarios");
-    setModalJobMeta({
-      jobId: jobMeta?.jobId ?? null,
-      codigoJob: jobMeta?.codigoJob ?? null,
-      nombreJob: jobMeta?.nombreJob ?? null,
-    });
+    setModalJobMeta({ jobId, codigoJob, nombreJob });
     setModalComments(comments || []);
-    setModalSummarySource(commentsForSummary ?? comments ?? []);
-    setModalResumen(null);
-    setModalResumenError(null);
+    setModalResumen(cached?.resumen ?? "");
+    setModalResumenError(cached?.status === "error" ? cached.error ?? null : null);
+    setModalResumenLoading(cached?.status === "pending");
     setModalOpen(true);
   };
   const handleCloseComentarios = () => {
     setModalOpen(false);
-    setModalResumen(null);
+    setModalResumen("");
     setModalResumenError(null);
     setModalResumenLoading(false);
   };
 
+  const handleModalResumenChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const value = e.target.value;
+    setModalResumen(value);
+    setModalResumenError(null);
+    const jobKey = jobKeyFromClient(
+      modalJobMeta.jobId,
+      modalJobMeta.codigoJob,
+    );
+    const prev = resumenCacheRef.current.get(jobKey);
+    resumenCacheRef.current.set(jobKey, {
+      jobId: prev?.jobId ?? modalJobMeta.jobId,
+      codigoJob: prev?.codigoJob ?? modalJobMeta.codigoJob,
+      nombreJob: prev?.nombreJob ?? modalJobMeta.nombreJob,
+      resumen: value,
+      status: "ready",
+      error: null,
+    });
+    bumpResumenCache();
+  };
+
+  // Sincronizar modal con caché mientras está abierto (p. ej. termina prefetch)
   React.useEffect(() => {
     if (!modalOpen) return;
-
-    const textos = modalSummarySource
-      .map((c) => String(c.texto ?? "").trim())
-      .filter(Boolean);
-    if (textos.length === 0) {
-      setModalResumen(null);
+    const jobKey = jobKeyFromClient(
+      modalJobMeta.jobId,
+      modalJobMeta.codigoJob,
+    );
+    const cached = resumenCacheRef.current.get(jobKey);
+    if (!cached) {
       setModalResumenLoading(false);
-      setModalResumenError(null);
       return;
     }
-
-    const cacheKey = [
-      modalJobMeta.jobId ?? "",
-      modalJobMeta.codigoJob ?? "",
-      textos.join("|").toLowerCase(),
-    ].join("::");
-
-    const cached = resumenCacheRef.current.get(cacheKey);
-    if (cached) {
-      setModalResumen(cached);
-      setModalResumenLoading(false);
-      setModalResumenError(null);
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
+    if (cached.status === "pending") {
       setModalResumenLoading(true);
       setModalResumenError(null);
-      try {
-        const jobId =
-          modalJobMeta.jobId != null && modalJobMeta.jobId > 0
-            ? modalJobMeta.jobId
-            : null;
-        const { resumen } = await ProrrateoService.resumirComentarios({
-          jobId,
-          codigoJob: modalJobMeta.codigoJob || null,
-          nombreJob: modalJobMeta.nombreJob || null,
-          comentarios: textos,
-        });
-        if (cancelled) return;
-        resumenCacheRef.current.set(cacheKey, resumen);
-        setModalResumen(resumen);
-      } catch (e: any) {
-        if (cancelled) return;
-        setModalResumen(null);
-        const validationErrors = e?.response?.data?.errors;
-        const detail =
-          Array.isArray(validationErrors) && validationErrors.length
-            ? validationErrors
-                .map((err: { field?: string; message?: string }) =>
-                  [err.field, err.message].filter(Boolean).join(": "),
-                )
-                .join("; ")
-            : null;
-        setModalResumenError(
-          detail ||
-            e?.response?.data?.message ||
-            e?.message ||
-            "No se pudo generar el resumen de comentarios",
-        );
-      } finally {
-        if (!cancelled) setModalResumenLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [modalOpen, modalSummarySource, modalJobMeta]);
+      return;
+    }
+    setModalResumenLoading(false);
+    setModalResumen(cached.resumen);
+    setModalResumenError(
+      cached.status === "error" ? cached.error ?? null : null,
+    );
+  }, [modalOpen, modalJobMeta, resumenCacheVersion]);
 
   const resetContenidoColaborador = React.useCallback(() => {
     setIntervaloSeleccionado("");
@@ -344,8 +430,11 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
     setModalJobTitle("");
     setTab(0);
     setProrrateoYaGuardado(false);
+    setEstadoProrrateoListo(false);
     setAsignacionesCompTomadas([]);
     setGuardarValidationErrors(null);
+    resumenCacheRef.current.clear();
+    setResumenCacheVersion((v) => v + 1);
     lastFullEmployeeLoadedIdRef.current = null;
   }, []);
 
@@ -445,19 +534,31 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
 
   React.useEffect(() => {
     setProrrateoYaGuardado(false);
+    setEstadoProrrateoListo(false);
     setAsignacionesCompTomadas([]);
     setGuardarValidationErrors(null);
+    resumenCacheRef.current.clear();
+    setResumenCacheVersion((v) => v + 1);
     const nominaId = nominaSeleccionada?.id;
-    if (!nominaId) return;
+    if (!nominaId) {
+      setEstadoProrrateoListo(true);
+      return;
+    }
 
     let cancelled = false;
     (async () => {
       try {
         const estado = await ProrrateoService.getEstado(nominaId);
-        if (!cancelled) setProrrateoYaGuardado(!!estado.guardado);
+        if (!cancelled) {
+          setProrrateoYaGuardado(!!estado.guardado);
+          setEstadoProrrateoListo(true);
+        }
       } catch (e) {
         console.error("[ProrrateoDashboard] Error consultando estado prorrateo:", e);
-        if (!cancelled) setProrrateoYaGuardado(false);
+        if (!cancelled) {
+          setProrrateoYaGuardado(false);
+          setEstadoProrrateoListo(true);
+        }
       }
     })();
 
@@ -465,6 +566,129 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       cancelled = true;
     };
   }, [nominaSeleccionada?.id]);
+
+  // Precargar resúmenes IA de todos los jobs al cargar el cálculo en vivo
+  React.useEffect(() => {
+    if (
+      !estadoProrrateoListo ||
+      !prorrateo ||
+      loading ||
+      error ||
+      prorrateoYaGuardado
+    ) {
+      return;
+    }
+
+    const jobs = aggregateJobsParaResumen(prorrateo);
+    if (jobs.length === 0) {
+      resumenCacheRef.current.clear();
+      bumpResumenCache();
+      return;
+    }
+
+    let cancelled = false;
+    const cache = resumenCacheRef.current;
+
+    // Seed: sin comentarios → listo; con comentarios → pending (si no hay edición previa)
+    for (const job of jobs) {
+      const existing = cache.get(job.jobKey);
+      if (existing?.status === "ready") continue;
+      if (job.textos.length === 0) {
+        cache.set(job.jobKey, {
+          jobId: job.jobId,
+          codigoJob: job.codigoJob,
+          nombreJob: job.nombreJob,
+          resumen: SIN_COMENTARIOS,
+          status: "ready",
+          error: null,
+        });
+      } else {
+        cache.set(job.jobKey, {
+          jobId: job.jobId,
+          codigoJob: job.codigoJob,
+          nombreJob: job.nombreJob,
+          resumen: existing?.resumen ?? "",
+          status: "pending",
+          error: null,
+        });
+      }
+    }
+    bumpResumenCache();
+
+    const pendingJobs = jobs.filter((j) => j.textos.length > 0);
+
+    (async () => {
+      let index = 0;
+      const workers = Array.from(
+        { length: Math.min(RESUMEN_PREFETCH_CONCURRENCY, pendingJobs.length) },
+        async () => {
+          while (!cancelled) {
+            const current = index++;
+            if (current >= pendingJobs.length) break;
+            const job = pendingJobs[current];
+            const existing = cache.get(job.jobKey);
+            // No pisar si el usuario ya editó a ready mientras esperaba
+            if (existing?.status === "ready" && existing.resumen) {
+              // Si quedó "Sin comentarios" por seed vacío no aplica aquí
+            }
+            // Si ya está ready con texto distinto de vacío/pending regenerado, skip regeneración
+            // solo regeneramos cuando status es pending
+            if (existing?.status === "ready") continue;
+
+            try {
+              const { resumen } = await ProrrateoService.resumirComentarios({
+                jobId: job.jobId,
+                codigoJob: job.codigoJob,
+                nombreJob: job.nombreJob,
+                comentarios: job.textos,
+              });
+              if (cancelled) return;
+              const latest = cache.get(job.jobKey);
+              if (latest?.status === "ready") continue; // edición del usuario gana
+              cache.set(job.jobKey, {
+                jobId: job.jobId,
+                codigoJob: job.codigoJob,
+                nombreJob: job.nombreJob,
+                resumen,
+                status: "ready",
+                error: null,
+              });
+              bumpResumenCache();
+            } catch (e: any) {
+              if (cancelled) return;
+              const latest = cache.get(job.jobKey);
+              if (latest?.status === "ready") continue;
+              const message =
+                e?.response?.data?.message ||
+                e?.message ||
+                "No se pudo generar el resumen de comentarios";
+              cache.set(job.jobKey, {
+                jobId: job.jobId,
+                codigoJob: job.codigoJob,
+                nombreJob: job.nombreJob,
+                resumen: latest?.resumen ?? "",
+                status: "error",
+                error: message,
+              });
+              bumpResumenCache();
+            }
+          }
+        },
+      );
+      await Promise.all(workers);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    estadoProrrateoListo,
+    prorrateo,
+    loading,
+    error,
+    prorrateoYaGuardado,
+    bumpResumenCache,
+  ]);
 
   const horasCompensatoriasTomadasParaAsignar =
     prorrateo?.cantidadHoras?.horasCompensatoriasTomadas ?? 0;
@@ -512,9 +736,19 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
           horas: Number(a.horas),
         }));
 
+      const resumenesComentarios = [...resumenCacheRef.current.values()]
+        .filter((e) => String(e.resumen ?? "").trim().length > 0)
+        .map((e) => ({
+          jobId: e.jobId,
+          codigoJob: e.codigoJob,
+          nombreJob: e.nombreJob,
+          resumen: String(e.resumen).trim(),
+        }));
+
       const result = await ProrrateoService.guardar({
         nominaId: nominaSeleccionada.id,
         asignacionesCompensatoriasTomadas: asignacionesPayload,
+        resumenesComentarios,
       });
       setProrrateoYaGuardado(true);
       setSnackbar({
@@ -953,7 +1187,6 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       codigoJob?: string | null;
       nombreJob?: string | null;
     },
-    comentariosParaResumen?: ComentarioProrrateoJobDto[],
   ) => {
     if (!comentarios.length) {
       return (
@@ -966,14 +1199,7 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       <Button
         size="small"
         variant="outlined"
-        onClick={() =>
-          handleOpenComentarios(
-            jobTitle,
-            comentarios,
-            jobMeta,
-            comentariosParaResumen ?? comentarios,
-          )
-        }
+        onClick={() => handleOpenComentarios(jobTitle, comentarios, jobMeta)}
         sx={btnComentariosSx}
       >
         Ver comentarios ({comentarios.length})
@@ -1079,7 +1305,6 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                 codigoJob: j.codigoJob,
                                 nombreJob: j.nombreJob,
                               },
-                              comentariosJob,
                             )
                           : null}
                       </TableCell>
@@ -1122,7 +1347,6 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
                                   codigoJob: j.codigoJob,
                                   nombreJob: j.nombreJob,
                                 },
-                                comentariosJob,
                               )}
                             </TableCell>
                           </TableRow>
@@ -2179,46 +2403,57 @@ const ProrrateoDashboard: React.FC<ProrrateoDashboardProps> = ({
       >
         <DialogTitle>{modalJobTitle}</DialogTitle>
         <DialogContent dividers>
-          {(modalResumenLoading ||
-            modalResumen ||
-            modalResumenError ||
-            modalSummarySource.length > 0) && (
-            <Box
-              sx={{
-                mb: 2,
-                p: 1.5,
-                borderRadius: 1,
-                bgcolor: "action.hover",
-                border: "1px solid",
-                borderColor: "divider",
-              }}
+          <Box
+            sx={{
+              mb: 2,
+              p: 1.5,
+              borderRadius: 1,
+              bgcolor: "action.hover",
+              border: "1px solid",
+              borderColor: "divider",
+            }}
+          >
+            <Typography
+              variant="subtitle2"
+              sx={{ mb: 0.75, fontWeight: 600 }}
             >
-              <Typography
-                variant="subtitle2"
-                sx={{ mb: 0.75, fontWeight: 600 }}
-              >
-                Resumen
-              </Typography>
-              {modalResumenLoading ? (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <CircularProgress size={16} />
-                  <Typography variant="body2" color="text.secondary">
-                    Generando resumen…
-                  </Typography>
-                </Box>
-              ) : modalResumenError ? (
-                <Alert severity="warning" sx={{ py: 0.5 }}>
-                  {modalResumenError}
-                </Alert>
-              ) : modalResumen ? (
-                <Typography variant="body2">{modalResumen}</Typography>
-              ) : (
+              Resumen
+            </Typography>
+            {modalResumenLoading ? (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <CircularProgress size={16} />
                 <Typography variant="body2" color="text.secondary">
-                  Sin resumen disponible.
+                  Generando resumen…
                 </Typography>
-              )}
-            </Box>
-          )}
+              </Box>
+            ) : (
+              <>
+                {modalResumenError && (
+                  <Alert severity="warning" sx={{ py: 0.5, mb: 1 }}>
+                    {modalResumenError}. Puedes escribir el resumen manualmente.
+                  </Alert>
+                )}
+                {!prorrateoYaGuardado ? (
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={3}
+                    maxRows={12}
+                    value={modalResumen}
+                    onChange={handleModalResumenChange}
+                    placeholder={SIN_COMENTARIOS}
+                    size="small"
+                  />
+                ) : modalResumen ? (
+                  <Typography variant="body2">{modalResumen}</Typography>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Sin resumen disponible.
+                  </Typography>
+                )}
+              </>
+            )}
+          </Box>
 
           {modalComments.length ? (
             <List dense>

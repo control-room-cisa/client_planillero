@@ -17,9 +17,17 @@ export type AsignacionCompensatoriaTomadaPayload = {
   horas: number;
 };
 
+export type ResumenComentarioGuardarPayload = {
+  jobId?: number | null;
+  codigoJob?: string | null;
+  nombreJob?: string | null;
+  resumen: string;
+};
+
 export type GuardarProrrateoPayload = {
   nominaId: number;
   asignacionesCompensatoriasTomadas?: AsignacionCompensatoriaTomadaPayload[];
+  resumenesComentarios?: ResumenComentarioGuardarPayload[];
 };
 
 export type ProrrateoGuardadoResumen = {
