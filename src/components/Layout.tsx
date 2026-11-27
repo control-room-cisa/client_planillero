@@ -343,7 +343,7 @@ export default function Layout() {
       ]);
     }
 
-    // Registro y notificaciones: solo rol Colaborador (EMPLEADO)
+    // Registro diario y mis solicitudes: solo Colaborador (EMPLEADO)
     if (hasAnyRole(rolIds, Roles.EMPLEADO)) {
       addItems([
         {
@@ -353,6 +353,18 @@ export default function Layout() {
           path: `/registro-actividades/${todayDateString}`,
         },
         {
+          id: "mis-solicitudes",
+          text: "Mis solicitudes",
+          icon: <EventAvailableIcon />,
+          path: "/mis-solicitudes",
+        },
+      ]);
+    }
+
+    // Notificaciones: colaborador (sin CAMBIO_JOB) y supervisor (con CAMBIO_JOB/CLASS)
+    if (hasAnyRole(rolIds, Roles.EMPLEADO, Roles.SUPERVISOR)) {
+      addItems([
+        {
           id: "notificaciones",
           text: "Notificaciones",
           icon: (
@@ -361,12 +373,6 @@ export default function Layout() {
             </Badge>
           ),
           path: "/notificaciones",
-        },
-        {
-          id: "mis-solicitudes",
-          text: "Mis solicitudes",
-          icon: <EventAvailableIcon />,
-          path: "/mis-solicitudes",
         },
       ]);
     }

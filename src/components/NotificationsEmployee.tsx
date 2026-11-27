@@ -230,11 +230,9 @@ const NotificationsEmployee: React.FC<NotificationsEmployeeProps> = ({
       meta &&
       typeof meta === "object"
     ) {
-      const fecha = (meta as { fecha?: string }).fecha;
-      if (fecha) {
-        navigate(`/registro-actividades/${fecha}`);
-        return;
-      }
+      // Supervisores: ir a revisión de planillas; colaborador no recibe estas categorías.
+      navigate("/supervision/planillas");
+      return;
     }
   };
 

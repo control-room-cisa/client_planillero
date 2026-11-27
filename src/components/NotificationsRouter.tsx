@@ -10,7 +10,7 @@ export default function NotificationsRouter() {
   const { user } = useAuth();
   const rolIds = normalizeRolIds(user);
 
-  if (hasAnyRole(rolIds, Roles.EMPLEADO)) {
+  if (hasAnyRole(rolIds, Roles.EMPLEADO, Roles.SUPERVISOR)) {
     return <NotificationsEmployee />;
   }
 

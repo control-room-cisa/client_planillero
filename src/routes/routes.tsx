@@ -280,11 +280,13 @@ const AppRoutes: React.FC = () => {
           element={<Navigate to="/prorrateo" replace />}
         />
 
-        {/* Notificaciones: solo EMPLEADO (Colaborador) */}
+        {/* Notificaciones: colaborador y supervisor */}
         <Route
           path="notificaciones"
           element={
-            <RoleProtectedRoute allowedRoles={[Roles.EMPLEADO]}>
+            <RoleProtectedRoute
+              allowedRoles={[Roles.EMPLEADO, Roles.SUPERVISOR]}
+            >
               <NotificationsEmployee />
             </RoleProtectedRoute>
           }
